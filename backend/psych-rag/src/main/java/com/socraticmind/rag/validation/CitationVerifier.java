@@ -27,6 +27,16 @@ public class CitationVerifier {
     private static final Pattern REF = Pattern.compile("\\[(\\d+)]|【(\\d+)】");
     private static final Pattern SENTENCE =
             Pattern.compile("[^。！？\\n]+[。！？]?(?:\\s*[\\[【]\\d+[\\]】])*");
+    private static final Pattern OFFER = Pattern.compile(
+            "^(如果|你可以|要不要|需要我|建议你|欢迎|希望|不妨|你也可以|要不要我)");
+
+    private static boolean isQuestion(String sentence) {
+        return sentence.endsWith("？") || sentence.endsWith("?");
+    }
+
+    private static boolean isOffer(String sentence) {
+        return OFFER.matcher(sentence).find();
+    }
 
     /** 回答里实际引用到的编号（去重）。用于只回传被用到的引用，避免"带一堆没用上"的证据。 */
     public Set<Integer> referenced(String answer) {
@@ -69,12 +79,19 @@ public class CitationVerifier {
             String sentence = sentenceMatcher.group().trim();
             if (sentence.length() < 8) continue;
             if (sentence.startsWith("（") || sentence.startsWith("(")) continue;
-            claims.add(sentence);
-            if (REF.matcher(sentence).find()) {
+
+            boolean hasRef = REF.matcher(sentence).find();
+            if (hasRef) {
+                claims.add(sentence);
                 cited++;
-            } else {
-                unsupported.add(TextUtils.truncate(sentence, 40));
+                continue;
             }
+            // 提问、邀请、建议不是"事实主张"，不该计入无依据陈述——
+            // 否则一个主动追问的模型会被指标惩罚，等于鼓励它闭嘴。
+            if (isQuestion(sentence) || isOffer(sentence)) continue;
+
+            claims.add(sentence);
+            unsupported.add(TextUtils.truncate(sentence, 40));
         }
 
         double coverage = claims.isEmpty() ? 0.0 : (double) cited / claims.size();

@@ -24,6 +24,7 @@
     <module>psych-knowledge</module>
     <module>psych-rag</module>
     <module>psych-agent</module>
+    <module>psych-session</module>
     <module>psych-app</module>
   </modules>
 
@@ -58,6 +59,11 @@
       <dependency>
         <groupId>com.socraticmind</groupId>
         <artifactId>psych-agent</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.socraticmind</groupId>
+        <artifactId>psych-session</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

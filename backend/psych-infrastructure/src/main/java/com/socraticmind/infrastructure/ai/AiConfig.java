@@ -7,7 +7,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 模型装配。provider=http 时要求 baseUrl/apiKey/model 齐全，宁可启动失败也不要静默降级——
+ * 模型装配。对话与向量的提供方可以不同：
+ * DeepSeek 只有 chat、没有 embeddings，因此常见形态是「chat=http + embedding=stub」。
+ *
+ * provider=http 时要求 baseUrl/apiKey/model 齐全，宁可启动失败也不要静默降级——
  * 静默降级会让"测试通过"变成假象。
  */
 @Configuration
@@ -16,7 +19,8 @@ public class AiConfig {
 
     @Bean
     EmbeddingPort embeddingPort(AiProperties props) {
-        if (!"http".equalsIgnoreCase(props.getProvider())) {
+        String provider = resolve(props.getEmbeddingProvider(), props.getProvider());
+        if (!"http".equalsIgnoreCase(provider)) {
             return new HashEmbeddingAdapter(props.getEmbeddingDimension());
         }
         require(props.getBaseUrl(), "psych.ai.base-url");
@@ -27,7 +31,8 @@ public class AiConfig {
 
     @Bean
     ChatPort chatPort(AiProperties props) {
-        if (!"http".equalsIgnoreCase(props.getProvider())) {
+        String provider = resolve(props.getChatProvider(), props.getProvider());
+        if (!"http".equalsIgnoreCase(provider)) {
             return new StubChatAdapter();
         }
         require(props.getBaseUrl(), "psych.ai.base-url");
@@ -36,9 +41,13 @@ public class AiConfig {
         return new HttpChatAdapter(props.getBaseUrl(), props.getApiKey(), props.getChatModel());
     }
 
+    private static String resolve(String specific, String fallback) {
+        return specific == null || specific.isBlank() ? fallback : specific;
+    }
+
     private static void require(String value, String key) {
         if (value == null || value.isBlank()) {
-            throw new IllegalStateException("psych.ai.provider=http 时必须配置 " + key);
+            throw new IllegalStateException("psych.ai 使用 http 提供方时必须配置 " + key);
         }
     }
 }

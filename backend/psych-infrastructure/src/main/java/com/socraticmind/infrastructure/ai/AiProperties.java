@@ -9,6 +9,12 @@ public class AiProperties {
     /** stub | http */
     private String provider = "stub";
 
+    /** 可选：单独指定对话提供方；为空时沿用 provider */
+    private String chatProvider = "";
+
+    /** 可选：单独指定向量提供方；为空时沿用 provider。DeepSeek 没有 embeddings 端点，就用 stub 顶着 */
+    private String embeddingProvider = "";
+
     /** OpenAI 兼容端点，例如 https://api.deepseek.com/v1 或 https://dashscope.aliyuncs.com/compatible-mode/v1 */
     private String baseUrl = "";
 
@@ -23,6 +29,10 @@ public class AiProperties {
 
     public String getProvider() { return provider; }
     public void setProvider(String provider) { this.provider = provider; }
+    public String getChatProvider() { return chatProvider; }
+    public void setChatProvider(String chatProvider) { this.chatProvider = chatProvider; }
+    public String getEmbeddingProvider() { return embeddingProvider; }
+    public void setEmbeddingProvider(String embeddingProvider) { this.embeddingProvider = embeddingProvider; }
     public String getBaseUrl() { return baseUrl; }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     public String getApiKey() { return apiKey; }

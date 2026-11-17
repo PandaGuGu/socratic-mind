@@ -54,6 +54,17 @@ class CitationVerifierTest {
     }
 
     @Test
+    void questionAndOfferAreNotTreatedAsClaims() {
+        Verification v = verifier.verify(
+                "认知模型分三层：自动思维、中间信念、核心信念。[1]\n"
+                        + "如果你愿意，可以说说具体场景，我帮你分辨哪句是自动思维。\n"
+                        + "你想从哪个例子开始？", packOf(2));
+        assertTrue(v.allCitationsValid());
+        assertEquals(1.0, v.citationCoverage(), "提问与邀请不该拉低引用覆盖率");
+        assertTrue(v.unsupportedClaims().isEmpty());
+    }
+
+    @Test
     void parentheticalDisclaimerIsNotCountedAsClaim() {
         Verification v = verifier.verify("认知模型分三层。[1]\n（这是桩生成器的输出，仅用于验证链路。）", packOf(1));
         assertTrue(v.allCitationsValid());
