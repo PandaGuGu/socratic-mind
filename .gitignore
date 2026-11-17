@@ -1,0 +1,57 @@
+# ---- Java / Maven ----
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.log
+hs_err_pid*
+replay_pid*
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+
+# ---- Node / 前端 ----
+node_modules/
+dist/
+dist-ssr/
+.pnpm-store/
+*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- 本地环境与密钥 ----
+.env
+.env.local
+.env.*.local
+*.pem
+application-local.yml
+application-local.yaml
+src/main/resources/application-secret.*
+
+# ---- 数据与产物（不要进版本库）----
+data/
+uploads/
+minio-data/
+pgdata/
+*.sqlite
+*.db
+
+# ---- 离线评估产物 ----
+eval/results/
+eval/runs/
+*.eval.json
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini

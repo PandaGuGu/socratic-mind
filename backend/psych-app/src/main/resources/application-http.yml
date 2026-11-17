@@ -1,0 +1,9 @@
+# 切到真实模型（OpenAI 兼容端点）：--spring.profiles.active=http
+# 任何兼容 /chat/completions 与 /embeddings 的服务都可用：DeepSeek、通义、OpenAI、本地 vLLM。
+psych:
+  ai:
+    provider: http
+    base-url: ${PSYCH_AI_BASE_URL:}
+    api-key: ${PSYCH_AI_API_KEY:}
+    chat-model: ${PSYCH_AI_CHAT_MODEL:}
+    embedding-model: ${PSYCH_AI_EMBEDDING_MODEL:}

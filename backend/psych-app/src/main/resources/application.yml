@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: psych-assistant
+  jackson:
+    default-property-inclusion: non_null
+
+psych:
+  store: memory
+  seed:
+    enabled: true
+  ai:
+    provider: stub
+    embedding-dimension: 256
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.socraticmind: INFO
+    org.springframework.jdbc: WARN

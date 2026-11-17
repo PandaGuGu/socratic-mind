@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Socratic Mind · UI 预览（纸本 + 工具）</title>
+<style>
+  :root{
+    --paper:#FAF8F4; --surface:#FFFFFF; --ink:#1F1D1A; --ink-2:#57534C; --ink-3:#8A857B;
+    --rule:#E3DED3; --rule-strong:#CFC8B9; --accent:#B06A3B; --accent-ink:#8C4E28;
+    --tint:#F2E6DA; --refer:#9B3B32;
+    --serif:"Source Han Serif SC","Noto Serif SC","Songti SC","SimSun",serif;
+    --sans:"PingFang SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    --mono:"JetBrains Mono","SF Mono",Consolas,monospace;
+  }
+  [data-theme="dark"]{
+    --paper:#191715; --surface:#211E1B; --ink:#EDE8DE; --ink-2:#B5AFA3; --ink-3:#857F74;
+    --rule:#33302B; --rule-strong:#45403A; --accent:#D9915E; --accent-ink:#D9915E;
+    --tint:#2B2521; --refer:#C4675C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--paper); color:var(--ink); font-family:var(--sans);
+    font-size:13.5px; line-height:1.75; -webkit-font-smoothing:antialiased;
+    height:100vh; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .label{font-size:11px; line-height:1.4; letter-spacing:.06em; color:var(--ink-3);}
+  .mono{font-family:var(--mono); font-size:11px; font-variant-numeric:tabular-nums;}
+
+  header{
+    height:56px; flex:none; display:flex; align-items:center; gap:24px;
+    padding:0 28px; border-bottom:0.5px solid var(--rule); background:var(--surface);
+  }
+  .brand{font-family:var(--serif); font-size:15px; font-weight:500; letter-spacing:.02em;}
+  .brand span{font-family:var(--sans); font-size:11px; color:var(--ink-3); margin-left:8px; letter-spacing:.06em;}
+  nav{display:flex; gap:2px; margin-left:12px;}
+  nav button{
+    font-family:var(--sans); font-size:12.5px; color:var(--ink-3); background:none;
+    border:none; border-bottom:1.5px solid transparent; padding:6px 12px 7px; cursor:pointer;
+  }
+  nav button[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--accent);}
+  .spacer{flex:1;}
+  .ghost{
+    font-size:12px; color:var(--ink-2); background:none; border:0.5px solid var(--rule-strong);
+    border-radius:6px; padding:6px 12px; cursor:pointer; font-family:var(--sans);
+  }
+
+  .screen{display:none; flex:1; min-height:0;}
+  .screen[data-active="true"]{display:flex;}
+  .col{padding:32px 0; overflow-y:auto;}
+  .rail{flex:0 0 240px; border-right:0.5px solid var(--rule); padding:28px 0; overflow-y:auto;}
+  .main{flex:1; min-width:0; padding:32px 48px; overflow-x:hidden;}
+  .inner{max-width:720px;}
+  .aside{flex:0 0 280px; border-left:0.5px solid var(--rule); padding:28px 24px; overflow-y:auto;}
+
+  @media (max-width:1180px){
+    .rail{flex-basis:200px;}
+    .main{padding:28px 32px;}
+  }
+  @media (max-width:900px){
+    .screen[data-active="true"]{flex-direction:column; overflow-y:auto;}
+    .main{flex:none; overflow:visible; padding:22px 24px;}
+    .aside{
+      display:block; flex:none; border-left:none; border-top:0.5px solid var(--rule);
+      padding:20px 24px 32px;
+    }
+    .rail{
+      flex:none; width:100%; display:flex; align-items:stretch; gap:0;
+      border-right:none; border-bottom:0.5px solid var(--rule);
+      padding:0; overflow-x:auto; overflow-y:hidden;
+    }
+    .rail > .label, .railfoot{display:none;}
+    .step{
+      border-left:none; border-bottom:2px solid transparent;
+      padding:11px 14px 9px; white-space:nowrap; flex:none;
+    }
+    .step.now{background:transparent; border-left:none; border-bottom-color:var(--accent);}
+    [data-screen="knowledge"] .rail{display:none;}
+  }
+
+  .step{display:flex; align-items:center; gap:10px; padding:7px 20px 7px 22px; font-size:12.5px; color:var(--ink-2); border-left:2px solid transparent;}
+  .step .mono{color:var(--ink-3);}
+  .step.done{color:var(--ink-2);}
+  .step.now{color:var(--ink); background:var(--tint); border-left-color:var(--accent);}
+  .step.now .mono{color:var(--accent-ink);}
+  .railfoot{margin:20px 22px 0; padding-top:14px; border-top:0.5px solid var(--rule); color:var(--ink-3);}
+  .railfoot div{margin-bottom:4px;}
+
+  h1{font-family:var(--serif); font-size:26px; font-weight:500; line-height:1.4; margin-bottom:10px;}
+  h2{font-family:var(--serif); font-size:18px; font-weight:500; line-height:1.5; margin:32px 0 12px;}
+  p{margin-bottom:14px; max-width:34em;}
+  .lede{font-family:var(--serif); font-size:15px; line-height:1.9; color:var(--ink);}
+
+  .turn{padding:22px 0; border-bottom:0.5px solid var(--rule);}
+  .turn:last-of-type{border-bottom:none;}
+  .you{padding-left:14px; border-left:0.5px solid var(--rule-strong); color:var(--ink-2); font-size:13.5px; max-width:32em;}
+  .say{font-family:var(--serif); font-size:15px; line-height:1.9; max-width:32em; margin-top:8px;}
+  sup.ref{color:var(--accent-ink); font-size:10px; font-family:var(--mono); cursor:pointer; padding:0 1px;}
+
+  .cite{margin-top:16px; border-left:2px solid var(--accent); padding:4px 0 4px 12px; max-width:30em;}
+  .cite div{font-size:11px; line-height:1.75; color:var(--ink-2);}
+  .cite b{font-weight:400; color:var(--ink-3); font-family:var(--mono); margin-right:8px;}
+
+  .choices{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px;}
+  .chip{font-size:12.5px; color:var(--ink); border:0.5px solid var(--rule-strong); border-radius:4px; padding:7px 14px; background:var(--surface); cursor:pointer;}
+
+  .composer{margin-top:28px; border-top:0.5px solid var(--rule); padding-top:14px; display:flex; align-items:center; gap:12px;}
+  .field{flex:1; font-size:13px; color:var(--ink-3); background:var(--surface); border:0.5px solid var(--rule-strong); border-radius:8px; padding:10px 13px;}
+  .send{font-size:12.5px; color:var(--paper); background:var(--ink); border:none; border-radius:8px; padding:10px 18px; font-family:var(--sans); cursor:pointer;}
+
+  .card{border:0.5px solid var(--rule); border-radius:8px; background:var(--surface); padding:14px 16px; margin-bottom:12px;}
+  .card.is-active{border-color:var(--accent); box-shadow:inset 2px 0 0 var(--accent);}
+  .card .t{font-size:12.5px; color:var(--ink); line-height:1.6; margin-bottom:6px;}
+  .card .m{font-size:11px; color:var(--ink-3); line-height:1.7;}
+  .kv{display:flex; justify-content:space-between; gap:10px; font-size:11px; color:var(--ink-3); margin-top:3px;}
+  .kv .mono{color:var(--ink-2);}
+  .pill{display:inline-block; font-size:10.5px; color:var(--accent-ink); background:var(--tint); border-radius:999px; padding:2px 8px;}
+
+  .toc div{font-size:12.5px; color:var(--ink-2); padding:6px 0; line-height:1.5;}
+  .toc div.on{color:var(--ink);}
+  .toc .mono{color:var(--ink-3); margin-right:8px;}
+
+  .empty{border:0.5px solid var(--rule); border-radius:8px; padding:16px 18px; background:var(--surface); max-width:34em;}
+  .empty .hd{font-size:12.5px; color:var(--ink); margin-bottom:6px;}
+  .empty p{font-size:12.5px; color:var(--ink-2); margin-bottom:6px;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; font-weight:400; font-size:11px; letter-spacing:.06em; color:var(--ink-3); padding:8px 12px 8px 0; border-bottom:0.5px solid var(--rule-strong);}
+  td{padding:11px 12px 11px 0; border-bottom:0.5px solid var(--rule); color:var(--ink-2); vertical-align:top;}
+  td:first-child{color:var(--ink-3); white-space:nowrap;}
+  tr.confirm td:last-child{color:var(--accent-ink);}
+
+  .refer{border:0.5px solid var(--refer); border-radius:8px; padding:16px 18px; max-width:34em; margin-top:18px;}
+  .refer .hd{font-size:13px; color:var(--ink); margin-bottom:8px;}
+  .refer p{font-size:12.5px; color:var(--ink-2); margin-bottom:6px;}
+  .refer .path{font-size:12.5px; color:var(--ink); margin:2px 0 2px 2px;}
+  .disabled{margin-top:14px; border:0.5px solid var(--rule); border-radius:8px; padding:10px 13px; font-size:12.5px; color:var(--ink-3); background:var(--tint);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Socratic Mind<span>纸本 × 工具</span></div>
+  <nav>
+    <button data-go="knowledge" aria-selected="false">知识问答</button>
+    <button data-go="cbt" aria-selected="true">CBT 练习</button>
+    <button data-go="record" aria-selected="false">记录</button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="ghost" id="theme">深色</button>
+</header>
+
+<section class="screen" data-screen="cbt" data-active="true">
+  <aside class="rail">
+    <div class="label" style="padding:0 22px 10px;">认知行为练习</div>
+    <div class="step done"><span class="mono">01</span>情境</div>
+    <div class="step done"><span class="mono">02</span>想法</div>
+    <div class="step now"><span class="mono">03</span>认知检验</div>
+    <div class="step"><span class="mono">04</span>行动</div>
+    <div class="step"><span class="mono">05</span>复盘</div>
+    <div class="railfoot">
+      <div class="mono">已用 6 轮</div>
+      <div class="mono">引用 1 处</div>
+    </div>
+  </aside>
+
+  <main class="col main">
+    <div class="inner">
+      <div class="label" style="margin-bottom:6px;">你</div>
+      <div class="you">一想到下周组会汇报就手心出汗，脑子里全是「我肯定会搞砸」。</div>
+
+      <div class="turn">
+        <div class="label">引导</div>
+        <div class="say">「肯定会搞砸」是一个预测，还不是事实。我们把它当成待检验的假设：过去半年你做过三次汇报，结果分别是什么？<sup class="ref" data-ref="c1">1</sup></div>
+        <div class="cite">
+          <div><b>1</b>认知行为疗法指南 · 第 3 章 治疗实施 · 3.3 认知检验 · P.142</div>
+        </div>
+        <div class="choices">
+          <button class="chip">三次里有两次还行</button>
+          <button class="chip">其实都挺糟</button>
+          <button class="chip">我记不清了</button>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="field">说说你的想法，或者点上面的选项</div>
+        <button class="send">发送</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="aside">
+    <div class="label" style="margin-bottom:12px;">本轮依据</div>
+    <div class="card is-active" data-ref="c1">
+      <div class="t">认知检验：把结论改写为可验证的预测</div>
+      <div class="m">认知行为疗法指南 · 第 3 版</div>
+      <div class="kv"><span>页码</span><span class="mono">P.142</span></div>
+      <div class="kv"><span>证据类型</span><span class="mono">技术说明</span></div>
+      <div class="kv"><span>审核</span><span class="pill">已审核</span></div>
+    </div>
+    <div class="card">
+      <div class="t">自动思维记录表的填写方式</div>
+      <div class="m">认知行为疗法指南 · 第 3 版</div>
+      <div class="kv"><span>页码</span><span class="mono">P.118</span></div>
+      <div class="kv"><span>审核</span><span class="pill">已审核</span></div>
+    </div>
+    <div class="label" style="margin-top:24px;">不做的事</div>
+    <div class="m" style="font-size:11px; color:var(--ink-3); line-height:1.8; margin-top:6px;">不推断诊断、不评价对错、不替你决定行动。所有结论需你确认后才写入记录。</div>
+  </aside>
+</section>
+
+<section class="screen" data-screen="knowledge">
+  <aside class="rail toc">
+    <div class="label" style="padding:0 22px 10px;">本章目录</div>
+    <div class="on"><span class="mono">3.1</span>治疗适用范围</div>
+    <div><span class="mono">3.2</span>治疗结构</div>
+    <div><span class="mono">3.3</span>认知检验</div>
+    <div><span class="mono">3.4</span>治疗效果评估</div>
+    <div style="margin-top:18px; padding:0 22px;" class="label">本条回答</div>
+    <div style="padding:0 22px; font-size:11px; color:var(--ink-3);">2 条证据 · 1 个版本</div>
+  </aside>
+
+  <main class="col main">
+    <div class="inner">
+      <h1>自动思维和核心信念，区别在哪？</h1>
+      <p class="lede">自动思维是情境触发后第一句冒出来的话，随情境变化；核心信念是对自我、他人、世界的基本判断，跨情境稳定。CBT 通常先处理自动思维，因为它在表层、可被当下的证据检验。<sup class="ref" data-ref="k1">1</sup></p>
+
+      <h2>两者在治疗中的位置</h2>
+      <p>自动思维处于认知模型的最上层，最容易被觉察，也最容易通过行为实验检验；中间信念（规则、假设、态度）在其下，核心信念在最底层。<sup class="ref" data-ref="k2">2</sup></p>
+      <p>因此标准流程是：先用自动思维记录表在具体情境里工作，形成可检验的替代性想法；当同类自动思维反复出现、指向同一主题时，才向下处理中间信念与核心信念。</p>
+
+      <div class="cite">
+        <div><b>1</b>认知行为疗法指南 · 第 2 章 认知模型 · 2.1 三个层次 · P.46</div>
+        <div style="margin-top:4px;"><b>2</b>认知行为疗法指南 · 第 2 章 认知模型 · 2.3 核心信念 · P.58</div>
+      </div>
+
+      <div class="empty" style="margin-top:32px;">
+        <div class="hd">关于你问的「多久能改变核心信念」</div>
+        <p>我查到的资料不足以给出时长。现有资料只说明核心信念的修改通常需要更长程的工作，没有给出可引用的周期数据。</p>
+        <p style="color:var(--ink-3);">这是系统的正常结果，不是出错了。可以换个问法，或查看右栏原始章节。</p>
+      </div>
+
+      <div class="composer">
+        <div class="field">继续问，或说「带我看看这一章」</div>
+        <button class="send">提问</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="aside">
+    <div class="label" style="margin-bottom:12px;">证据</div>
+    <div class="card" data-ref="k1">
+      <div class="t">认知模型：自动思维、中间信念、核心信念</div>
+      <div class="m">认知行为疗法指南 · 第 3 版 · 2021</div>
+      <div class="kv"><span>章节</span><span class="mono">2.1</span></div>
+      <div class="kv"><span>页码</span><span class="mono">P.46</span></div>
+      <div class="kv"><span>来源机构</span><span class="mono">例：某医学会</span></div>
+      <div class="kv"><span>审核</span><span class="pill">已审核 · 2021-06</span></div>
+    </div>
+    <div class="card" data-ref="k2">
+      <div class="t">核心信念的识别与修正</div>
+      <div class="m">认知行为疗法指南 · 第 3 版 · 2021</div>
+      <div class="kv"><span>章节</span><span class="mono">2.3</span></div>
+      <div class="kv"><span>页码</span><span class="mono">P.58</span></div>
+      <div class="kv"><span>审核</span><span class="pill">已审核 · 2021-06</span></div>
+    </div>
+    <div class="label" style="margin-top:24px;">需要时</div>
+    <div style="border:0.5px solid var(--refer); border-radius:8px; padding:12px 14px; margin-top:8px;">
+      <div style="font-size:12px; color:var(--ink);">如果这些内容让你感到难以承受</div>
+      <div style="font-size:11px; color:var(--ink-2); margin-top:6px; line-height:1.8;">心理援助热线 12356<br>或就近精神科门诊</div>
+    </div>
+  </aside>
+</section>
+
+<section class="screen" data-screen="record">
+  <aside class="rail">
+    <div class="label" style="padding:0 22px 10px;">我的会话</div>
+    <div class="step now"><span class="mono">11-17</span>组会汇报的焦虑</div>
+    <div class="step"><span class="mono">11-09</span>和室友的冲突</div>
+    <div class="step"><span class="mono">10-28</span>论文进度拖延</div>
+    <div class="railfoot">
+      <div class="mono">已完成 1 轮</div>
+      <div class="mono">进行中 2 轮</div>
+    </div>
+  </aside>
+
+  <main class="col main">
+    <div class="inner">
+      <h1>组会汇报的焦虑</h1>
+      <p class="label" style="margin-bottom:24px;">2026-11-17 · 进行中 · 第 3 步 认知检验</p>
+
+      <h2 style="margin-top:0;">过程记录</h2>
+      <table>
+        <thead>
+          <tr><th style="width:110px;">时间</th><th style="width:90px;">阶段</th><th>内容</th><th style="width:80px;">用户确认</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">20:14</td><td>检验</td><td>三次汇报结果：两次正常，一次超时；预测「肯定搞砸」与事实不符</td><td>—</td></tr>
+          <tr class="confirm"><td class="mono">20:22</td><td>行动</td><td>汇报前写下三条具体预测，会后逐条核对</td><td>已确认</td></tr>
+          <tr><td class="mono">20:31</td><td>复盘</td><td>等待汇报后填写</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <h2>当前结论</h2>
+      <div class="card" style="max-width:34em;">
+        <div class="t">「我肯定搞砸」→「我可能会紧张，但过去三次都完成了」</div>
+        <div class="m" style="margin-top:8px;">用户已确认于 2026-11-17 20:22。此结论与系统候选想法分开存储。</div>
+      </div>
+
+      <div class="composer">
+        <div class="field">继续这次练习</div>
+        <button class="send">进入</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="aside">
+    <div class="label" style="margin-bottom:12px;">导出</div>
+    <div class="card">
+      <div class="t">生成过程记录（A4 · PDF）</div>
+      <div class="m" style="margin-top:6px;">含阶段时间线、用户确认项、引用来源。用于提交给老师或咨询师。</div>
+      <div class="kv" style="margin-top:10px;"><span>状态</span><span class="mono">可导出</span></div>
+    </div>
+    <div class="label" style="margin-top:24px;">数据</div>
+    <div class="m" style="font-size:11px; color:var(--ink-3); line-height:1.8; margin-top:6px;">记录只保存在你的账号下。系统不会把本轮内容用于诊断，也不会自动分享。</div>
+  </aside>
+</section>
+
+<script>
+  const tabs = document.querySelectorAll('nav button');
+  const screens = document.querySelectorAll('.screen');
+
+  function activate(id){
+    tabs.forEach(x => x.setAttribute('aria-selected', String(x.dataset.go === id)));
+    screens.forEach(s => s.dataset.active = String(s.dataset.screen === id));
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => {
+    activate(t.dataset.go);
+    history.replaceState(null, '', '#' + t.dataset.go);
+  }));
+
+  const initial = (location.hash || '').slice(1);
+  if (['knowledge','cbt','record'].includes(initial)) activate(initial);
+  window.addEventListener('hashchange', () => {
+    const id = (location.hash || '').slice(1);
+    if (['knowledge','cbt','record'].includes(id)) activate(id);
+  });
+
+  const themeBtn = document.getElementById('theme');
+  function setTheme(dark){
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    themeBtn.textContent = dark ? '浅色' : '深色';
+  }
+  themeBtn.addEventListener('click', () => setTheme(document.documentElement.dataset.theme !== 'dark'));
+  if (new URLSearchParams(location.search).get('theme') === 'dark') setTheme(true);
+
+  document.querySelectorAll('sup.ref').forEach(s => {
+    s.addEventListener('click', () => {
+      const card = document.querySelector('.card[data-ref="' + s.dataset.ref + '"]');
+      if (!card) return;
+      card.parentElement.querySelectorAll('.card').forEach(c => c.classList.remove('is-active'));
+      card.classList.add('is-active');
+      card.scrollIntoView({block:'nearest', behavior:'smooth'});
+    });
+  });
+</script>
+</body>
+</html>
