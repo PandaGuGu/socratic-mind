@@ -7,6 +7,7 @@ target/
 *.log
 hs_err_pid*
 replay_pid*
+*.hprof
 
 # ---- IDE ----
 .idea/
@@ -29,14 +30,41 @@ npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# ---- 本地环境与密钥 ----
+# ---- Python ----
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# ---- 凭证与敏感配置（绝不入库）----
+# 规则依据：docs/04-规范/外部依赖与付费资源约定.md
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!**/.env.example
+*.env
+!*.env.example
+*.key
 *.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+credentials*.json
+secrets*.yml
+secrets*.yaml
+*secret*.properties
+settings.xml
 application-local.yml
 application-local.yaml
-src/main/resources/application-secret.*
+application-prod.yml
+application-prod.yaml
+**/application-*local*.yml
+**/application-*secret*.yml
+**/application-*prod*.yml
 
 # ---- 数据与产物（不要进版本库）----
 data/
@@ -50,6 +78,14 @@ pgdata/
 eval/results/
 eval/runs/
 *.eval.json
+# 真实用户语料/测评数据不进库
+eval/datasets/private/
+
+# ---- 临时文件 ----
+*.bak
+*.tmp
+*.orig
+*.rej
 
 # ---- 系统 ----
 .DS_Store

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# pre-commit 钩子：提交前扫描暂存区是否有明文密钥。
+# 安装：
+#   cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# 卸载：
+#   rm .git/hooks/pre-commit
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if command -v python >/dev/null 2>&1; then
+  PY=python
+elif command -v python3 >/dev/null 2>&1; then
+  PY=python3
+else
+  echo "未找到 python，跳过密钥扫描" >&2
+  exit 0
+fi
+
+"$PY" scripts/check-secrets.py --staged
