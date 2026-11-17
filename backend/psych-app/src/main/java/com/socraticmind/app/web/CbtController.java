@@ -67,10 +67,19 @@ public class CbtController {
     ) {
         static SessionView of(CbtSession s) {
             return new SessionView(s.id(), s.threadId(), s.stage(), s.stage().label(),
-                    s.stage().visibleIndex(), s.stage().isTerminal() ? "ended" : "running",
+                    s.stage().visibleIndex(), finished(s.stage()) ? "ended" : "running",
                     s.targetProblem(), s.automaticThought(), s.candidateThought(),
                     s.userConfirmedThought(), s.interventionType(), s.actionPlan(),
                     s.actionResult(), s.summary(), s.awaitingUser(), s.safetyStatus(), s.createdAt());
+        }
+
+        /**
+         * 终止判定：安全暂停与显式结束之外，"走到总结"也必须算结束——
+         * CbtFlow 在 ACTION_REVIEW 之后把 stage 落在 SESSION_SUMMARY 就不再推进，
+         * 若只看 stage.isTerminal()，这一轮会一直被报成 running。
+         */
+        private static boolean finished(CbtStage stage) {
+            return stage.isTerminal() || stage == CbtStage.SESSION_SUMMARY;
         }
     }
 

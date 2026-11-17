@@ -2,6 +2,9 @@ package com.socraticmind.infrastructure.ai;
 
 import com.socraticmind.common.port.ChatPort;
 import com.socraticmind.common.port.EmbeddingPort;
+import com.socraticmind.infrastructure.guard.GuardAuditLog;
+import com.socraticmind.infrastructure.guard.GuardedChatPort;
+import com.socraticmind.infrastructure.guard.OutputPolicyStore;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,15 +33,19 @@ public class AiConfig {
     }
 
     @Bean
-    ChatPort chatPort(AiProperties props) {
+    ChatPort chatPort(AiProperties props, OutputPolicyStore policyStore, GuardAuditLog auditLog) {
         String provider = resolve(props.getChatProvider(), props.getProvider());
+        ChatPort delegate;
         if (!"http".equalsIgnoreCase(provider)) {
-            return new StubChatAdapter();
+            delegate = new StubChatAdapter();
+        } else {
+            require(props.getBaseUrl(), "psych.ai.base-url");
+            require(props.getApiKey(), "psych.ai.api-key");
+            require(props.getChatModel(), "psych.ai.chat-model");
+            delegate = new HttpChatAdapter(props.getBaseUrl(), props.getApiKey(), props.getChatModel());
         }
-        require(props.getBaseUrl(), "psych.ai.base-url");
-        require(props.getApiKey(), "psych.ai.api-key");
-        require(props.getChatModel(), "psych.ai.chat-model");
-        return new HttpChatAdapter(props.getBaseUrl(), props.getApiKey(), props.getChatModel());
+        // 所有模型调用统一过输出守卫：规则由运维在 /internal/policy.html 维护，改完即时生效。
+        return new GuardedChatPort(delegate, policyStore, auditLog);
     }
 
     private static String resolve(String specific, String fallback) {

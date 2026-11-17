@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 内部后台</title>
+<link rel="stylesheet" href="./app.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 3v18M3 12h18"></path>
+      </svg>
+      <div class="brand-text">
+        <h1>Socratic Mind <span>内部后台</span></h1>
+        <p>只读 · 不写业务状态 · 不是产品界面</p>
+      </div>
+    </div>
+    <div class="badges" id="badges"></div>
+    <div class="top-actions">
+      <a class="btn" href="./flow.html">流程画布</a>
+      <a class="btn" href="./policy.html">输出策略</a>
+      <button class="btn" id="refreshBtn" type="button">刷新</button>
+      <button class="btn" id="demoFlowBtn" type="button">生成流程演示</button>
+      <button class="btn" id="demoSafetyBtn" type="button">生成安全演示</button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <aside class="sessions">
+      <div class="panel-head">
+        <h2>会话</h2>
+        <span class="count" id="sessionCount">0</span>
+      </div>
+      <div class="filters" id="filters" role="tablist">
+        <button class="filter is-on" data-filter="all" type="button">全部</button>
+        <button class="filter" data-filter="safety" type="button">安全暂停</button>
+        <button class="filter" data-filter="awaiting" type="button">等确认</button>
+        <button class="filter" data-filter="demo" type="button">演示</button>
+      </div>
+      <div class="session-list" id="sessionList"></div>
+      <div class="panel-foot" id="storeNote">—</div>
+    </aside>
+
+    <section class="rail">
+      <div class="rail-head">
+        <div class="rail-title">
+          <span class="dot" id="stageDot"></span>
+          <h2 id="stageName">未选择会话</h2>
+          <span class="pill" id="stagePill" hidden></span>
+        </div>
+        <p class="rail-sub" id="stageSub">从左侧选一条会话，查看它走过的节点</p>
+      </div>
+
+      <div class="progress" id="progress" aria-hidden="true"></div>
+      <ol class="chain" id="chain"></ol>
+
+      <footer class="rail-foot">
+        <div class="legend" id="legend"></div>
+        <p class="foot-note">链上顺序来自 CbtStage 枚举；每格内容取自该会话的真实消息与轨迹。</p>
+      </footer>
+    </section>
+
+    <main class="detail">
+      <div class="detail-head">
+        <div class="tabs" role="tablist" id="tabs">
+          <button class="tab is-on" data-tab="trace" type="button">轨迹</button>
+          <button class="tab" data-tab="fields" type="button">字段快照</button>
+          <button class="tab" data-tab="messages" type="button">消息</button>
+          <button class="tab" data-tab="raw" type="button">原始 JSON</button>
+        </div>
+        <div class="detail-meta" id="detailMeta"></div>
+      </div>
+      <div class="detail-body" id="detailBody"></div>
+    </main>
+
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="./app.js"></script>
+</body>
+</html>

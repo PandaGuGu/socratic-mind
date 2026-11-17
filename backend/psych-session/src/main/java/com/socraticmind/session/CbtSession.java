@@ -42,6 +42,9 @@ public class CbtSession {
     private boolean awaitingUser;
     private final List<CbtMessage> messages = new ArrayList<>();
 
+    /** 审计轨迹：每一轮为什么这么走。与 messages 分开存，导出时不必带上。 */
+    private final List<CbtTurnEvent> trace = new ArrayList<>();
+
     public CbtSession(String id, String threadId, String userId) {
         this.id = id;
         this.threadId = threadId;
@@ -111,5 +114,14 @@ public class CbtSession {
     /** 历史是业务事实，与 Graph 的 checkpoint 不是一回事：前者可导出给咨询师看。 */
     public List<CbtMessage> history() {
         return List.copyOf(messages);
+    }
+
+    public void addEvent(CbtTurnEvent event) {
+        trace.add(event);
+        updatedAt = Instant.now();
+    }
+
+    public List<CbtTurnEvent> trace() {
+        return List.copyOf(trace);
     }
 }

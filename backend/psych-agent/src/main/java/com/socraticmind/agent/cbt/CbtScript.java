@@ -47,6 +47,11 @@ public class CbtScript {
         return question(stage, Map.of());
     }
 
+    /** 供默认流程定义取值：脚本仍是话术的初始来源，之后由画布维护。 */
+    public Map<CbtStage, String> templates() {
+        return Map.copyOf(templates);
+    }
+
     private static CbtStage byKey(String key) {
         return switch (key) {
             case "problem_identification" -> CbtStage.PROBLEM_IDENTIFICATION;

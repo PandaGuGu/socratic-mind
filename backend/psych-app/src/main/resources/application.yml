@@ -14,6 +14,15 @@ psych:
   ai:
     provider: stub
     embedding-dimension: 256
+  # 内部只读控制台（/internal 与 /api/internal）。接口无鉴权，只允许本机或可信内网，
+  # 对外部署时置 false。详见 docs/02-设计/内部后台.md
+  internal:
+    enabled: true
+    auth: false
+  # 输出策略文件：运维在 /internal/policy.html 改完保存即写入这里并热加载。
+  # 不存在时用内置默认值；建议纳入 git，便于 review 与回滚。
+  guard:
+    policy-file: config/output-policy.json
 
 management:
   endpoints:

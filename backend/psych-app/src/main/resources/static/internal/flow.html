@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 流程画布</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  .app.canvas-mode {
+    grid-template-rows: 56px minmax(0, 1fr);
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 348px;
+    min-height: 0;
+  }
+
+  .board-wrap {
+    position: relative;
+    overflow: auto;
+    background:
+      radial-gradient(circle at 1px 1px, #e5e2da 1px, transparent 0) 0 0 / 22px 22px;
+    border-right: 1px solid var(--line);
+  }
+
+  .board {
+    position: relative;
+    width: 1260px;
+    height: 700px;
+  }
+
+  .gate {
+    position: absolute;
+    left: 40px;
+    top: 612px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px dashed var(--refer-line);
+    border-radius: var(--r-md);
+    background: var(--refer-soft);
+    color: var(--refer);
+    font-size: 12px;
+  }
+
+  .gate b {
+    font-weight: 500;
+  }
+
+  .gate span {
+    color: var(--refer);
+    opacity: 0.75;
+    font-size: 11px;
+  }
+
+  svg.edges {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .node {
+    position: absolute;
+    width: 210px;
+    height: 118px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    cursor: grab;
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .node:active {
+    cursor: grabbing;
+  }
+
+  .node.is-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .node.is-locked {
+    background: var(--surface-2);
+    border-style: dashed;
+    cursor: default;
+  }
+
+  .node-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .node-title {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .node-key {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .node-text {
+    flex: none;
+    height: 36px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .node-tags {
+    margin-top: auto;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .ntag {
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .ntag.is-model {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+
+  .ntag.is-interrupt {
+    border-color: var(--wait-line);
+    background: var(--wait-soft);
+    color: #6b3f04;
+  }
+
+  .ntag.is-branch {
+    border-color: #CECBF6;
+    background: #EEEDFE;
+    color: #3C3489;
+  }
+
+  .inspector {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--surface);
+  }
+
+  .inspector-head {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .inspector-head h2 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .inspector-head p {
+    margin-top: 3px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .inspector-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px 20px;
+  }
+
+  .field-block {
+    margin-bottom: 14px;
+  }
+
+  .field-block > label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  .field-block input[type="text"],
+  .field-block textarea,
+  .field-block select {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+
+  .field-block textarea {
+    min-height: 132px;
+    line-height: 1.7;
+    resize: vertical;
+  }
+
+  .field-block input:focus,
+  .field-block textarea:focus,
+  .field-block select:focus {
+    outline: none;
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .hint-line {
+    margin-top: 4px;
+    font-size: 10.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .hint-line.is-bad {
+    color: var(--refer);
+  }
+
+  .preview {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-left: 2px solid var(--accent);
+    background: var(--surface-2);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    white-space: pre-wrap;
+  }
+
+  .words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .branch-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .branch-row select {
+    min-width: 0;
+    flex: 1;
+    padding: 5px 7px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-size: 11.5px;
+    color: var(--ink);
+  }
+
+  .branch-row button {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 5px;
+    border-radius: 50%;
+  }
+
+  .branch-row button:hover {
+    color: var(--refer);
+    background: var(--refer-soft);
+  }
+
+  .branch-arrow {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .word {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 4px 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+
+  .word button {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 50%;
+  }
+
+  .word button:hover {
+    color: var(--refer);
+    background: var(--refer-soft);
+  }
+
+  .word-add {
+    display: flex;
+    gap: 5px;
+  }
+
+  .word-add input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-sm);
+    font-size: 11.5px;
+  }
+
+  .word-group {
+    margin-bottom: 10px;
+  }
+
+  .word-group > span {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .errors {
+    margin: 0 16px 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--refer-line);
+    border-radius: var(--r-md);
+    background: var(--refer-soft);
+    color: var(--refer);
+    font-size: 12px;
+    line-height: 1.7;
+    display: none;
+  }
+
+  .errors.is-on {
+    display: block;
+  }
+
+  .inspector-foot {
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .inspector-foot .btn-primary {
+    margin-left: auto;
+  }
+
+  .locked-note {
+    display: flex;
+    gap: 6px;
+    padding: 9px 11px;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .legend-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(251, 250, 247, 0.92);
+    font-size: 11px;
+    color: var(--muted);
+    flex: none;
+  }
+
+  .board-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+  .menu {
+    position: fixed;
+    z-index: 1000;
+    width: 268px;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 5px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    box-shadow: 0 10px 30px -12px rgba(27, 30, 28, 0.28);
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    width: 100%;
+    padding: 7px 9px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: none;
+    text-align: left;
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .menu-item:hover {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+
+  .menu-item:disabled {
+    color: var(--skip);
+    cursor: not-allowed;
+    background: none;
+  }
+
+  .menu-item small {
+    margin-left: auto;
+    flex: none;
+    color: var(--muted);
+    font-size: 10.5px;
+  }
+
+  .menu-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--line-soft);
+  }
+
+  .menu-title {
+    padding: 5px 9px 3px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+
+</style>
+</head>
+<body>
+
+<div class="app canvas-mode">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 3v18M3 12h18"></path>
+      </svg>
+      <div class="brand-text">
+        <h1>流程画布 <span>拖动摆位 · 点开改话术 · 发布即生效</span></h1>
+        <p id="metaLine">读取中…</p>
+      </div>
+    </div>
+    <div class="badges" id="badges"></div>
+    <div class="top-actions">
+      <a class="btn" href="./index.html">返回控制台</a>
+      <a class="btn" href="./policy.html">输出策略</a>
+      <button class="btn btn-primary" id="publishBtn" type="button">发布</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <div class="board-col">
+      <div class="legend-bar">
+        <span>每轮必过安全分流（不可编辑）</span>
+        <span>·</span>
+        <span>实线：正常推进</span>
+        <span>·</span>
+        <span>虚线：回退或确认</span>
+        <span>·</span>
+        <span>去向只能从允许的集合里选</span>
+        <span>·</span>
+        <span><b>右键节点</b>：插入 / 加分支 / 删除</span>
+      </div>
+      <div class="board-wrap" id="boardWrap">
+        <div class="board" id="board">
+          <svg class="edges" id="edges" viewBox="0 0 1260 700" preserveAspectRatio="none">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M2 1L8 5L2 9" fill="none" stroke="#b8ddd1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+              </marker>
+              <marker id="arrowBack" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M2 1L8 5L2 9" fill="none" stroke="#f0d5a8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+              </marker>
+              <marker id="arrowBranch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M2 1L8 5L2 9" fill="none" stroke="#7F77DD" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+              </marker>
+            </defs>
+          </svg>
+          <div class="gate">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="4" y="10" width="16" height="11" rx="2"></rect>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+            </svg>
+            <b>安全分流</b><span>每轮回答后先过这里，命中即停，不进 CBT 节点</span>
+          </div>
+          <div id="nodes"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="inspector">
+      <div class="inspector-head">
+        <h2 id="insTitle">选一个节点</h2>
+        <p id="insKey">—</p>
+      </div>
+      <div class="inspector-body" id="insBody"></div>
+      <div class="errors" id="errors"></div>
+      <div class="inspector-foot">
+        <span id="dirtyState">未改动</span>
+        <button class="btn btn-primary" id="publishBtn2" type="button">发布</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="menu" id="menu" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const API = "/api/internal";
+const NODE_W = 210;
+const NODE_H = 118;
+const BOARD_W = 1260;
+const BOARD_H = 700;
+const SAMPLE = { thought: "我肯定会搞砸", plan: "提前写下三条预测，会后核对" };
+
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  def: null,
+  rules: null,
+  selected: null,
+  dirty: false
+};
+
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function toast(text, isError) {
+  const el = $("toast");
+  el.textContent = text;
+  el.hidden = false;
+  el.classList.toggle("is-error", Boolean(isError));
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.hidden = true; }, 2400);
+}
+
+async function getJson(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.status + " " + res.statusText);
+  return data;
+}
+
+function markDirty() {
+  state.dirty = true;
+  $("dirtyState").textContent = "有未发布的改动";
+  $("dirtyState").style.color = "var(--wait)";
+}
+
+/* ---------- 画布 ---------- */
+
+function stageLabel(id) {
+  const s = state.def.stages[id];
+  return s && s.title ? s.title : id;
+}
+
+function renderNodes() {
+  const stages = state.def.stages;
+  $("nodes").innerHTML = Object.entries(stages).map(([id, s]) => {
+    const tags = [];
+    const branches = s.branches || [];
+    if (s.model && s.model !== "none") tags.push(`<span class="ntag is-model">${esc(s.model)}</span>`);
+    if (branches.length) tags.push(`<span class="ntag is-branch">${branches.length} 条分支</span>`);
+    if (!s.next && !branches.length && id !== "CONDITION") tags.push(`<span class="ntag">终态</span>`);
+    if (id === "ACTION_CONFIRM") tags.push(`<span class="ntag is-interrupt">中断点</span>`);
+    if (id === "CONDITION") tags.push(`<span class="ntag is-branch">判断</span>`);
+    const text = (s.text || "").replace(/\s+/g, " ").slice(0, 46);
+    return `
+      <div class="node ${state.selected === id ? "is-selected" : ""}" data-id="${id}"
+           style="left:${s.x}px;top:${s.y}px">
+        <div class="node-head">
+          <span class="node-title">${esc(s.title || id)}</span>
+        </div>
+        <div class="node-key">${esc(id)}</div>
+        <div class="node-text">${esc(text || (id === "CONDITION" ? "（判断节点：只看条件，不提问）" : s.next ? "（还没有话术）" : "（终态，没有提问话术）"))}</div>
+        <div class="node-tags">${tags.join("")}</div>
+      </div>`;
+  }).join("");
+
+  document.querySelectorAll(".node").forEach((el) => {
+    el.addEventListener("pointerdown", startDrag);
+    el.addEventListener("click", () => {
+      if (el.dataset.moved === "1") return;
+      state.selected = el.dataset.id;
+      const url = new URL(location.href);
+      url.searchParams.set("node", state.selected);
+      history.replaceState(null, "", url);
+      renderNodes();
+      renderInspector();
+    });
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.selected = el.dataset.id;
+      renderNodes();
+      renderInspector();
+      openMenu(e.clientX, e.clientY, menuForNode(el.dataset.id));
+    });
+  });
+}
+
+function renderEdges() {
+  const stages = state.def.stages;
+  const paths = [];
+  Object.entries(stages).forEach(([id, s]) => {
+    if (s.next && stages[s.next]) {
+      const back = id === "ACTION_CONFIRM";
+      paths.push(`<path d="${edgePath(s, stages[s.next])}" fill="none"
+        stroke="${back ? "#f0d5a8" : "#b8ddd1"}" stroke-width="1.5"
+        stroke-dasharray="${back ? "5 4" : "0"}" marker-end="url(#${back ? "arrowBack" : "arrow"})"></path>`);
+    }
+    (s.branches || []).forEach((b) => {
+      if (!b || !stages[b.to]) return;
+      paths.push(`<path d="${edgePath(s, stages[b.to])}" fill="none" stroke="#7F77DD"
+        stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowBranch)"></path>`);
+    });
+  });
+  const svg = $("edges");
+  svg.querySelectorAll("path.edge").forEach((p) => p.remove());
+  svg.insertAdjacentHTML("beforeend",
+    paths.map((p) => p.replace("<path ", '<path class="edge" ')).join(""));
+}
+
+function edgePath(a, b) {
+  if (Math.abs(a.x - b.x) < 30) {
+    const sx = a.x + NODE_W / 2;
+    const sy = a.y + NODE_H;
+    const ex = b.x + NODE_W / 2;
+    const ey = b.y;
+    const dir = ey > sy ? 1 : -1;
+    return `M${sx},${sy} C${sx},${sy + dir * 50} ${ex},${ey - dir * 50} ${ex},${ey}`;
+  }
+  const x1 = a.x + (b.x > a.x ? NODE_W : 0);
+  const y1 = a.y + NODE_H / 2;
+  const x2 = b.x + (b.x > a.x ? 0 : NODE_W);
+  const y2 = b.y + NODE_H / 2;
+  const back = b.x < a.x;
+  if (back) {
+    const dip = Math.max(a.y, b.y) + NODE_H + 56;
+    return `M${x1},${y1} C${x1 + 30},${dip} ${x2 - 30},${dip} ${x2},${y2}`;
+  }
+  const mid = (x1 + x2) / 2;
+  return `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`;
+}
+
+let drag = null;
+
+function startDrag(e) {
+  const el = e.currentTarget;
+  const id = el.dataset.id;
+  const s = state.def.stages[id];
+  const rect = $("board").getBoundingClientRect();
+  drag = {
+    id,
+    rect,
+    offsetX: e.clientX - rect.left - s.x,
+    offsetY: e.clientY - rect.top - s.y,
+    moved: false
+  };
+  el.dataset.moved = "0";
+  el.setPointerCapture(e.pointerId);
+  el.addEventListener("pointermove", onDrag);
+  el.addEventListener("pointerup", endDrag, { once: true });
+}
+
+function onDrag(e) {
+  if (!drag) return;
+  const s = state.def.stages[drag.id];
+  const x = Math.max(0, Math.min(BOARD_W - NODE_W, e.clientX - drag.rect.left - drag.offsetX));
+  const y = Math.max(0, Math.min(BOARD_H - NODE_H, e.clientY - drag.rect.top - drag.offsetY));
+  if (Math.abs(x - s.x) > 2 || Math.abs(y - s.y) > 2) drag.moved = true;
+  s.x = Math.round(x);
+  s.y = Math.round(y);
+  const el = document.querySelector(`.node[data-id="${drag.id}"]`);
+  if (el) {
+    el.style.left = s.x + "px";
+    el.style.top = s.y + "px";
+    el.dataset.moved = drag.moved ? "1" : "0";
+  }
+  renderEdges();
+}
+
+function endDrag(e) {
+  if (!drag) return;
+  const el = e.currentTarget;
+  el.removeEventListener("pointermove", onDrag);
+  if (drag.moved) markDirty();
+  drag = null;
+}
+
+/* ---------- 检查器 ---------- */
+
+function renderInspector() {
+  const id = state.selected;
+  if (!id) {
+    $("insTitle").textContent = "选一个节点";
+    $("insKey").textContent = "点画布上的节点，改它的话术与去向";
+    $("insBody").innerHTML = `<div class="locked-note">
+      画布能改：话术、去向、分支、条件、是否调模型、干预关键词、节点位置。<br>
+      画布不能改：核心节点集合、字段语义、安全分流——这些由代码守，避免一次拖动改变临床边界。
+    </div>`;
+    return;
+  }
+  const s = state.def.stages[id];
+  const allowedNext = state.rules.allowedNext[id] || [];
+  const allowedModel = state.rules.allowedModel[id] || ["none"];
+  const allowedBranch = state.rules.allowedBranch[id] || [];
+  const branches = s.branches || [];
+  const isCondition = id === "CONDITION";
+  const isTerminal = allowedNext.length === 0 && allowedBranch.length === 0;
+  const isOptional = (state.rules.optionalNodes || []).some((n) => n.id === id);
+  const placeholders = [...(s.text || "").matchAll(/\{\{([a-zA-Z_]+)}}/g)].map((m) => m[1]);
+  const unknown = placeholders.filter((p) => !state.rules.placeholders.includes(p));
+  const preview = (s.text || "")
+    .replace(/\{\{thought}}/g, SAMPLE.thought)
+    .replace(/\{\{plan}}/g, SAMPLE.plan);
+
+  $("insTitle").textContent = s.title || id;
+  $("insKey").textContent = id;
+
+  const nextOptions = isTerminal
+    ? `<option value="">（终态，流程到此结束）</option>`
+    : allowedNext.map((n) => `<option value="${n}" ${s.next === n ? "selected" : ""}>${esc(stageLabel(n))} · ${n}</option>`).join("");
+
+  const modelOptions = allowedModel
+    .map((m) => `<option value="${m}" ${s.model === m ? "selected" : ""}>${m === "none" ? "不调模型（只用模板）" : m}</option>`)
+    .join("");
+
+  const textBlock = isCondition ? `
+    <div class="locked-note">
+      判断节点不提问、不写字段：它只看会话状态，按条件把流程导向不同节点。运行到这里即完成路由。
+    </div>` : `
+    <div class="field-block">
+      <label><span>话术</span><span id="charCount">${(s.text || "").length} 字</span></label>
+      <textarea id="fText">${esc(s.text || "")}</textarea>
+      <div class="hint-line ${unknown.length ? "is-bad" : ""}">
+        ${unknown.length
+          ? `未知占位符：${unknown.map((u) => "{{" + u + "}}").join("、")}（可用 {{thought}} / {{plan}}）`
+          : "支持 {{thought}} 与 {{plan}}；其余文字会原样发给用户"}
+      </div>
+      <div class="preview">${esc(preview || "（空）")}</div>
+    </div>`;
+
+  $("insBody").innerHTML = `
+    <div class="field-block">
+      <label><span>节点标题</span></label>
+      <input type="text" id="fTitle" value="${esc(s.title || "")}">
+    </div>
+    ${textBlock}
+    ${renderBranches(id, branches, allowedBranch)}
+    ${branches.length ? "" : `
+    <div class="field-block">
+      <label><span>下一步</span></label>
+      <select id="fNext" ${isTerminal ? "disabled" : ""}>${nextOptions}</select>
+      <div class="hint-line">${isTerminal ? "终态节点没有下一步。" : "只能从允许的去向里选，保证确认点不会被绕过。"}</div>
+    </div>`}
+    <div class="field-block">
+      <label><span>输出策略档位</span></label>
+      <select id="fModel">${modelOptions}</select>
+      <div class="hint-line">不调模型时这一步用模板，模型永远不会被叫到。</div>
+    </div>
+    ${id === "INTERVENTION_DECISION" ? renderWords() : ""}
+    ${isOptional ? `<button class="btn" id="deleteNode" type="button" style="width:100%">删除这个节点</button>` : ""}`;
+
+  bindInspector(id);
+  bindBranches(id);
+}
+
+function renderBranches(id, branches, allowedBranch) {
+  if (!allowedBranch.length) return "";
+  const rows = branches.map((b, i) => `
+    <div class="branch-row">
+      <select data-branch-when="${i}">
+        ${state.rules.predicates.map((p) => `<option value="${p.when}" ${b.when === p.when ? "selected" : ""}>${esc(p.label)}</option>`).join("")}
+      </select>
+      <span class="branch-arrow">→</span>
+      <select data-branch-to="${i}">
+        ${allowedBranch.map((t) => `<option value="${t}" ${b.to === t ? "selected" : ""}>${esc(stageLabel(t))} · ${t}</option>`).join("")}
+      </select>
+      <button type="button" data-branch-del="${i}" title="删除这条分支">×</button>
+    </div>`).join("");
+
+  return `
+    <div class="field-block">
+      <label><span>分支</span><span>${branches.length} 条</span></label>
+      ${rows || '<div class="hint-line">还没有分支，流程会走下面的默认下一步。</div>'}
+      <button class="btn" id="addBranch" type="button" style="margin-top:6px">添加分支</button>
+      <div class="hint-line">按顺序匹配，第一条命中的生效。判断节点必须留一条「其它情况」兜底并放在最后。</div>
+    </div>`;
+}
+
+function renderWords() {
+  return state.rules.interventionTypes.map((type) => {
+    const words = state.def.intervention[type] || [];
+    return `
+      <div class="field-block word-group" data-type="${type}">
+        <label><span>${type}</span><span>${words.length} 个词</span></label>
+        <div class="words">
+          ${words.map((w, i) => `<span class="word">${esc(w)}<button type="button" data-del="${type}" data-i="${i}">×</button></span>`).join("") || '<span class="hint-line">还没有关键词</span>'}
+        </div>
+        <div class="word-add">
+          <input type="text" placeholder="加一个词，回车确认" data-add="${type}">
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function bindInspector(id) {
+  const s = state.def.stages[id];
+  const title = $("fTitle");
+  const text = $("fText");
+  if (title) {
+    title.addEventListener("input", () => {
+      s.title = title.value;
+      markDirty();
+      renderNodes();
+      $("insTitle").textContent = s.title || id;
+    });
+  }
+  if (text) {
+    text.addEventListener("input", () => {
+      s.text = text.value;
+      $("charCount").textContent = text.value.length + " 字";
+      const preview = text.value
+        .replace(/\{\{thought}}/g, SAMPLE.thought)
+        .replace(/\{\{plan}}/g, SAMPLE.plan);
+      document.querySelector(".preview").textContent = preview || "（空）";
+      markDirty();
+      renderNodes();
+    });
+  }
+  const next = $("fNext");
+  if (next) {
+    next.addEventListener("change", () => {
+      s.next = next.value || null;
+      markDirty();
+      renderEdges();
+      renderNodes();
+    });
+  }
+  const model = $("fModel");
+  if (model) {
+    model.addEventListener("change", () => {
+      s.model = model.value;
+      markDirty();
+      renderNodes();
+    });
+  }
+
+  document.querySelectorAll("[data-del]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.del;
+      state.def.intervention[type].splice(Number(btn.dataset.i), 1);
+      markDirty();
+      renderInspector();
+    })
+  );
+
+  document.querySelectorAll("[data-add]").forEach((input) =>
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const word = input.value.trim();
+      if (!word) return;
+      const type = input.dataset.add;
+      const list = state.def.intervention[type];
+      if (!list.includes(word)) list.push(word);
+      markDirty();
+      renderInspector();
+    })
+  );
+}
+
+/* ---------- 分支与节点增删 ---------- */
+
+function bindBranches(id) {
+  const s = state.def.stages[id];
+
+  document.querySelectorAll("[data-branch-when]").forEach((el) =>
+    el.addEventListener("change", () => {
+      s.branches[Number(el.dataset.branchWhen)].when = el.value;
+      markDirty();
+    })
+  );
+
+  document.querySelectorAll("[data-branch-to]").forEach((el) =>
+    el.addEventListener("change", () => {
+      s.branches[Number(el.dataset.branchTo)].to = el.value;
+      markDirty();
+      renderEdges();
+    })
+  );
+
+  document.querySelectorAll("[data-branch-del]").forEach((el) =>
+    el.addEventListener("click", () => {
+      s.branches.splice(Number(el.dataset.branchDel), 1);
+      markDirty();
+      renderNodes();
+      renderEdges();
+      renderInspector();
+    })
+  );
+
+  const add = $("addBranch");
+  if (add) {
+    add.addEventListener("click", () => {
+      const allowed = state.rules.allowedBranch[id] || [];
+      const used = new Set((s.branches || []).map((b) => b.when));
+      const when = state.rules.predicates.map((p) => p.when).find((w) => !used.has(w)) || "else";
+      s.branches = s.branches || [];
+      s.branches.push({ when, to: allowed[0] || "ACTION_CONFIRM" });
+      markDirty();
+      renderNodes();
+      renderEdges();
+      renderInspector();
+    });
+  }
+
+  const del = $("deleteNode");
+  if (del) del.addEventListener("click", () => deleteNode(id));
+}
+
+function deleteNode(id) {
+  Object.entries(state.def.stages).forEach(([key, s]) => {
+    if (s.branches) {
+      s.branches = s.branches.filter((b) => b.to !== id);
+    }
+    if (s.next === id) {
+      const fallback = (state.rules.allowedNext[key] || []).find((t) => t !== id);
+      s.next = fallback || null;
+    }
+  });
+  delete state.def.stages[id];
+  state.selected = "PROBLEM_IDENTIFICATION";
+  markDirty();
+  renderNodes();
+  renderEdges();
+  renderInspector();
+}
+
+function nodeMeta(type) {
+  return (state.rules.optionalNodes || []).find((n) => n.id === type);
+}
+
+function createNode(type, x, y) {
+  const meta = nodeMeta(type);
+  if (!meta) return null;
+  const node = {
+    title: meta.title,
+    text: meta.text || "",
+    next: "ACTION_CONFIRM",
+    model: "none",
+    branches: (meta.branches || []).map((b) => ({ when: b.when, to: b.to })),
+    x: Math.max(20, Math.min(BOARD_W - NODE_W - 20, Math.round(x))),
+    y: Math.max(20, Math.min(BOARD_H - NODE_H - 20, Math.round(y)))
+  };
+  state.def.stages[type] = node;
+  return node;
+}
+
+function commit(message) {
+  markDirty();
+  renderNodes();
+  renderEdges();
+  renderInspector();
+  toast(message);
+}
+
+function insertAfter(sourceId, type) {
+  const src = state.def.stages[sourceId];
+  if (!src) return;
+  if (state.def.stages[type]) { toast("这个节点已经存在了", true); return; }
+  const node = createNode(type, src.x, src.y + NODE_H + 56);
+  node.next = src.next || "ACTION_CONFIRM";
+  src.next = type;
+  commit("已插入「" + node.title + "」：" + src.title + " → " + node.title + " → " + stageLabel(node.next));
+}
+
+function insertBeforeBranch(sourceId, index, type) {
+  const src = state.def.stages[sourceId];
+  const branch = src && src.branches ? src.branches[index] : null;
+  if (!branch) return;
+  if (state.def.stages[type]) { toast("这个节点已经存在了", true); return; }
+  const targetName = stageLabel(branch.to);
+  const target = state.def.stages[branch.to];
+  const node = createNode(type, src.x, target ? target.y + NODE_H + 56 : src.y + NODE_H + 56);
+  node.next = branch.to;
+  branch.to = type;
+  commit("已插入「" + node.title + "」：" + src.title + " → " + node.title + " → " + targetName);
+}
+
+/* ---------- 右键菜单 ---------- */
+
+function openMenu(x, y, items) {
+  const menu = $("menu");
+  menu.innerHTML = items.map((it, i) => {
+    if (it.sep) return '<div class="menu-sep"></div>';
+    if (it.title) return '<div class="menu-title">' + esc(it.title) + '</div>';
+    return '<button class="menu-item" data-i="' + i + '"' + (it.disabled ? " disabled" : "") + ' type="button">'
+      + esc(it.label) + (it.hint ? '<small>' + esc(it.hint) + '</small>' : '') + '</button>';
+  }).join("");
+  menu.hidden = false;
+  const rect = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, window.innerWidth - rect.width - 10) + "px";
+  menu.style.top = Math.min(y, window.innerHeight - rect.height - 10) + "px";
+
+  menu.querySelectorAll(".menu-item").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const item = items[Number(btn.dataset.i)];
+      closeMenu();
+      if (item && item.action) item.action();
+    })
+  );
+}
+
+function closeMenu() {
+  $("menu").hidden = true;
+}
+
+function menuForNode(id) {
+  const s = state.def.stages[id];
+  const existing = new Set(Object.keys(state.def.stages));
+  const optional = state.rules.optionalNodes || [];
+  const items = [];
+
+  if (s.branches && s.branches.length) {
+    s.branches.forEach((b, i) => {
+      items.push({ title: "插到「" + stageLabel(b.to) + "」前面" });
+      optional.forEach((n) => {
+        items.push({
+          label: n.title,
+          disabled: existing.has(n.id),
+          hint: existing.has(n.id) ? "已存在" : "",
+          action: () => insertBeforeBranch(id, i, n.id)
+        });
+      });
+      if (i < s.branches.length - 1) items.push({ sep: true });
+    });
+  } else if (s.next) {
+    items.push({ title: "插到它后面" });
+    optional.forEach((n) => {
+      items.push({
+        label: "插入「" + n.title + "」",
+        disabled: existing.has(n.id),
+        hint: existing.has(n.id) ? "已存在" : "",
+        action: () => insertAfter(id, n.id)
+      });
+    });
+  } else {
+    items.push({ title: "终态节点，后面不能再接节点" });
+  }
+
+  if ((state.rules.allowedBranch[id] || []).length) {
+    items.push({ sep: true });
+    items.push({
+      label: "给它加一条分支",
+      hint: "右侧编辑",
+      action: () => {
+        state.selected = id;
+        renderInspector();
+        const btn = $("addBranch");
+        if (btn) btn.click();
+      }
+    });
+  }
+
+  if (optional.some((n) => n.id === id)) {
+    items.push({ sep: true });
+    items.push({ label: "删除这个节点", action: () => deleteNode(id) });
+  }
+  return items;
+}
+
+function menuForBoard(x, y) {
+  const existing = new Set(Object.keys(state.def.stages));
+  const items = [{ title: "在这里放一个节点" }];
+  (state.rules.optionalNodes || []).forEach((n) => {
+    items.push({
+      label: n.title,
+      disabled: existing.has(n.id),
+      hint: existing.has(n.id) ? "已存在" : "",
+      action: () => {
+        createNode(n.id, x - NODE_W / 2, y - NODE_H / 2);
+        state.selected = n.id;
+        markDirty();
+        renderNodes();
+        renderEdges();
+        renderInspector();
+        toast("已放置「" + n.title + "」，还需要在上一级节点里把它接上");
+      }
+    });
+  });
+  return items;
+}
+
+/* ---------- 发布 ---------- */
+
+async function publish() {
+  const errors = $("errors");
+  errors.classList.remove("is-on");
+  const buttons = [$("publishBtn"), $("publishBtn2")];
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    const view = await getJson(`${API}/flow`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ definition: state.def, updatedBy: "ops" })
+    });
+    state.def = view.definition;
+    state.dirty = false;
+    $("dirtyState").textContent = "已发布";
+    $("dirtyState").style.color = "";
+    renderBadges(view);
+    renderNodes();
+    renderEdges();
+    renderInspector();
+    toast("已发布，下一轮立即生效");
+  } catch (e) {
+    errors.textContent = e.message;
+    errors.classList.add("is-on");
+    toast("发布失败，看右侧的校验信息", true);
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+function renderBadges(view) {
+  const d = view.definition;
+  $("metaLine").textContent = `版本 v${d.version}`
+    + (d.updatedBy ? ` · 最后由 ${d.updatedBy} 修改` : "")
+    + (d.updatedAt ? ` · ${new Date(d.updatedAt).toLocaleString("zh-CN", { hour12: false })}` : "");
+  $("badges").innerHTML = [
+    `<span class="badge ${view.persisted ? "is-ok" : "is-warn"}"><i></i>${view.persisted ? "已落盘" : "未落盘 · 默认值"}</span>`,
+    `<span class="badge is-quiet"><i></i>${Object.keys(d.stages).length} 个节点</span>`
+  ].join("");
+}
+
+/* ---------- 启动 ---------- */
+
+async function boot() {
+  try {
+    const view = await getJson(`${API}/flow`);
+    state.def = view.definition;
+    state.rules = view.rules;
+    renderBadges(view);
+    const wanted = new URLSearchParams(location.search).get("node");
+    state.selected = wanted && state.def.stages[wanted] ? wanted : "PROBLEM_IDENTIFICATION";
+    renderNodes();
+    renderEdges();
+    renderInspector();
+  } catch (e) {
+    $("metaLine").textContent = "接口不可达";
+    $("nodes").innerHTML = `<div class="gate">读不到流程接口：${esc(e.message)}</div>`;
+  }
+}
+
+$("board").addEventListener("contextmenu", (e) => {
+  if (e.target.closest(".node")) return;
+  e.preventDefault();
+  const rect = $("board").getBoundingClientRect();
+  openMenu(e.clientX, e.clientY, menuForBoard(e.clientX - rect.left, e.clientY - rect.top));
+});
+
+document.addEventListener("click", closeMenu);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeMenu();
+});
+window.addEventListener("scroll", closeMenu, true);
+
+$("publishBtn").addEventListener("click", publish);
+$("publishBtn2").addEventListener("click", publish);
+window.addEventListener("beforeunload", (e) => {
+  if (state.dirty) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
+boot();
+</script>
+</body>
+</html>

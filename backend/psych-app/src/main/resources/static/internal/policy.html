@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 输出策略</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+  }
+
+  .topbar .brand-text h1 span {
+    font-family: var(--sans);
+  }
+
+  .link-btn {
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 5px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+  }
+
+  .link-btn:hover {
+    color: var(--ink);
+    border-color: var(--skip);
+  }
+
+  .intro {
+    margin: 22px 0 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+  }
+
+  .intro strong {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .hints {
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .hints div::before {
+    content: "· ";
+  }
+
+  .profile {
+    margin-bottom: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .profile.is-off {
+    background: var(--surface-2);
+  }
+
+  .profile-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .profile-id {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .profile-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  .profile-note {
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .switch {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .track {
+    width: 34px;
+    height: 19px;
+    border-radius: 999px;
+    background: var(--skip);
+    position: relative;
+    transition: background 0.18s;
+  }
+
+  .track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.18s;
+  }
+
+  .switch input:checked + .track {
+    background: var(--accent);
+  }
+
+  .switch input:checked + .track::after {
+    transform: translateX(15px);
+  }
+
+  .switch input:focus-visible + .track {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .profile-body {
+    padding: 14px 16px;
+  }
+
+  .nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+
+  .num {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .num label {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .num input {
+    width: 108px;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .num input:focus {
+    outline: none;
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .num .unit {
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .banned {
+    margin-top: 14px;
+  }
+
+  .banned-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    min-height: 26px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .chip button {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 50%;
+  }
+
+  .chip button:hover {
+    color: var(--refer);
+    background: var(--refer-soft);
+  }
+
+  .chip-add {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .chip-add input {
+    width: 200px;
+    padding: 4px 9px;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .chip-add input:focus {
+    outline: none;
+    border-color: var(--accent-line);
+    border-style: solid;
+  }
+
+  .profile-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--line-soft);
+    background: var(--surface-2);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .profile-foot .btn {
+    margin-left: auto;
+  }
+
+  .dirty {
+    color: var(--wait);
+  }
+
+  .block {
+    margin-top: 22px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .block-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .block-head h3 {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  .block-head .hint {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .block-body {
+    padding: 14px 16px;
+  }
+
+  .test-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .test-grid textarea {
+    width: 100%;
+    min-height: 92px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--ink);
+    resize: vertical;
+  }
+
+  .test-grid textarea:focus {
+    outline: none;
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .test-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .test-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  select {
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .result {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--r-md);
+    font-size: 12.5px;
+    line-height: 1.7;
+    display: none;
+  }
+
+  .result.is-pass {
+    display: block;
+    border: 1px solid var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+
+  .result.is-fail {
+    display: block;
+    border: 1px solid var(--refer-line);
+    background: var(--refer-soft);
+    color: var(--refer);
+  }
+
+  .result ul {
+    margin: 6px 0 0;
+    padding-left: 16px;
+    list-style: disc;
+  }
+
+  .result li {
+    margin-top: 2px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  th {
+    text-align: left;
+    font-weight: 500;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 10px 8px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 7px 10px 7px 0;
+    border-bottom: 1px dashed var(--line-soft);
+    vertical-align: top;
+    color: var(--ink-soft);
+  }
+
+  td.mono {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .empty-row {
+    padding: 16px 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .foot-note {
+    margin-top: 26px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 720px) {
+    .test-grid {
+      grid-template-columns: 1fr;
+    }
+    .nums {
+      gap: 12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 3v18M3 12h18"></path>
+    </svg>
+    <div class="brand-text">
+      <h1>输出策略 <span>运维可直接改，保存即生效</span></h1>
+      <p id="metaLine">读取中…</p>
+    </div>
+  </div>
+  <div class="badges" id="badges"></div>
+  <div class="top-actions">
+    <a class="link-btn" href="./index.html">返回控制台</a>
+    <a class="link-btn" href="./flow.html">流程画布</a>
+    <button class="btn btn-primary" id="saveBtn" type="button">保存全部</button>
+  </div>
+</header>
+
+<div class="page">
+  <div class="intro">
+    <strong>这里控制的是「模型这次说的话能不能出去」。</strong>
+    每条规则都是确定性判断：长度、禁句、与输入的重合度。命中后先带反馈重写一次，仍不通过就退回模板——
+    用户永远不会看到被拦下的那句。
+    <div class="hints" id="hints"></div>
+  </div>
+
+  <div id="profiles"></div>
+
+  <div class="block">
+    <div class="block-head">
+      <h3>试一下</h3>
+      <span class="hint">用当前页面上（可能还没保存）的规则跑一次，点保存前就能看到结果</span>
+    </div>
+    <div class="block-body">
+      <div class="test-grid">
+        <div>
+          <div class="test-label"><span>模型输出</span><span id="testLen">0 字</span></div>
+          <textarea id="testText" placeholder="把一段模型输出贴进来，例如：你应该多休息，别太焦虑，加油！"></textarea>
+        </div>
+        <div>
+          <div class="test-label"><span>参考输入（算重合度用，可留空）</span></div>
+          <textarea id="testSource" placeholder="原想法：我肯定会搞砸&#10;新信息：前三次有两次其实还行"></textarea>
+        </div>
+      </div>
+      <div class="test-bar">
+        <select id="testProfile"></select>
+        <button class="btn" id="testBtn" type="button">试一下</button>
+      </div>
+      <div class="result" id="testResult"></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-head">
+      <h3>最近的拦截</h3>
+      <span class="hint">服务端内存里的最近 50 条，重启清空</span>
+      <button class="btn" id="auditBtn" type="button" style="margin-left:auto">刷新</button>
+    </div>
+    <div class="block-body">
+      <table>
+        <thead>
+          <tr><th>时间</th><th>档位</th><th>结果</th><th>规则</th><th>原文</th></tr>
+        </thead>
+        <tbody id="auditBody">
+          <tr><td colspan="5" class="empty-row">读取中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="foot-note">
+    规则文件由服务端保存到 <code id="policyPath">—</code>，可直接进 git：改动有 diff、能 review、能回滚。
+    关卡是"确定性判断"，不调用模型——所以同一段输出永远得到同一个结论。
+  </p>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const API = "/api/internal";
+const PROFILE_LABEL = {
+  cbt_balance: "认知检验 · 候选说法",
+  cbt_summary: "本轮总结",
+  rag_answer: "知识问答"
+};
+const OUTCOME_LABEL = { ok: "通过", repaired: "重写后通过", rejected: "拦截" };
+const RULE_LABEL = { banned: "禁句", min_chars: "太短", max_chars: "太长", novelty: "疑似编造", empty: "空输出" };
+
+const $ = (id) => document.getElementById(id);
+
+let policy = null;
+let dirty = false;
+
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function toast(text, isError) {
+  const el = $("toast");
+  el.textContent = text;
+  el.hidden = false;
+  el.classList.toggle("is-error", Boolean(isError));
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.hidden = true; }, 2400);
+}
+
+function markDirty() {
+  dirty = true;
+  $("saveBtn").textContent = "保存全部 · 有改动";
+}
+
+async function getJson(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.status + " " + res.statusText);
+  return data;
+}
+
+/* ---------- 渲染 ---------- */
+
+function renderBadges(view) {
+  const p = view.policy;
+  $("metaLine").textContent = "版本 v" + p.version
+    + (p.updatedBy ? " · 最后由 " + p.updatedBy + " 修改" : "")
+    + (p.updatedAt ? " · " + new Date(p.updatedAt).toLocaleString("zh-CN", { hour12: false }) : "");
+  const badges = [
+    `<span class="badge ${view.persisted ? "is-ok" : "is-warn"}"><i></i>${view.persisted ? "已落盘" : "未落盘 · 内置默认"}</span>`,
+    `<span class="badge is-quiet"><i></i>${Object.keys(p.profiles).length} 个档位</span>`
+  ];
+  $("badges").innerHTML = badges.join("");
+  $("hints").innerHTML = (view.hints || []).map((h) => `<div>${esc(h)}</div>`).join("");
+  $("policyPath").textContent = view.path;
+}
+
+function ruleCard(id, rule) {
+  const chips = (rule.banned || [])
+    .map((b, i) => `<span class="chip">${esc(b)}<button type="button" data-del="${id}" data-i="${i}" title="删除">×</button></span>`)
+    .join("");
+  return `
+    <div class="profile ${rule.enabled ? "" : "is-off"}" data-id="${id}">
+      <div class="profile-head">
+        <div>
+          <div class="profile-id">${esc(id)}</div>
+          <div class="profile-name">${esc(PROFILE_LABEL[id] || id)}</div>
+          <div class="profile-note">${esc(rule.note || "")}</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" data-toggle="${id}" ${rule.enabled ? "checked" : ""}>
+          <span class="track"></span>
+          <span>${rule.enabled ? "启用" : "已关闭"}</span>
+        </label>
+      </div>
+      <div class="profile-body">
+        <div class="nums">
+          <div class="num">
+            <label>最短字数</label>
+            <input type="number" min="0" step="1" value="${rule.minChars}" data-num="${id}" data-key="minChars">
+            <span class="unit">0 = 不限</span>
+          </div>
+          <div class="num">
+            <label>最长字数</label>
+            <input type="number" min="0" step="1" value="${rule.maxChars}" data-num="${id}" data-key="maxChars">
+            <span class="unit">0 = 不限</span>
+          </div>
+          <div class="num">
+            <label>重合度阈值</label>
+            <input type="number" min="0" max="1" step="0.05" value="${rule.novelty}" data-num="${id}" data-key="novelty">
+            <span class="unit">0 = 关闭；越高越严</span>
+          </div>
+          <div class="num">
+            <label>违规后重写</label>
+            <input type="number" min="0" max="3" step="1" value="${rule.repairAttempts}" data-num="${id}" data-key="repairAttempts">
+            <span class="unit">次，0 = 直接兜底</span>
+          </div>
+        </div>
+        <div class="banned">
+          <div class="banned-head"><span>禁句</span><span>子串匹配，命中即拦</span></div>
+          <div class="chips">${chips || '<span class="unit" style="color:var(--muted);font-size:11px">还没有禁句</span>'}</div>
+          <div class="chip-add">
+            <input type="text" placeholder="加一条，回车确认" data-add="${id}">
+            <button class="btn" type="button" data-addbtn="${id}">添加</button>
+          </div>
+        </div>
+      </div>
+      <div class="profile-foot">
+        <span>${rule.enabled ? "此档生效中" : "此档已关闭，模型输出直接放行"}</span>
+        <button class="btn" type="button" data-test="${id}">用这个档试一下</button>
+      </div>
+    </div>`;
+}
+
+function render() {
+  $("profiles").innerHTML = Object.entries(policy.profiles).map(([id, r]) => ruleCard(id, r)).join("");
+  $("testProfile").innerHTML = Object.keys(policy.profiles)
+    .map((id) => `<option value="${id}">${esc(id)}</option>`)
+    .join("");
+  bind();
+}
+
+function bind() {
+  document.querySelectorAll("[data-toggle]").forEach((el) =>
+    el.addEventListener("change", () => {
+      policy.profiles[el.dataset.toggle].enabled = el.checked;
+      markDirty();
+      render();
+    })
+  );
+
+  document.querySelectorAll("[data-num]").forEach((el) =>
+    el.addEventListener("input", () => {
+      const id = el.dataset.num;
+      const key = el.dataset.key;
+      const value = Number(el.value);
+      if (Number.isNaN(value)) return;
+      policy.profiles[id][key] = value;
+      markDirty();
+    })
+  );
+
+  document.querySelectorAll("[data-del]").forEach((el) =>
+    el.addEventListener("click", () => {
+      const id = el.dataset.del;
+      policy.profiles[id].banned.splice(Number(el.dataset.i), 1);
+      markDirty();
+      render();
+    })
+  );
+
+  document.querySelectorAll("[data-add]").forEach((el) =>
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addBanned(el.dataset.add, el.value);
+      }
+    })
+  );
+
+  document.querySelectorAll("[data-addbtn]").forEach((el) =>
+    el.addEventListener("click", () => {
+      const id = el.dataset.addbtn;
+      const input = document.querySelector(`[data-add="${id}"]`);
+      addBanned(id, input.value);
+    })
+  );
+
+  document.querySelectorAll("[data-test]").forEach((el) =>
+    el.addEventListener("click", () => {
+      $("testProfile").value = el.dataset.test;
+      runTest();
+    })
+  );
+}
+
+function addBanned(id, raw) {
+  const value = (raw || "").trim();
+  if (!value) return;
+  const list = policy.profiles[id].banned;
+  if (!list.includes(value)) list.push(value);
+  markDirty();
+  render();
+}
+
+/* ---------- 测试 ---------- */
+
+async function runTest() {
+  const profile = $("testProfile").value;
+  const text = $("testText").value;
+  const source = $("testSource").value;
+  const box = $("testResult");
+  if (!text.trim()) {
+    box.className = "result is-fail";
+    box.innerHTML = "先贴一段模型输出再试。";
+    return;
+  }
+  try {
+    const result = await getJson(`${API}/policy/test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile, rule: policy.profiles[profile], text, source })
+    });
+    if (!result.guarded) {
+      box.className = "result is-pass";
+      box.innerHTML = "这个档位当前关闭，输出会直接放行。";
+      return;
+    }
+    if (result.ok) {
+      box.className = "result is-pass";
+      box.innerHTML = `通过 · 与输入重合度 ${result.novelty.toFixed(2)}`;
+      return;
+    }
+    box.className = "result is-fail";
+    box.innerHTML = `违反 ${result.violations.length} 条`
+      + `<ul>${result.violations.map((v) => `<li>${esc(RULE_LABEL[v.rule] || v.rule)}：${esc(v.detail)}</li>`).join("")}</ul>`;
+  } catch (e) {
+    toast("测试失败：" + e.message, true);
+  }
+}
+
+/* ---------- 保存 ---------- */
+
+async function save() {
+  const btn = $("saveBtn");
+  btn.disabled = true;
+  try {
+    const view = await getJson(`${API}/policy`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ policy, updatedBy: "ops" })
+    });
+    policy = view.policy;
+    dirty = false;
+    btn.textContent = "保存全部";
+    renderBadges(view);
+    render();
+    toast("已保存，服务端立即生效");
+    loadAudit();
+  } catch (e) {
+    toast(e.message, true);
+    btn.textContent = "保存全部 · 有改动";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ---------- 审计 ---------- */
+
+async function loadAudit() {
+  try {
+    const rows = await getJson(`${API}/guard/audit?limit=50`);
+    if (!rows.length) {
+      $("auditBody").innerHTML = `<tr><td colspan="5" class="empty-row">还没有记录。跑一次会话，或点上方"试一下"不会产生审计——审计只记真实调用。</td></tr>`;
+      return;
+    }
+    $("auditBody").innerHTML = rows.map((r) => `
+      <tr>
+        <td class="mono">${new Date(r.at).toLocaleTimeString("zh-CN", { hour12: false })}</td>
+        <td class="mono">${esc(r.profile)}</td>
+        <td>${esc(OUTCOME_LABEL[r.outcome] || r.outcome)}</td>
+        <td>${(r.rules || []).map((x) => esc(RULE_LABEL[x] || x)).join("、") || "—"}</td>
+        <td>${esc(r.snippet || r.detail || "")}</td>
+      </tr>`).join("");
+  } catch (e) {
+    $("auditBody").innerHTML = `<tr><td colspan="5" class="empty-row">读取失败：${esc(e.message)}</td></tr>`;
+  }
+}
+
+/* ---------- 启动 ---------- */
+
+async function boot() {
+  try {
+    const view = await getJson(`${API}/policy`);
+    policy = view.policy;
+    renderBadges(view);
+    render();
+    await loadAudit();
+  } catch (e) {
+    $("metaLine").textContent = "接口不可达";
+    $("profiles").innerHTML = `<div class="intro">读不到策略接口：${esc(e.message)}。确认应用已启动，且 psych.internal.enabled=true。</div>`;
+  }
+}
+
+$("saveBtn").addEventListener("click", save);
+$("testBtn").addEventListener("click", runTest);
+$("auditBtn").addEventListener("click", loadAudit);
+$("testText").addEventListener("input", () => {
+  $("testLen").textContent = $("testText").value.length + " 字";
+});
+window.addEventListener("beforeunload", (e) => {
+  if (dirty) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
+boot();
+setInterval(loadAudit, 8000);
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+{
+  "version" : 2,
+  "updatedAt" : "2026-11-17T12:36:51.668790100Z",
+  "updatedBy" : "ops",
+  "profiles" : {
+    "cbt_balance" : {
+      "enabled" : true,
+      "minChars" : 8,
+      "maxChars" : 80,
+      "banned" : [ "你应该", "你必须", "加油", "抱抱", "别担心", "！", "!" ],
+      "novelty" : 0.35,
+      "repairAttempts" : 1,
+      "note" : "认知检验的候选说法：不许说教、不许安慰、不许引入原想法与新信息里没有的内容"
+    },
+    "cbt_summary" : {
+      "enabled" : true,
+      "minChars" : 20,
+      "maxChars" : 200,
+      "banned" : [ "你应该", "你必须", "加油", "抱抱", "诊断", "！", "!" ],
+      "novelty" : 0.25,
+      "repairAttempts" : 1,
+      "note" : "本轮总结：只陈述事实，不评价、不建议、不诊断"
+    },
+    "rag_answer" : {
+      "enabled" : false,
+      "minChars" : 10,
+      "maxChars" : 1200,
+      "banned" : [ "你应该", "包治", "保证治愈", "！" ],
+      "novelty" : 0.15,
+      "repairAttempts" : 0,
+      "note" : "知识问答：默认关闭——它已有引用校验；需要时再启用"
+    }
+  }
+}

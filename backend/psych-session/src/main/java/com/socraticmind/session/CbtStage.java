@@ -10,6 +10,12 @@ public enum CbtStage {
     COGNITIVE_EXTRACTION("想法", 1),
     COGNITIVE_REVIEW("检验", 2),
     INTERVENTION_DECISION("行动", 3),
+    /** 可选分支：行为实验。由"行动"按干预类型路由进来，不改变可见段位。 */
+    BEHAVIORAL_EXPERIMENT("行为实验", 3),
+    /** 可选分支：现实问题解决。与行为实验互斥，二选一。 */
+    PRACTICAL_PROBLEM_SOLVING("问题解决", 3),
+    /** 可选判断节点：不算话术节点，路由完就继续，不等待用户输入。 */
+    CONDITION("判断", 3),
     ACTION_CONFIRM("确认", 3),
     ACTION_REVIEW("复盘", 4),
     SESSION_SUMMARY("总结", 4),
