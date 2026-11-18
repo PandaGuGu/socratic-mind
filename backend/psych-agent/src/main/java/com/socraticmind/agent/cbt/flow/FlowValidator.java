@@ -275,7 +275,7 @@ public final class FlowValidator {
         };
         String text = switch (id) {
             case "BEHAVIORAL_EXPERIMENT" ->
-                    "如果要验证这个预测，你觉得最小的一步可以是什么？不用一步到位，能获得一点新信息就够。";
+                    "把这一步再缩小一点：具体到什么时候做、做什么、怎么算完成？";
             case "PRACTICAL_PROBLEM_SOLVING" ->
                     "这件事里哪些是你能直接决定的，哪些只能影响、哪些完全不由你？先从能决定的那部分挑一件。";
             case "CONDITION" -> "";

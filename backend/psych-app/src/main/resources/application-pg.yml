@@ -3,6 +3,10 @@
 psych:
   store: postgres
   db:
+    enabled: true
     url: ${PSYCH_DB_URL:jdbc:postgresql://localhost:5432/psych}
     username: ${PSYCH_DB_USER:psych}
     password: ${PSYCH_DB_PASSWORD:psych_local_dev}
+  # 会话域落库：与知识库共用同一个数据源，但开关独立（可只持久化会话）
+  session:
+    store: jdbc

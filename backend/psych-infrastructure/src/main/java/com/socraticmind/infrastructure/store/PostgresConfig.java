@@ -20,15 +20,17 @@ import javax.sql.DataSource;
  * 上线前换 HikariCP（第一版并发量不需要）。
  */
 @Configuration
-@ConditionalOnProperty(name = "psych.store", havingValue = "postgres")
+@ConditionalOnProperty(name = "psych.db.enabled", havingValue = "true")
 public class PostgresConfig {
 
     @Bean
     DataSource dataSource(@Value("${psych.db.url:jdbc:postgresql://localhost:5432/psych}") String url,
                           @Value("${psych.db.username:psych}") String username,
-                          @Value("${psych.db.password:psych_local_dev}") String password) {
+                          @Value("${psych.db.password:psych_local_dev}") String password,
+                          @Value("${psych.db.driver:org.postgresql.Driver}") String driver) {
         DriverManagerDataSource ds = new DriverManagerDataSource(url, username, password);
-        ds.setDriverClassName("org.postgresql.Driver");
+        // 驱动可换：生产连 PostgreSQL，本机无 Docker 时用 H2 文件库验证同一套 DDL
+        ds.setDriverClassName(driver);
         return ds;
     }
 
@@ -38,12 +40,18 @@ public class PostgresConfig {
     }
 
     @Bean
-    ApplicationRunner postgresSchemaInitializer(DataSource dataSource) {
+    ApplicationRunner schemaInitializer(DataSource dataSource,
+                                       @Value("${psych.store:memory}") String knowledgeStore) {
         return args -> {
-            ResourceDatabasePopulator populator =
-                    new ResourceDatabasePopulator(new ClassPathResource("db/schema-pg.sql"));
-            populator.setContinueOnError(true);
-            populator.execute(dataSource);
+            // 会话域与知识域分开初始化：H2 上没有 pgvector，只跑 cbt 三张表
+            if ("postgres".equals(knowledgeStore)) {
+                ResourceDatabasePopulator kb = new ResourceDatabasePopulator(new ClassPathResource("db/schema-pg.sql"));
+                kb.setContinueOnError(true);
+                kb.execute(dataSource);
+            }
+            ResourceDatabasePopulator cbt = new ResourceDatabasePopulator(new ClassPathResource("db/schema-cbt.sql"));
+            cbt.setContinueOnError(true);
+            cbt.execute(dataSource);
         };
     }
 }

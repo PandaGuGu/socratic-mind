@@ -1,0 +1,19 @@
+# 本机验证档：没有 Docker / 连不上 Docker Hub 时，用 H2 文件库验证
+# "重启之后会话还在"这件事。DDL 与 PostgreSQL 那份完全相同（db/schema-cbt.sql）。
+#
+#   mvn -pl psych-app spring-boot:run -Dspring-boot.run.profiles=h2
+#   或 java -jar psych-app/target/psych-app-0.1.0-SNAPSHOT.jar --spring.profiles.active=h2
+#
+# 数据落在 ./data/cbt.mv.db，删掉它就等于清库。
+# 注意：知识库仍走内存（H2 没有 pgvector），这里只验证会话域。
+
+psych:
+  store: memory            # 知识库：内存
+  db:
+    enabled: true          # 打开数据源（会话域用）
+    driver: org.h2.Driver
+    url: jdbc:h2:file:./data/cbt;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+  session:
+    store: jdbc            # 会话域：JDBC（同一份实现，PG/H2 通用）

@@ -77,7 +77,7 @@ class FlowBranchTest {
         TurnResult routed = flow.handle(id, "提前写下三条具体预测，会后核对");
         assertEquals(CbtStage.BEHAVIORAL_EXPERIMENT, routed.stage(),
                 "干预类型是行为实验时，必须经过判断节点落到行为实验");
-        assertTrue(routed.response().contains("最小的一步"), "问的是行为实验节点的话术");
+        assertTrue(routed.response().contains("什么时候做"), "问的是行为实验节点的话术，且不能和「行动」重复");
 
         TurnResult confirm = flow.handle(id, "汇报前写下三条预测");
         assertEquals(CbtStage.ACTION_CONFIRM, confirm.stage());

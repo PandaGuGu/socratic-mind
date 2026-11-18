@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Socratic Mind · 房间原型</title>
+<style>
+  :root{
+    --wall:#262229; --wall-dark:#1F1C22;
+    --floor:#342B25; --floor-dark:#1E1917;
+    --glow:#E8C9A0; --mist:#EDE8DE;
+    --paper:#F3EBDF; --ink:#241F1A;
+    --serif:"Source Han Serif SC","Noto Serif SC","Songti SC","SimSun",serif;
+    --sans:"PingFang SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    --mono:"JetBrains Mono","SF Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{background:#0C0B10; color:var(--mist); font-family:var(--sans); overflow:hidden; -webkit-font-smoothing:antialiased;}
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(232,201,160,.16); border-radius:3px;}
+
+  .scene{position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .6s ease;}
+  .scene.is-active{opacity:1; pointer-events:auto;}
+
+  #room .room{transition:transform .9s cubic-bezier(.4,0,.2,1), filter .7s ease, opacity .7s ease;}
+
+  .wall{position:absolute;}
+  .wall.back{left:16%; right:0; top:6%; bottom:30%; background:var(--wall);}
+  .wall.left{left:0; width:24%; top:0; bottom:24%; background:var(--wall-dark); clip-path:polygon(0 5%,100% 11%,100% 76%,0 88%);}
+  .wall.back::after{content:""; position:absolute; left:0; top:0; bottom:0; width:1px; background:rgba(232,201,160,.07);}
+  .floor{position:absolute; left:0; right:0; top:70%; bottom:0; background:linear-gradient(180deg,var(--floor) 0%,var(--floor-dark) 100%);}
+  .skywall{position:absolute; left:0; right:0; top:0; height:7%; background:#0C0B10;}
+  .skirting{position:absolute; left:16%; right:0; top:calc(70% - 7px); height:7px; background:rgba(232,201,160,.06);}
+  .lightpool{position:absolute; right:24%; top:63%; width:44%; height:24%; background:radial-gradient(ellipse at 70% 20%, rgba(232,201,160,.16), transparent 66%); filter:blur(2px);}
+  .figure-halo{position:absolute; left:9%; bottom:18%; width:32%; height:34%; background:radial-gradient(ellipse at 40% 70%, rgba(232,201,160,.13), transparent 62%); pointer-events:none;}
+
+  .window{position:absolute; right:9%; top:15%; width:min(220px,20vw); height:min(290px,42vh); background:#101826; cursor:pointer; overflow:hidden; border:0.5px solid rgba(232,201,160,.22); box-shadow:0 0 60px rgba(120,150,200,.10), inset 0 0 40px rgba(120,150,200,.10); transition:box-shadow .5s ease, transform .55s cubic-bezier(.4,0,.2,1), opacity .45s ease;}
+  .window:hover{box-shadow:0 0 86px rgba(232,201,160,.22), inset 0 0 40px rgba(232,201,160,.12);}
+  .window.lit{box-shadow:0 0 90px rgba(232,201,160,.20), inset 0 0 50px rgba(232,201,160,.10);}
+  .window.expand{transform:scale(9); opacity:0;}
+  .nightsky{position:absolute; inset:0; background:linear-gradient(180deg,#0C1524 0%,#16233A 55%,#1E2A3C 100%);}
+  .nightsky i{position:absolute; width:1.5px; height:1.5px; border-radius:50%; background:#EDE8DE; opacity:.7;}
+  .nightsky i.new{width:3px; height:3px; background:#F0D9B4; box-shadow:0 0 10px rgba(232,201,160,.9); animation:starIn .9s ease;}
+  @keyframes starIn{from{transform:scale(3); opacity:0;} to{transform:scale(1); opacity:1;}}
+  .moon{position:absolute; right:18%; top:16%; width:22px; height:22px; border-radius:50%; background:#E8DFC8; opacity:.85; box-shadow:0 0 22px rgba(232,223,200,.55);}
+  .mv{position:absolute; left:50%; top:0; bottom:0; width:3px; margin-left:-1.5px; background:rgba(12,11,16,.85);}
+  .mh{position:absolute; top:46%; left:0; right:0; height:3px; background:rgba(12,11,16,.85);}
+  .sill{position:absolute; left:-6%; right:-6%; bottom:-8px; height:8px; background:#2A2621;}
+  .wcap{position:absolute; left:0; right:0; bottom:-30px; text-align:center; font-family:var(--mono); font-size:9.5px; color:rgba(237,232,222,.32);}
+
+  .door{position:absolute; left:6%; top:34%; width:9%; height:36%; background:#171419; border:0.5px solid rgba(232,201,160,.10); box-shadow:inset 0 0 30px rgba(0,0,0,.45); cursor:pointer; transition:box-shadow .4s ease;}
+  .door:hover{box-shadow:inset 0 0 30px rgba(0,0,0,.45), 0 0 24px rgba(232,201,160,.14);}
+  .door::after{content:""; position:absolute; right:6px; top:52%; width:3px; height:3px; border-radius:50%; background:rgba(232,201,160,.35);}
+
+  .figure-wrap{position:absolute; left:20%; bottom:26%; width:108px; height:132px; cursor:pointer;}
+  .figure-wrap svg{width:100%; height:100%; overflow:visible;}
+  .breath{animation:breathe 6.5s ease-in-out infinite; transform-origin:50% 86%;}
+  @keyframes breathe{0%,100%{transform:translateY(0) scaleY(1);} 50%{transform:translateY(-1.5px) scaleY(1.012);}}
+  .glowring{opacity:.28; transition:opacity .4s ease;}
+  .figure-wrap:hover .glowring{opacity:.6;}
+  .figure-wrap.alert .glowring{opacity:.7; animation:pulsering 2.8s ease-in-out infinite;}
+  @keyframes pulsering{0%,100%{opacity:.34;} 50%{opacity:.8;}}
+
+  .waiting{position:absolute; left:34.5%; bottom:31%; width:220px; font-family:var(--serif); font-size:12.5px; color:rgba(237,232,222,.38); letter-spacing:.03em; line-height:1.8; transition:opacity .5s ease;}
+  .waiting.hidden{opacity:0;}
+
+  .stones{position:absolute; left:21.5%; bottom:24%; display:flex; gap:7px; align-items:flex-end;}
+  .stones span{width:9px; height:5px; border-radius:50%; background:rgba(237,232,222,.14);}
+  .stones span.on{background:var(--glow); box-shadow:0 0 12px rgba(232,201,160,.65);}
+  .stones .cap{position:absolute; left:0; top:12px; font-family:var(--mono); font-size:9.5px; color:rgba(237,232,222,.30); white-space:nowrap;}
+
+  .slip{position:absolute; right:5%; bottom:5%; width:min(460px,52vw); background:var(--paper); color:var(--ink); padding:20px 24px 16px; border-radius:2px; box-shadow:0 24px 60px rgba(0,0,0,.5); font-family:var(--serif); transition:opacity .5s ease, transform .5s cubic-bezier(.4,0,.2,1);}
+  .slip.hidden{opacity:0; transform:translateY(26px); pointer-events:none;}
+  .slip .meta{font-family:var(--sans); font-size:10px; letter-spacing:.08em; color:rgba(36,31,26,.45); margin-bottom:9px;}
+  .slip .q{font-size:15.5px; line-height:1.9; margin-bottom:14px;}
+  .slip .q sup{font-family:var(--mono); font-size:9px; color:#A9673A; margin-left:2px;}
+  .slip .opts{display:flex; gap:18px; font-family:var(--sans); font-size:12.5px; margin-bottom:14px; flex-wrap:wrap;}
+  .slip .opts button{background:none; border:none; padding:0 0 2px; color:rgba(36,31,26,.62); border-bottom:0.5px solid rgba(36,31,26,.25); cursor:pointer; font-family:var(--sans); font-size:12.5px;}
+  .slip .opts button:hover{color:var(--ink); border-bottom-color:#A9673A;}
+  .slip .line{display:flex; gap:12px; align-items:center; border-top:0.5px solid rgba(36,31,26,.14); padding-top:12px;}
+  .slip .field{flex:1; font-size:13px; color:rgba(36,31,26,.40); font-family:var(--sans);}
+  .slip .send{background:var(--ink); color:var(--paper); border:none; border-radius:2px; padding:8px 18px; font-size:12px; font-family:var(--sans); cursor:pointer;}
+
+  .flying{position:fixed; width:34px; height:24px; z-index:60; pointer-events:none; background:var(--paper); border-radius:1px; box-shadow:0 0 24px rgba(232,201,160,.70);}
+
+  .toast{position:absolute; left:50%; bottom:13%; transform:translateX(-50%); font-family:var(--serif); font-size:13px; color:rgba(237,232,222,.55); opacity:0; transition:opacity .8s ease; pointer-events:none;}
+  .toast.show{opacity:1;}
+
+  .vignette{position:absolute; inset:0; pointer-events:none; box-shadow:inset 0 0 170px 34px rgba(0,0,0,.42);}
+
+  #outside{background:#0B0A10;}
+  .stars{position:absolute; inset:0; pointer-events:none;}
+  .stars i{position:absolute; width:1.5px; height:1.5px; border-radius:50%; background:#EDE8DE; opacity:.3;}
+  svg.threads{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
+  svg.threads path{fill:none; stroke:rgba(232,201,160,.16); stroke-width:1;}
+
+  .outside-head{position:absolute; left:8%; top:8%;}
+  .outside-head h1{font-family:var(--serif); font-size:15px; font-weight:500; color:rgba(237,232,222,.72); letter-spacing:.06em;}
+  .outside-head p{font-family:var(--mono); font-size:9.5px; color:rgba(237,232,222,.30); margin-top:7px; letter-spacing:.08em;}
+
+  .bubble{position:absolute; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transform:translate(-50%,-50%); transition:filter .3s ease; animation:float 9s ease-in-out infinite;}
+  .bubble::before{content:""; position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 38% 32%, rgba(232,201,160,.52), rgba(232,201,160,.14) 62%, transparent 74%);}
+  .bubble::after{content:""; position:absolute; inset:0; border-radius:50%; border:0.5px solid rgba(232,201,160,.50); box-shadow:0 0 44px rgba(232,201,160,.20), inset 0 0 30px rgba(232,201,160,.12);}
+  .bubble:hover{filter:brightness(1.45);}
+  .bubble.live::after{border-color:rgba(232,201,160,.60); animation:pulsering 3.6s ease-in-out infinite;}
+  .bubble .inner{width:32%; height:32%; border-radius:50%; background:radial-gradient(circle, rgba(232,201,160,.55), transparent 70%); opacity:.6;}
+  .bubble .lbl{position:absolute; top:calc(100% + 11px); left:50%; transform:translateX(-50%); font-family:var(--serif); font-size:12.5px; color:rgba(237,232,222,.70); white-space:nowrap;}
+  .bubble .age{position:absolute; top:calc(100% + 29px); left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:9.5px; color:rgba(237,232,222,.32); white-space:nowrap;}
+  .bubble.empty::before{background:radial-gradient(circle at 50% 50%, rgba(232,201,160,.04), transparent 70%);}
+  .bubble.empty::after{border-style:dashed; border-color:rgba(232,201,160,.18); box-shadow:none;}
+  @keyframes float{0%,100%{transform:translate(-50%,-50%) translateY(0);} 50%{transform:translate(-50%,-50%) translateY(-7px);}}
+
+  .backbtn{position:absolute; left:26px; top:24px; width:34px; height:34px; border-radius:50%; border:0.5px solid rgba(232,201,160,.20); background:rgba(12,11,16,.4); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:20; color:rgba(237,232,222,.6); font-size:13px;}
+  .backbtn:hover{border-color:rgba(232,201,160,.5); color:var(--mist);}
+
+  .reader{position:absolute; inset:0; background:rgba(8,7,11,.72); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .4s ease; z-index:30;}
+  .reader.open{opacity:1; pointer-events:auto;}
+  .reader-slip{width:min(440px,84vw); max-height:72vh; overflow-y:auto; background:var(--paper); color:var(--ink); padding:26px 28px 22px; border-radius:2px; box-shadow:0 30px 80px rgba(0,0,0,.6); font-family:var(--serif);}
+  .reader-slip .when{font-family:var(--mono); font-size:10px; color:rgba(36,31,26,.42); letter-spacing:.06em; margin-bottom:14px;}
+  .reader-slip .line-row{margin-bottom:13px; font-size:13.5px; line-height:1.85;}
+  .reader-slip .line-row.you{color:rgba(36,31,26,.72); padding-left:12px; border-left:0.5px solid rgba(36,31,26,.22);}
+  .reader-slip .cite{margin-top:16px; border-left:2px solid #A9673A; padding-left:11px; font-size:10.5px; line-height:1.7; color:rgba(36,31,26,.55);}
+  .reader-slip .close{margin-top:18px; font-family:var(--sans); font-size:12px; color:rgba(36,31,26,.5); cursor:pointer; border:none; background:none; border-bottom:0.5px solid rgba(36,31,26,.3); padding-bottom:2px;}
+
+  .slip .q{white-space:pre-wrap;}
+  .slip .line input{
+    flex:1; border:none; background:none; outline:none;
+    font-family:var(--sans); font-size:13px; color:var(--ink);
+  }
+  .slip .line input::placeholder{color:rgba(36,31,26,.40);}
+  .slip .line.is-off{opacity:.45; pointer-events:none;}
+  .confirm{display:none; border-top:0.5px solid rgba(36,31,26,.14); margin-top:12px; padding-top:12px;}
+  .confirm.on{display:block;}
+  .confirm .txt{font-family:var(--sans); font-size:11.5px; color:rgba(36,31,26,.55); margin-bottom:9px; line-height:1.7;}
+  .confirm .btns{display:flex; gap:10px;}
+  .confirm button{
+    font-family:var(--sans); font-size:12px; cursor:pointer; border-radius:2px; padding:7px 14px;
+    border:0.5px solid rgba(36,31,26,.28); background:none; color:rgba(36,31,26,.72);
+  }
+  .confirm button.primary{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .confirm button:disabled{opacity:.4; cursor:default;}
+  body.is-safety .lightpool, body.is-safety .figure-halo{opacity:.22;}
+  body.is-safety .window{filter:grayscale(.55) brightness(.82);}
+  .conn{position:absolute; left:26px; bottom:24px; font-family:var(--mono); font-size:9.5px; color:rgba(237,232,222,.28); letter-spacing:.06em;}
+  .conn.bad{color:#C4675C;}
+</style>
+</head>
+<body>
+
+<section class="scene is-active" id="room">
+  <div class="room">
+    <div class="skywall"></div>
+    <div class="wall left"></div>
+    <div class="wall back"></div>
+    <div class="floor"></div>
+    <div class="lightpool"></div>
+    <div class="skirting"></div>
+    <div class="figure-halo"></div>
+
+    <div class="door" id="door" title="结束这一轮"></div>
+
+    <div class="window" id="window">
+      <div class="nightsky" id="nightsky"></div>
+      <div class="moon"></div>
+      <div class="mv"></div>
+      <div class="mh"></div>
+      <div class="sill"></div>
+      <div class="wcap">窗外 · 放出去的话</div>
+    </div>
+
+    <div class="stones" id="stones">
+      <span class="on"></span><span></span><span></span><span></span><span></span>
+      <div class="cap" id="stoneCap">还没开始</div>
+    </div>
+
+    <div class="figure-wrap" id="figure">
+      <svg viewBox="0 0 120 150" aria-label="坐在墙角盘腿的人">
+        <ellipse class="glowring" cx="60" cy="142" rx="44" ry="9" fill="rgba(232,201,160,.20)"/>
+        <ellipse cx="60" cy="139" rx="40" ry="8" fill="#3B3029"/>
+        <ellipse cx="60" cy="137" rx="40" ry="7" fill="#4A3C32"/>
+        <g class="breath">
+          <path d="M28 132 C34 119 47 115 60 115 C73 115 86 119 92 132 C86 139 34 139 28 132Z" fill="#151219"/>
+          <path d="M51 116 C46 103 47 89 53 83 L67 83 C73 89 74 103 69 116Z" fill="#17141B"/>
+          <circle cx="60" cy="66" r="17" fill="#1A1720"/>
+          <path d="M28 132 C34 119 47 115 60 115 C73 115 86 119 92 132" fill="none" stroke="rgba(232,201,160,.45)" stroke-width="1"/>
+          <path d="M69 116 C74 103 73 89 67 83" fill="none" stroke="rgba(232,201,160,.55)" stroke-width="1"/>
+          <path d="M77 66 A17 17 0 0 1 60 83" fill="none" stroke="rgba(232,201,160,.62)" stroke-width="1"/>
+          <path d="M53 88 C45 96 43 108 47 118" fill="none" stroke="rgba(232,201,160,.20)" stroke-width="1"/>
+          <path d="M40 121 C50 125 70 125 80 121" fill="none" stroke="rgba(232,201,160,.16)" stroke-width="1"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="waiting" id="waiting">它在这儿等你。<br>点它一下，或者直接说想说的。</div>
+
+    <div class="slip hidden" id="slip">
+      <div class="meta" id="slipMeta">第 1 步 · 情境</div>
+      <div class="q" id="slipQ">最近有什么事，一直搁在心里？</div>
+      <div class="opts" id="slipOpts">
+        <button data-answer="下周要组会汇报，一想到就手心出汗">下周要组会汇报</button>
+        <button data-answer="和室友有点别扭，说不清">和室友有点别扭</button>
+        <button data-answer="就是睡不着，脑子停不下来">睡不着</button>
+      </div>
+      <div class="line" id="inputLine">
+        <input id="field" type="text" placeholder="或者，自己说" autocomplete="off">
+        <button class="send" id="send">说给它听</button>
+      </div>
+      <div class="confirm" id="confirmRow">
+        <div class="txt" id="confirmText">确认之后才写进记录；想改说法，点右边。</div>
+        <div class="btns">
+          <button class="primary" id="cfYes">认可，记下来</button>
+          <button id="cfEdit">我再改改</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">这一轮结束了。它还在。</div>
+    <div class="conn" id="conn">连接中…</div>
+    <div class="vignette"></div>
+  </div>
+</section>
+
+<section class="scene" id="outside">
+  <div class="stars" id="stars"></div>
+  <svg class="threads" id="threads"></svg>
+  <div id="bubbles"></div>
+  <div class="outside-head">
+    <h1>窗外</h1>
+    <p id="outCount">你说过 0 句话</p>
+  </div>
+  <div class="backbtn" id="back">←</div>
+
+  <div class="reader" id="reader">
+    <div class="reader-slip">
+      <div class="when" id="readerWhen"></div>
+      <div id="readerBody"></div>
+      <div class="cite" id="readerCite"></div>
+      <button class="close" id="readerClose">合上</button>
+    </div>
+  </div>
+</section>
+
+
+<script>
+const API = "/api/cbt/sessions";
+const PARAMS = new URLSearchParams(location.search);
+const DEMO = PARAMS.get("demo");
+const VIEW = PARAMS.get("view");
+const $ = (id) => document.getElementById(id);
+const STAGES = ["情境", "想法", "检验", "行动", "复盘"];
+
+const S = {
+  id: null,
+  stage: null,
+  status: null,
+  awaiting: false,
+  safety: false,
+  turns: 0,
+  busy: false,
+  visibleIndex: 0,
+  userId: localStorage.getItem("sm-user") || ("u-" + Math.random().toString(36).slice(2, 8))
+};
+localStorage.setItem("sm-user", S.userId);
+
+const room = $("room"), outside = $("outside");
+const slip = $("slip"), waiting = $("waiting"), toast = $("toast");
+const nightsky = $("nightsky"), win = $("window"), figure = $("figure");
+const field = $("field"), sendBtn = $("send"), confirmRow = $("confirmRow");
+
+function showScene(el) {
+  [room, outside].forEach((s) => s.classList.toggle("is-active", s === el));
+}
+
+function say(text, ms) {
+  toast.textContent = text;
+  toast.classList.add("show");
+  clearTimeout(say._t);
+  say._t = setTimeout(() => toast.classList.remove("show"), ms || 2200);
+}
+
+function setConn(text, bad) {
+  const el = $("conn");
+  el.textContent = text;
+  el.classList.toggle("bad", Boolean(bad));
+}
+
+async function api(path, options) {
+  const res = await fetch(API + path, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || ("请求失败 " + res.status));
+  }
+  return data;
+}
+
+function jsonBody(obj) {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(obj)
+  };
+}
+
+/* ---------- 纸片与进度 ---------- */
+
+function paintStones() {
+  const idx = S.turns === 0 || S.stage === "SAFETY_HOLD" || S.status === "ended" ? -1 : (S.visibleIndex ?? 0);
+  document.querySelectorAll("#stones span").forEach((s, i) => s.classList.toggle("on", i === idx));
+  $("stoneCap").textContent = S.safety
+    ? "已暂停"
+    : S.turns === 0
+      ? "还没开始"
+      : "0" + (idx + 1) + " / 05 · " + STAGES[idx];
+}
+
+function metaOf(t) {
+  if (t.stage === "SAFETY_HOLD") return "安全暂停";
+  if (t.status === "ended") return "这一轮结束";
+  const n = Math.min(5, Math.max(1, (t.visibleIndex ?? 0) + 1));
+  return "第 " + n + " 步 · " + (t.stageLabel || "");
+}
+
+function applyTurn(t, isStart) {
+  S.id = t.sessionId;
+  S.stage = t.stage;
+  S.status = t.status;
+  S.awaiting = Boolean(t.awaitingConfirmation);
+  S.safety = t.stage === "SAFETY_HOLD";
+  S.visibleIndex = t.visibleIndex;
+  if (!isStart) S.turns++;
+
+  document.body.classList.toggle("is-safety", S.safety);
+  if (S.safety) {
+    const breath = document.querySelector(".breath");
+    if (breath) breath.style.animation = "none";
+    figure.classList.add("alert");
+  }
+
+  paintStones();
+  showSlip(t, isStart);
+  setConn(S.safety ? "已暂停 · 不会追问" : "连着 · 第 " + Object.keys(STAGES).length + " 步流程");
+}
+
+function showSlip(t, isStart) {
+  waiting.classList.add("hidden");
+  slip.classList.remove("hidden");
+
+  $("slipMeta").textContent = metaOf(t);
+  $("slipQ").textContent = t.response || "";
+  $("slipOpts").innerHTML = "";
+
+  const ended = t.status === "ended";
+  $("inputLine").classList.toggle("is-off", S.safety || ended || S.awaiting || S.busy);
+  field.value = "";
+  field.disabled = S.safety || ended;
+  sendBtn.disabled = S.safety || ended;
+  field.placeholder = S.safety ? "先停在这里" : ended ? "这一轮结束了" : "或者，自己说";
+
+  confirmRow.classList.toggle("on", S.awaiting);
+  if (S.awaiting) {
+    $("cfYes").disabled = false;
+    $("cfEdit").disabled = false;
+  }
+
+  if (isStart) {
+    renderSeeds();
+    field.focus();
+  }
+}
+
+function renderSeeds() {
+  const seeds = ["下周要组会汇报，一想到就手心出汗", "和室友有点别扭，说不清", "就是睡不着，脑子停不下来"];
+  $("slipOpts").innerHTML = seeds
+    .map((o) => '<button data-answer="' + o.replace(/"/g, "&quot;") + '">' + o + "</button>")
+    .join("");
+}
+
+/* ---------- 发送 ---------- */
+
+async function ensureSession() {
+  if (S.id) return;
+  setConn("正在坐下…");
+  const t = await api("", jsonBody({ userId: S.userId }));
+  applyTurn(t, true);
+}
+
+async function send(text) {
+  if (!text || !text.trim() || S.busy || S.safety) return;
+  if (!S.id) await ensureSession();
+  if (S.awaiting) {
+    say("这一步要先确认，或者点「我再改改」");
+    return;
+  }
+  S.busy = true;
+  slip.classList.add("hidden");
+  flyOut();
+  try {
+    const t = await api("/" + S.id + "/messages", jsonBody({
+      message: text.trim(),
+      clientMessageId: "m-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6)
+    }));
+    applyTurn(t, false);
+  } catch (e) {
+    say("没送出去：" + e.message, 3200);
+    setConn("连接不稳", true);
+    slip.classList.remove("hidden");
+  } finally {
+    S.busy = false;
+  }
+}
+
+async function confirmThought() {
+  if (!S.awaiting || S.busy) return;
+  S.busy = true;
+  $("cfYes").disabled = true;
+  $("cfEdit").disabled = true;
+  try {
+    const t = await api("/" + S.id + "/confirm", jsonBody({}));
+    applyTurn(t, false);
+  } catch (e) {
+    say("没记下来：" + e.message, 3200);
+    $("cfYes").disabled = false;
+    $("cfEdit").disabled = false;
+  } finally {
+    S.busy = false;
+  }
+}
+
+$("slipOpts").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) send(b.dataset.answer);
+});
+
+sendBtn.addEventListener("click", () => send(field.value));
+field.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); send(field.value); }
+});
+
+$("cfYes").addEventListener("click", confirmThought);
+$("cfEdit").addEventListener("click", () => {
+  confirmRow.classList.remove("on");
+  $("inputLine").classList.remove("is-off");
+  field.disabled = false;
+  field.focus();
+  field.placeholder = "把你想改的说法写下来";
+  say("写下你的版本，我会用它替换那句话");
+});
+
+figure.addEventListener("click", async () => {
+  try {
+    if (!S.id) await ensureSession();
+    else slip.classList.remove("hidden");
+  } catch (e) {
+    say("连不上服务：" + e.message, 3200);
+    setConn("连不上服务", true);
+  }
+});
+
+/* ---------- 结束与窗外 ---------- */
+
+document.getElementById("door").addEventListener("click", async () => {
+  if (!S.id) {
+    say("这一轮还没开始。说点什么，或者点它。");
+    return;
+  }
+  slip.classList.add("hidden");
+  try {
+    await api("/" + S.id + "/end", jsonBody({}));
+  } catch (e) {
+    /* 结束失败也让用户离开，下一轮会重新开始 */
+  }
+  say("这一轮结束了。它还在。");
+  setTimeout(() => {
+    S.id = null; S.turns = 0; S.stage = null; S.status = null;
+    S.awaiting = false; S.safety = false; S.visibleIndex = 0;
+    document.body.classList.remove("is-safety");
+    figure.classList.remove("alert");
+    const breath = document.querySelector(".breath");
+    if (breath) breath.style.animation = "";
+    paintStones();
+    waiting.classList.remove("hidden");
+    slip.classList.add("hidden");
+    field.value = "";
+  }, 1600);
+});
+
+win.addEventListener("click", () => {
+  if (win.classList.contains("expand")) return;
+  win.classList.add("expand");
+  setTimeout(() => {
+    showScene(outside);
+    renderOutside();
+    win.classList.remove("expand");
+  }, 420);
+});
+
+document.getElementById("back").addEventListener("click", () => showScene(room));
+
+function hash(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+async function renderOutside() {
+  const box = document.getElementById("bubbles");
+  box.innerHTML = "";
+  let rows = [];
+  try {
+    rows = await api("?userId=" + encodeURIComponent(S.userId));
+    setConn("连着 · 窗外 " + rows.length + " 个泡泡");
+  } catch (e) {
+    setConn("读不到记录：" + e.message, true);
+  }
+
+  const cards = rows.map((r) => {
+    const h = hash(r.sessionId);
+    return {
+      id: r.sessionId,
+      label: (r.targetProblem || r.stageLabel || "一次对话").slice(0, 12),
+      when: new Date(r.updatedAt).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" }),
+      x: 12 + (h % 72),
+      y: 14 + ((h >> 8) % 58),
+      r: Math.min(96, 26 + (r.turnCount || 0) * 5),
+      live: r.sessionId === S.id && (r.turnCount || 0) > 0,
+      turns: r.turnCount || 0
+    };
+  });
+
+  if (!cards.length) {
+    const empty = document.createElement("div");
+    empty.className = "bubble empty";
+    empty.style.left = "57%";
+    empty.style.top = "70%";
+    empty.style.width = empty.style.height = "54px";
+    empty.innerHTML = '<div class="lbl">还没有说出口的话</div>';
+    box.appendChild(empty);
+  }
+
+  cards.forEach((b, i) => {
+    const el = document.createElement("div");
+    el.className = "bubble" + (b.live ? " live" : "");
+    el.style.left = b.x + "%";
+    el.style.top = b.y + "%";
+    el.style.width = el.style.height = b.r + "px";
+    el.style.animationDelay = (i * 0.4) + "s";
+    el.innerHTML =
+      '<div class="inner"></div><div class="lbl">' + escapeHtml(b.label) +
+      '</div><div class="age">' + b.when + " · " + b.turns + " 轮</div>";
+    el.addEventListener("click", () => openReader(b));
+    box.appendChild(el);
+  });
+
+  document.getElementById("outCount").textContent =
+    cards.length ? "窗外有 " + cards.length + " 次对话" : "还没有说出口的话";
+}
+
+function escapeHtml(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const reader = document.getElementById("reader");
+async function openReader(b) {
+  document.getElementById("readerWhen").textContent = b.when + " · " + b.label;
+  document.getElementById("readerBody").innerHTML = '<div class="line-row">正在取记录…</div>';
+  reader.classList.add("open");
+  try {
+    const msgs = (await api("/" + b.id + "/history")).filter((m) => m.content);
+    document.getElementById("readerBody").innerHTML = msgs
+      .map((m) => '<div class="line-row ' + (m.role === "user" ? "you" : "") + '">' +
+        escapeHtml(m.content) + "</div>")
+      .join("") || '<div class="line-row">这一轮还没有内容。</div>';
+    document.getElementById("readerCite").textContent = b.live
+      ? "这一轮还没结束。合上纸，回房间继续说。"
+      : "记录已存下：阶段、确认过什么、当时说了什么。";
+  } catch (e) {
+    document.getElementById("readerBody").innerHTML =
+      '<div class="line-row">读不到这条记录：' + escapeHtml(e.message) + "</div>";
+  }
+}
+document.getElementById("readerClose").addEventListener("click", () => reader.classList.remove("open"));
+reader.addEventListener("click", (e) => { if (e.target === reader) reader.classList.remove("open"); });
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (reader.classList.contains("open")) reader.classList.remove("open");
+  else if (outside.classList.contains("is-active")) showScene(room);
+});
+
+/* ---------- 背景星点 ---------- */
+
+const stars = document.getElementById("stars");
+for (let i = 0; i < 110; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%";
+  s.style.top = Math.random() * 100 + "%";
+  s.style.opacity = (0.06 + Math.random() * 0.28).toFixed(2);
+  stars.appendChild(s);
+}
+for (let i = 0; i < 22; i++) {
+  const s = document.createElement("i");
+  s.style.left = Math.random() * 100 + "%";
+  s.style.top = Math.random() * 70 + "%";
+  s.style.opacity = (0.3 + Math.random() * 0.5).toFixed(2);
+  nightsky.appendChild(s);
+}
+
+function flyOut() {
+  const w = win.getBoundingClientRect();
+  const start = { x: window.innerWidth * 0.55, y: window.innerHeight * 0.72 };
+  const target = { x: w.left + w.width / 2, y: w.top + w.height / 2 };
+  const el = document.createElement("div");
+  el.className = "flying";
+  el.style.left = start.x + "px";
+  el.style.top = start.y + "px";
+  document.body.appendChild(el);
+  const midX = (start.x + target.x) / 2 + 40;
+  const midY = Math.min(start.y, target.y) - 70;
+  el.animate([
+    { transform: "translate(0,0) rotate(0deg) scale(1)", opacity: 1 },
+    { transform: "translate(" + (midX - start.x) + "px," + (midY - start.y) + "px) rotate(-14deg) scale(.85)", opacity: 1, offset: 0.55 },
+    { transform: "translate(" + (target.x - start.x) + "px," + (target.y - start.y) + "px) rotate(-26deg) scale(.2)", opacity: 0 }
+  ], { duration: 1100, easing: "cubic-bezier(.4,0,.6,1)" });
+  setTimeout(() => {
+    el.remove();
+    const star = document.createElement("i");
+    star.className = "new";
+    star.style.left = (8 + Math.random() * 84) + "%";
+    star.style.top = (6 + Math.random() * 70) + "%";
+    nightsky.appendChild(star);
+    win.classList.add("lit");
+  }, 1050);
+}
+
+/* ---------- 启动 ---------- */
+
+paintStones();
+setConn("同源接口已就绪");
+if (VIEW === "outside" && DEMO !== "1") {
+  showScene(outside);
+  renderOutside();
+}
+
+
+if (DEMO === "1") {
+  (async () => {
+    try {
+      await ensureSession();
+      const lines = [
+        "下周组会要汇报，一想到就手心出汗",
+        "我肯定会搞砸",
+        "前三次有两次其实还行，组长只提了数据口径",
+        "提前写下三条具体预测，会后逐条核对",
+        "汇报前把三条预测写在便签上"
+      ];
+      for (const line of lines) {
+        await new Promise((r) => setTimeout(r, 1400));
+        await send(line);
+      }
+      if (VIEW === "outside") {
+        showScene(outside);
+        renderOutside();
+      }
+    } catch (e) {
+      say("演示失败：" + e.message, 3200);
+    }
+  })();
+}
+</script>
+</body>
+</html>

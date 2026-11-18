@@ -63,6 +63,7 @@ public class CbtController {
             String summary,
             boolean awaitingUser,
             String safetyStatus,
+            int turnCount,
             Instant createdAt
     ) {
         static SessionView of(CbtSession s) {
@@ -70,7 +71,8 @@ public class CbtController {
                     s.stage().visibleIndex(), finished(s.stage()) ? "ended" : "running",
                     s.targetProblem(), s.automaticThought(), s.candidateThought(),
                     s.userConfirmedThought(), s.interventionType(), s.actionPlan(),
-                    s.actionResult(), s.summary(), s.awaitingUser(), s.safetyStatus(), s.createdAt());
+                    s.actionResult(), s.summary(), s.awaitingUser(), s.safetyStatus(),
+                    s.trace().size(), s.createdAt());
         }
 
         /**

@@ -1,13 +1,13 @@
 {
-  "version" : 2,
-  "updatedAt" : "2026-11-17T12:36:51.668790100Z",
+  "version" : 3,
+  "updatedAt" : "2026-11-18T04:56:16.400308400Z",
   "updatedBy" : "ops",
   "profiles" : {
     "cbt_balance" : {
       "enabled" : true,
       "minChars" : 8,
       "maxChars" : 80,
-      "banned" : [ "你应该", "你必须", "加油", "抱抱", "别担心", "！", "!" ],
+      "banned" : [ "你应该", "你必须", "加油", "抱抱", "别担心", "！", "!", "必须" ],
       "novelty" : 0.35,
       "repairAttempts" : 1,
       "note" : "认知检验的候选说法：不许说教、不许安慰、不许引入原想法与新信息里没有的内容"

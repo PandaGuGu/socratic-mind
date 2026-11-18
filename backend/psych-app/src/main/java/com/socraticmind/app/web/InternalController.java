@@ -108,6 +108,7 @@ public class InternalController {
             boolean awaiting,
             String safetyStatus,
             String interventionType,
+            String targetProblem,
             int turns,
             int messages,
             boolean demo,
@@ -118,6 +119,7 @@ public class InternalController {
             return new SessionRow(
                     s.id(), s.userId(), s.stage(), s.stage().label(), s.stage().visibleIndex(),
                     s.stage().isTerminal(), s.awaitingUser(), s.safetyStatus(), s.interventionType(),
+                    s.targetProblem(),
                     s.trace().size(), s.history().size(), isDemo(s.userId()),
                     s.createdAt(), s.updatedAt());
         }

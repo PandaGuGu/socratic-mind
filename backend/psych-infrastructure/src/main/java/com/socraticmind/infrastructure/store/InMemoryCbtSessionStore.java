@@ -2,6 +2,7 @@ package com.socraticmind.infrastructure.store;
 
 import com.socraticmind.session.CbtSession;
 import com.socraticmind.session.CbtSessionStore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -10,8 +11,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** 会话内存存储。重启即丢，只用于开发与测试。 */
+/** 会话内存存储。重启即丢，只用于开发与测试；psych.store=postgres 时由 JDBC 实现接管。 */
 @Component
+@ConditionalOnProperty(name = "psych.session.store", havingValue = "memory", matchIfMissing = true)
 public class InMemoryCbtSessionStore implements CbtSessionStore {
 
     private final Map<String, CbtSession> sessions = new ConcurrentHashMap<>();

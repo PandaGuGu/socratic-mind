@@ -9,6 +9,9 @@ spring:
 
 psych:
   store: memory
+  # 会话存储：memory 重启即丢（默认，开发用）；jdbc 落库，见 application-pg.yml / application-h2.yml
+  session:
+    store: memory
   seed:
     enabled: true
   ai:

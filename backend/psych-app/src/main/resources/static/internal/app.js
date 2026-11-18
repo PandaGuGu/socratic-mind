@@ -140,7 +140,7 @@ function renderBadges(o) {
   const badges = [];
   badges.push(
     o.durable
-      ? `<span class="badge is-ok"><i></i>${esc(o.store)}</span>`
+      ? `<span class="badge is-ok"><i></i>已落盘 · 重启可续</span>`
       : `<span class="badge is-warn"><i></i>内存档 · 重启即丢</span>`
   );
   badges.push(
@@ -168,7 +168,7 @@ function renderBadges(o) {
   }
   $("badges").innerHTML = badges.join("");
   $("storeNote").textContent = o.durable
-    ? `存储：${o.store}`
+    ? `存储：${o.store}（会话、消息、轮次轨迹均已落库）`
     : "内存档：进程重启后会话与轨迹全部清空，仅用于开发与演示。";
 }
 

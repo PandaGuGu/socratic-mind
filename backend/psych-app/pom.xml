@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.socraticmind</groupId>
     <artifactId>psych-assistant</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
   </parent>
   <artifactId>psych-app</artifactId>
   <name>psych-app</name>
@@ -16,6 +16,12 @@
     <dependency>
       <groupId>com.socraticmind</groupId>
       <artifactId>psych-common</artifactId>
+    </dependency>
+    <!-- 仅 h2 profile：本机没有 Docker 时用 H2 文件库验证会话落库，不参与生产部署 -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>com.socraticmind</groupId>

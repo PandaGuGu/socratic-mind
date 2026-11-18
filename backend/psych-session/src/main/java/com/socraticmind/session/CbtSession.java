@@ -17,7 +17,7 @@ public class CbtSession {
     private final String id;
     private final String threadId;
     private final String userId;
-    private final Instant createdAt;
+    private Instant createdAt;
     private Instant updatedAt;
 
     private CbtStage stage = CbtStage.PROBLEM_IDENTIFICATION;
@@ -51,6 +51,15 @@ public class CbtSession {
         this.userId = userId;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
+    }
+
+    /**
+     * 从存储重建时用：保留原时间戳。
+     * 不补这一步，"读出来的会话"会看起来是刚创建的，日志与列表排序全乱。
+     */
+    public void restoreTimes(Instant createdAt, Instant updatedAt) {
+        if (createdAt != null) this.createdAt = createdAt;
+        if (updatedAt != null) this.updatedAt = updatedAt;
     }
 
     public void addMessage(CbtMessage message) {

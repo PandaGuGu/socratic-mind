@@ -18,6 +18,12 @@ Vue 3。M5 起步（[第 10 章](../docs/01-方案/10-里程碑与开发顺序.m
 
 两者共用 [UI 设计规范](../docs/04-规范/UI设计规范.md) 的 token，不另起一套。
 
+## 已经跑起来的那一版
+
+`preview/world-demo.html` 的逻辑已被搬进后端并接上真实接口：
+`backend/psych-app/src/main/resources/static/room/index.html`，访问 `http://localhost:8099/room`。
+原型保留作设计基线，不要再往里加交互；要改交互去改 static 里那份。
+
 设计意图与数据映射见 [世界观与导航](../docs/02-设计/世界观与导航.md)。
 
 ## 三个页面
