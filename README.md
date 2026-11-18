@@ -2,10 +2,12 @@
 
 > 一个"确定性骨架 + 受控生成"的心理自助系统：心理知识科普 + CBT 自助练习。
 > 工程代号 `psych-assistant`，技术形态为 Java 模块化单体 + Spring AI + Spring AI Alibaba Graph + PostgreSQL/pgvector。
+>
+> **当前版本 v0.1.0**：后端全链路与房间前台已跑通，会话落库；模型层仍为桩。
 
 ## 这个仓库是什么
 
-当前处于**方案阶段（v1.0 设计稿）**。仓库里先沉淀的是设计文档，代码按里程碑 M1 起步逐步填入。
+v0.1.0 已经能跑完整一轮对话：房间页面接真实 `/api/cbt/*`，运维可以在后台改输出策略与流程话术，进程重启后会话与轨迹都还在。设计文档仍是唯一事实来源，代码按里程碑逐步填入。
 
 一句话定位（详见 [第 2 章](docs/01-方案/02-相关方案横向对比.md)）：
 
@@ -43,12 +45,36 @@ socratic-mind/
 │   ├── 05-评估/                # 测试集构成与跑法
 │   └── assets/                 # 图、截图、导出件（能内联 mermaid 的不放图）
 ├── backend/                   # Maven 多模块（M1 起）
-├── frontend/                  # Vue 3（M5 起）
+├── frontend/                  # Vue 3（未开始）；设计基线在 preview/，已实装的房间在 backend static/room/
 ├── eval/                      # 离线评估：测试集 + 跑分脚本（M6 起）
 ├── deploy/                    # compose / 镜像 / 部署说明
 ├── scripts/                   # 入库、切分、迁移等一次性脚本
 └── .gitignore
 ```
+
+## 界面
+
+房间是默认入口：点墙角的小人开口，纸片飞出窗外，地上五颗石子表示走到第几步。
+
+![房间：确认这一步](docs/assets/v0.1.0/02-room-dialog.png)
+
+另外三个页面给运维：`/internal`（会话与轨迹）、`/internal/policy.html`（输出策略）、`/internal/flow.html`（流程画布）。截图见 [验收文档](docs/05-评估/v0.1.0-验收.md)。
+
+## 跑起来
+
+```bash
+cd backend
+mvn -o package
+
+# 本机没有 Docker：H2 文件库（重启后数据仍在）
+java -jar psych-app/target/psych-app-0.1.0.jar --server.port=8099 --spring.profiles.active=h2
+
+# 有 PostgreSQL + pgvector 时
+# docker compose -f deploy/docker-compose.yml up -d
+# java -jar psych-app/target/psych-app-0.1.0.jar --server.port=8099 --spring.profiles.active=pg
+```
+
+浏览器打开 <http://localhost:8099>。模型默认是桩；接真实模型用 `--spring.profiles.active=http` 并配 `psych.ai.*`。
 
 ## 里程碑
 
@@ -57,11 +83,11 @@ socratic-mind/
 | M1 | 基础工程：模块化单体 + 可运行 + 能存读 | **已跑通**（内存档） |
 | M2 | 基础 RAG：入库→切分→检索→证据→引用定位 | **已跑通**（内存档） |
 | M3 | KnowledgeGraph 七节点 | **已跑通**（桩模型；真实模型待接） |
-| M4 | CBT Graph + 安全分流 + Checkpoint | **已跑通**（五阶段 + 中断确认；Checkpoint 待接） |
-| M5 | 界面（房间优先，见世界观设计） | 原型已出，未接入 |
+| M4 | CBT Graph + 安全分流 + 会话落库 | **已跑通**（五阶段 + 分支 + 中断确认；Checkpoint 引擎待接） |
+| M5 | 界面（房间优先，见世界观设计） | **房间已接真接口**（M5-α/β 实装；Vue 工程与记录页未开始） |
 | M6 | 评估：三组对照 + 测试集 | 未开始 |
 
-验收证据不是"我觉得跑通了"，是 [链路验证记录](docs/05-评估/链路验证记录.md)：11 个测试 + 一份 HTTP 端到端输出。
+验收证据不是"我觉得跑通了"，是 [v0.1.0 全链路验收](docs/05-评估/v0.1.0-验收.md)（对话 → 调策略 → 改流程 → 重启存活，附 6 张界面截图）与 [链路验证记录](docs/05-评估/链路验证记录.md)：69 项测试。
 
 完整定义见 [第 10 章](docs/01-方案/10-里程碑与开发顺序.md)。
 
