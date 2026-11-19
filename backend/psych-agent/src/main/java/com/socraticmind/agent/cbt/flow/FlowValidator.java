@@ -121,6 +121,39 @@ public final class FlowValidator {
         }
         errors.addAll(checkReachability(def));
         errors.addAll(checkIntervention(def.intervention()));
+        errors.addAll(checkMessages(def));
+        return errors;
+    }
+
+    /**
+     * 系统话术：键必须在白名单里，占位符必须是这个键允许的那些。
+     * 这样"确认回执"里写 {{thougt}} 会在保存时被拦住，而不是上线后少一个词。
+     */
+    private static List<String> checkMessages(FlowDefinition def) {
+        List<String> errors = new ArrayList<>();
+        for (String key : def.messages().keySet()) {
+            if (!FlowMessages.PLACEHOLDERS.containsKey(key)) {
+                errors.add("未知话术键：" + key + "（可用的是 " + FlowMessages.PLACEHOLDERS.keySet() + "）");
+            }
+        }
+        for (Map.Entry<String, Set<String>> entry : FlowMessages.PLACEHOLDERS.entrySet()) {
+            String key = entry.getKey();
+            String text = def.message(key);
+            if (text == null || text.isBlank()) {
+                errors.add("话术 " + key + " 不能为空");
+                continue;
+            }
+            if (text.length() > 800) {
+                errors.add("话术 " + key + " 超过 800 字");
+            }
+            Matcher m = PLACEHOLDER.matcher(text);
+            while (m.find()) {
+                if (!entry.getValue().contains(m.group(1))) {
+                    errors.add("话术 " + key + " 里的 {{" + m.group(1) + "}} 不可用，允许的是 "
+                            + (entry.getValue().isEmpty() ? "无占位符" : entry.getValue()));
+                }
+            }
+        }
         return errors;
     }
 

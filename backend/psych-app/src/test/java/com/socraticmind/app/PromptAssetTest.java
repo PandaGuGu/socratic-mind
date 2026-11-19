@@ -26,6 +26,8 @@ class PromptAssetTest {
             "intervention_decision",
             "action_confirm",
             "action_review",
+            "behavioral_experiment",
+            "practical_problem_solving",
             "safety_hold");
 
     private String asset() throws Exception {

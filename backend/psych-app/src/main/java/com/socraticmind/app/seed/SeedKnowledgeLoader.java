@@ -1,5 +1,6 @@
 package com.socraticmind.app.seed;
 
+import com.socraticmind.common.model.KnowledgeDocument;
 import com.socraticmind.common.port.KnowledgeStore;
 import com.socraticmind.knowledge.dto.IngestCommand;
 import com.socraticmind.knowledge.service.IngestionService;
@@ -51,7 +52,11 @@ public class SeedKnowledgeLoader {
                 IngestCommand cmd = new IngestCommand("seed", title,
                         "内部示例语料（非权威指南，仅用于开发验证）", null, "zh", true, content);
                 var result = ingestion.ingest(cmd);
-                log.info("示例语料入库 {} → {} 子块 / {} 证据", title, result.childChunks(), result.evidenceCount());
+                // 入库一律落到"待审核"；示例语料是随包分发的可信资源，
+                // 由启动任务自己完成这一次审核，而不是让入库接口给一条直通发布的后门。
+                store.updateDocumentStatus(result.documentId(), KnowledgeDocument.PUBLISHED);
+                log.info("示例语料入库并发布 {} → {} 子块 / {} 证据",
+                        title, result.childChunks(), result.evidenceCount());
             }
         };
     }

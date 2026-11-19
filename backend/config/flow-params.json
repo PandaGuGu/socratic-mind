@@ -1,129 +1,121 @@
 {
-  "version": 5,
-  "updatedAt": "2026-11-18T04:56:17.735070800Z",
-  "updatedBy": "ops",
-  "stages": {
-    "PROBLEM_IDENTIFICATION": {
-      "title": "情境",
-      "text": "最近有什么事一直搁在心里？可以只说一个具体的时刻：什么时候、在哪儿、当时在做什么。",
-      "next": "COGNITIVE_EXTRACTION",
-      "model": "none",
-      "branches": [],
-      "x": 40,
-      "y": 40
+  "version" : 10,
+  "updatedAt" : "2026-11-19T03:08:18.277043800Z",
+  "updatedBy" : "林医生",
+  "stages" : {
+    "PROBLEM_IDENTIFICATION" : {
+      "title" : "情境",
+      "text" : "最近有什么事一直搁在心里？可以只说一个具体的时刻：什么时候、在哪儿、当时在做什么。",
+      "next" : "COGNITIVE_EXTRACTION",
+      "model" : "none",
+      "branches" : [ ],
+      "x" : 40,
+      "y" : 40
     },
-    "COGNITIVE_EXTRACTION": {
-      "title": "想法",
-      "text": "那个时刻，你脑子里冒出来的第一句话是什么？尽量用当时的原话，不用修饰。",
-      "next": "COGNITIVE_REVIEW",
-      "model": "none",
-      "branches": [],
-      "x": 300,
-      "y": 40
+    "COGNITIVE_EXTRACTION" : {
+      "title" : "想法",
+      "text" : "那个时刻，你脑子里冒出来的第一句话是什么？尽量用当时的原话，不用修饰。",
+      "next" : "COGNITIVE_REVIEW",
+      "model" : "none",
+      "branches" : [ ],
+      "x" : 300,
+      "y" : 40
     },
-    "COGNITIVE_REVIEW": {
-      "title": "检验",
-      "text": "我们先把「{{thought}}」当成一个预测，而不是事实。\n过去半年里，有没有出现过跟它不一样的情况？",
-      "next": "INTERVENTION_DECISION",
-      "model": "cbt_balance",
-      "branches": [],
-      "x": 560,
-      "y": 40
+    "COGNITIVE_REVIEW" : {
+      "title" : "检验",
+      "text" : "我们先把「{{thought}}」当成一个预测，而不是事实。\n过去半年里，有没有出现过跟它不一样的情况？",
+      "next" : "INTERVENTION_DECISION",
+      "model" : "cbt_balance",
+      "branches" : [ ],
+      "x" : 560,
+      "y" : 40
     },
-    "INTERVENTION_DECISION": {
-      "title": "行动",
-      "text": "如果要验证这个预测，你觉得最小的一步可以是什么？\n不用一步到位，能让你获得一点新信息就够。",
-      "model": "none",
-      "branches": [
-        {
-          "when": "intervention=behavioral_experiment",
-          "to": "BEHAVIORAL_EXPERIMENT"
-        },
-        {
-          "when": "intervention=self_monitoring",
-          "to": "CONDITION"
-        },
-        {
-          "when": "else",
-          "to": "ACTION_CONFIRM"
-        }
-      ],
-      "x": 820,
-      "y": 40
+    "INTERVENTION_DECISION" : {
+      "title" : "行动",
+      "text" : "如果要验证这个预测，你觉得最小的一步可以是什么？\n不用一步到位，能让你获得一点新信息就够。",
+      "model" : "none",
+      "branches" : [ {
+        "when" : "intervention=behavioral_experiment",
+        "to" : "BEHAVIORAL_EXPERIMENT"
+      }, {
+        "when" : "intervention=self_monitoring",
+        "to" : "CONDITION"
+      }, {
+        "when" : "else",
+        "to" : "ACTION_CONFIRM"
+      } ],
+      "x" : 820,
+      "y" : 40
     },
-    "ACTION_CONFIRM": {
-      "title": "确认",
-      "text": "我先把这两条写下来：\n\n· 更接近事实的说法：「{{thought}}」\n· 行动计划：「{{plan}}」\n\n这两条你都认可吗？确认之后我才会写进记录——没确认之前，它们只是我的建议，不是你的结论。",
-      "next": "ACTION_REVIEW",
-      "model": "none",
-      "branches": [],
-      "x": 820,
-      "y": 250
+    "ACTION_CONFIRM" : {
+      "title" : "确认",
+      "text" : "我先把这两条写下来：\n\n· 更接近事实的说法：{{thought}}\n· 行动计划：「{{plan}}」\n\n这两条你都认可吗？确认之后我才会写进记录——没确认之前，它们只是我的建议，不是你的结论。",
+      "next" : "ACTION_REVIEW",
+      "model" : "none",
+      "branches" : [ ],
+      "x" : 820,
+      "y" : 250
     },
-    "ACTION_REVIEW": {
-      "title": "复盘",
-      "text": "后来实际发生了什么？和你当时的预测一样吗？",
-      "next": "SESSION_SUMMARY",
-      "model": "cbt_summary",
-      "branches": [],
-      "x": 560,
-      "y": 250
+    "ACTION_REVIEW" : {
+      "title" : "复盘",
+      "text" : "后来实际发生了什么？和你当时的预测一样吗？",
+      "next" : "SESSION_SUMMARY",
+      "model" : "cbt_summary",
+      "branches" : [ ],
+      "x" : 560,
+      "y" : 250
     },
-    "SESSION_SUMMARY": {
-      "title": "总结",
-      "text": "",
-      "model": "none",
-      "branches": [],
-      "x": 300,
-      "y": 250
+    "SESSION_SUMMARY" : {
+      "title" : "总结",
+      "text" : "",
+      "model" : "none",
+      "branches" : [ ],
+      "x" : 300,
+      "y" : 250
     },
-    "SAFETY_HOLD": {
-      "title": "安全暂停",
-      "text": "这超出我能提供的帮助范围了。\n\n如果你现在有伤害自己的想法，请联系：当地心理援助热线、120，或就近的精神科急诊。\n\n对话先停在这里。我不会追问细节，也不会做任何判断。你随时可以回来。",
-      "model": "none",
-      "branches": [],
-      "x": 40,
-      "y": 250
+    "SAFETY_HOLD" : {
+      "title" : "安全暂停",
+      "text" : "这超出我能提供的帮助范围了。\n\n如果你现在有伤害自己的想法，请立刻联系：\n· 12356　全国统一心理援助热线（24 小时）\n· 120　　急救\n\n这一轮先停在这里，我不会追问细节，也不会做任何判断。想继续的时候，重新开一轮就好。",
+      "model" : "none",
+      "branches" : [ ],
+      "x" : 40,
+      "y" : 250
     },
-    "BEHAVIORAL_EXPERIMENT": {
-      "title": "行为实验",
-      "text": "把这一步再缩小一点：具体到什么时候做、做什么、怎么算完成？",
-      "next": "ACTION_CONFIRM",
-      "model": "none",
-      "branches": [],
-      "x": 560,
-      "y": 400
+    "BEHAVIORAL_EXPERIMENT" : {
+      "title" : "行为实验",
+      "text" : "把这一步再缩小一点：具体到什么时候做、做什么、怎么算完成？",
+      "next" : "ACTION_CONFIRM",
+      "model" : "none",
+      "branches" : [ ],
+      "x" : 560,
+      "y" : 400
     },
-    "CONDITION": {
-      "title": "判断",
-      "text": "",
-      "model": "none",
-      "branches": [
-        {
-          "when": "confirmed",
-          "to": "ACTION_REVIEW"
-        },
-        {
-          "when": "else",
-          "to": "ACTION_CONFIRM"
-        }
-      ],
-      "x": 300,
-      "y": 400
+    "CONDITION" : {
+      "title" : "判断",
+      "text" : "",
+      "model" : "none",
+      "branches" : [ {
+        "when" : "confirmed",
+        "to" : "ACTION_REVIEW"
+      }, {
+        "when" : "else",
+        "to" : "ACTION_CONFIRM"
+      } ],
+      "x" : 300,
+      "y" : 400
     }
   },
-  "intervention": {
-    "behavioral_experiment": [
-      "试",
-      "练习",
-      "做",
-      "写"
-    ],
-    "cognitive_restructuring": [
-      "换",
-      "重新",
-      "想"
-    ],
-    "self_monitoring": []
+  "intervention" : {
+    "behavioral_experiment" : [ "试", "练习", "做", "写" ],
+    "cognitive_restructuring" : [ "换", "重新", "想" ],
+    "self_monitoring" : [ ]
+  },
+  "messages" : {
+    "stage_ended" : "这一轮已经结束了。如果想继续，开一轮新的。",
+    "confirm_required" : "这句话我先没写进记录——它需要你确认。",
+    "confirm_ack" : "好，已经记下：\n· 你的说法：「{{thought}}」\n· 行动计划：「{{plan}}」",
+    "balance_template" : "「{{thought}}」是一个预测，不是事实。从现有信息看，另一种可能是：{{evidence}}。",
+    "summary_template" : "这一轮：情境是「{{situation}}」，当时的想法是「{{thought}}」，你后来看到「{{evidence}}」。行动计划：{{plan}}。",
+    "end" : "这一轮结束了。"
   }
 }

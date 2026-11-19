@@ -10,6 +10,7 @@ import com.socraticmind.knowledge.dto.IngestResult;
 import com.socraticmind.knowledge.service.IngestionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,12 +43,16 @@ public class KnowledgeController {
     public record SearchRequest(@NotBlank String query, Integer topK) {
     }
 
+    /**
+     * publish 的语义是"提交审核"，不是"发布"。
+     * 入库一定落在 DRAFT / REVIEWING，只有 {@code /review} 的 approve 才能让它成为可引用的证据。
+     */
     public record UploadRequest(
             @NotBlank String title,
             String source,
             String sourceUrl,
             String collection,
-            String content,
+            @Size(max = 200_000) String content,
             Boolean publish
     ) {
     }

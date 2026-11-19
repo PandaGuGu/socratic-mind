@@ -252,17 +252,17 @@ const $ = (id) => document.getElementById(id);
 const STAGES = ["情境", "想法", "检验", "行动", "复盘"];
 
 const S = {
-  id: null,
+  id: localStorage.getItem("sm-session") || null,
+  token: localStorage.getItem("sm-token") || null,
   stage: null,
   status: null,
   awaiting: false,
+  editing: false,
   safety: false,
   turns: 0,
   busy: false,
-  visibleIndex: 0,
-  userId: localStorage.getItem("sm-user") || ("u-" + Math.random().toString(36).slice(2, 8))
+  visibleIndex: 0
 };
-localStorage.setItem("sm-user", S.userId);
 
 const room = $("room"), outside = $("outside");
 const slip = $("slip"), waiting = $("waiting"), toast = $("toast");
@@ -286,8 +286,21 @@ function setConn(text, bad) {
   el.classList.toggle("bad", Boolean(bad));
 }
 
+/**
+ * 所有请求都带上身份令牌：令牌由服务端在该设备第一次开口时签发，
+ * 只存在本机。没有它，别人的会话对你来说就是"不存在"。
+ */
 async function api(path, options) {
-  const res = await fetch(API + path, options);
+  const opts = Object.assign({}, options || {});
+  opts.headers = Object.assign({}, opts.headers || {});
+  if (S.token) opts.headers["X-User-Token"] = S.token;
+
+  const res = await fetch(API + path, opts);
+  const fresh = res.headers.get("X-User-Token");
+  if (fresh) {
+    S.token = fresh;
+    localStorage.setItem("sm-token", fresh);
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.message || data.error || ("请求失败 " + res.status));
@@ -324,6 +337,7 @@ function metaOf(t) {
 
 function applyTurn(t, isStart) {
   S.id = t.sessionId;
+  localStorage.setItem("sm-session", t.sessionId);
   S.stage = t.stage;
   S.status = t.status;
   S.awaiting = Boolean(t.awaitingConfirmation);
@@ -382,8 +396,12 @@ function renderSeeds() {
 async function ensureSession() {
   if (S.id) return;
   setConn("正在坐下…");
-  const t = await api("", jsonBody({ userId: S.userId }));
+  const t = await api("", jsonBody({}));
   applyTurn(t, true);
+}
+
+function newClientId(kind) {
+  return kind + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6);
 }
 
 async function send(text) {
@@ -393,18 +411,43 @@ async function send(text) {
     say("这一步要先确认，或者点「我再改改」");
     return;
   }
+  if (S.editing) {
+    await submitEdited(text.trim());
+    return;
+  }
   S.busy = true;
   slip.classList.add("hidden");
   flyOut();
   try {
     const t = await api("/" + S.id + "/messages", jsonBody({
       message: text.trim(),
-      clientMessageId: "m-" + Date.now() + "-" + Math.random().toString(36).slice(2, 6)
+      clientMessageId: newClientId("m")
     }));
     applyTurn(t, false);
   } catch (e) {
     say("没送出去：" + e.message, 3200);
     setConn("连接不稳", true);
+    slip.classList.remove("hidden");
+  } finally {
+    S.busy = false;
+  }
+}
+
+/** 「我再改改」：把用户自己写的说法交给 /confirm，而不是当成普通消息。 */
+async function submitEdited(thought) {
+  if (!thought) { say("先写下你的版本"); return; }
+  S.busy = true;
+  slip.classList.add("hidden");
+  flyOut();
+  try {
+    const t = await api("/" + S.id + "/confirm", jsonBody({
+      thought: thought,
+      clientMessageId: newClientId("c")
+    }));
+    S.editing = false;
+    applyTurn(t, false);
+  } catch (e) {
+    say("没记下来：" + e.message, 3200);
     slip.classList.remove("hidden");
   } finally {
     S.busy = false;
@@ -417,7 +460,9 @@ async function confirmThought() {
   $("cfYes").disabled = true;
   $("cfEdit").disabled = true;
   try {
-    const t = await api("/" + S.id + "/confirm", jsonBody({}));
+    const t = await api("/" + S.id + "/confirm", jsonBody({
+      clientMessageId: newClientId("c")
+    }));
     applyTurn(t, false);
   } catch (e) {
     say("没记下来：" + e.message, 3200);
@@ -441,6 +486,10 @@ field.addEventListener("keydown", (e) => {
 $("cfYes").addEventListener("click", confirmThought);
 $("cfEdit").addEventListener("click", () => {
   confirmRow.classList.remove("on");
+  // 进入"改说法"状态：此时输入框里的内容走 /confirm 的 thought 字段，
+  // 不再被当成普通消息（旧实现在这里把用户困死了——说出去的话没人接）。
+  S.awaiting = false;
+  S.editing = true;
   $("inputLine").classList.remove("is-off");
   field.disabled = false;
   field.focus();
@@ -474,7 +523,8 @@ document.getElementById("door").addEventListener("click", async () => {
   say("这一轮结束了。它还在。");
   setTimeout(() => {
     S.id = null; S.turns = 0; S.stage = null; S.status = null;
-    S.awaiting = false; S.safety = false; S.visibleIndex = 0;
+    S.awaiting = false; S.safety = false; S.editing = false; S.visibleIndex = 0;
+    localStorage.removeItem("sm-session");
     document.body.classList.remove("is-safety");
     figure.classList.remove("alert");
     const breath = document.querySelector(".breath");
@@ -512,7 +562,7 @@ async function renderOutside() {
   box.innerHTML = "";
   let rows = [];
   try {
-    rows = await api("?userId=" + encodeURIComponent(S.userId));
+    rows = await api("");
     setConn("连着 · 窗外 " + rows.length + " 个泡泡");
   } catch (e) {
     setConn("读不到记录：" + e.message, true);
@@ -640,12 +690,57 @@ function flyOut() {
 
 /* ---------- 启动 ---------- */
 
+/**
+ * 刷新后接着上一轮说。
+ * 之前只把身份存在本机、会话 id 不落地——刷新一次就"人还在、话没了"，
+ * 而库里那条会话仍是 running，等于一条永远续不上的记录。
+ */
+async function resumeIfAny() {
+  const saved = localStorage.getItem("sm-session");
+  if (!saved) return false;
+  try {
+    const s = await api("/" + saved);
+    if (s.status === "ended") {
+      localStorage.removeItem("sm-session");
+      return false;
+    }
+    const msgs = await api("/" + saved + "/history");
+    const last = [...msgs].reverse().find((m) => m.role === "assistant");
+    S.turns = Math.max(1, (s.turnCount || 1) - 1);
+    applyTurn({
+      sessionId: s.sessionId,
+      stage: s.stage,
+      stageLabel: s.stageLabel,
+      visibleIndex: s.visibleIndex,
+      status: s.status,
+      awaitingConfirmation: s.awaitingUser,
+      response: last ? last.content : ""
+    }, false);
+    setConn("接着上一轮 · " + (s.stageLabel || ""));
+    return true;
+  } catch (e) {
+    // 令牌过期（服务端换了密钥）或记录已删：当作没有上一轮，别把人挡在门外。
+    S.token = null;
+    S.id = null;
+    localStorage.removeItem("sm-token");
+    localStorage.removeItem("sm-session");
+    return false;
+  }
+}
+
 paintStones();
 setConn("同源接口已就绪");
-if (VIEW === "outside" && DEMO !== "1") {
-  showScene(outside);
-  renderOutside();
-}
+
+(async () => {
+  if (DEMO === "1") return;
+  const resumed = await resumeIfAny();
+  if (VIEW === "outside") {
+    showScene(outside);
+    renderOutside();
+  } else if (resumed) {
+    slip.classList.remove("hidden");
+  }
+})();
 
 
 if (DEMO === "1") {

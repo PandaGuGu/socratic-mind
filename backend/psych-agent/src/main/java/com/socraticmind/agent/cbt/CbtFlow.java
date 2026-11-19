@@ -2,8 +2,10 @@ package com.socraticmind.agent.cbt;
 
 import com.socraticmind.agent.cbt.flow.BranchRule;
 import com.socraticmind.agent.cbt.flow.ConditionWhen;
+import com.socraticmind.agent.cbt.flow.FlowMessages;
 import com.socraticmind.agent.cbt.flow.FlowParamsStore;
 import com.socraticmind.agent.cbt.flow.StageSpec;
+import com.socraticmind.agent.cbt.safety.SafetyScreener;
 import com.socraticmind.common.guard.ModelOutputRejectedException;
 import com.socraticmind.common.guard.PolicyProfiles;
 import com.socraticmind.common.port.ChatPort;
@@ -18,8 +20,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * CbtGraph 的流程实现。
@@ -57,11 +62,32 @@ public class CbtFlow {
     private final SafetyScreener screener;
     private final FlowParamsStore flow;
 
+    /**
+     * 按会话分段的锁：同一会话的"读状态 → 改状态 → 整轮落库"必须串行。
+     * 不加锁时，两个并发的消息请求会各自读到同一个 stage，然后先后覆盖，
+     * 结果是丢一条消息、或者同一步推进两次。分段而不是每会话一把锁，
+     * 是为了避免锁表随着会话数无限增长。
+     */
+    private static final int LOCK_STRIPES = 64;
+    private final ReentrantLock[] locks = new ReentrantLock[LOCK_STRIPES];
+
     public CbtFlow(CbtSessionStore store, ChatPort chat, SafetyScreener screener, FlowParamsStore flow) {
         this.store = store;
         this.chat = chat;
         this.screener = screener;
         this.flow = flow;
+        for (int i = 0; i < LOCK_STRIPES; i++) locks[i] = new ReentrantLock();
+    }
+
+    private TurnResult locked(String sessionId, java.util.function.Supplier<TurnResult> work) {
+        int idx = Math.floorMod(sessionId == null ? 0 : sessionId.hashCode(), LOCK_STRIPES);
+        ReentrantLock lock = locks[idx];
+        lock.lock();
+        try {
+            return work.get();
+        } finally {
+            lock.unlock();
+        }
     }
 
     public TurnResult start(String userId) {
@@ -77,6 +103,10 @@ public class CbtFlow {
     }
 
     public TurnResult handle(String sessionId, String message) {
+        return locked(sessionId, () -> handleLocked(sessionId, message));
+    }
+
+    private TurnResult handleLocked(String sessionId, String message) {
         long t0 = System.nanoTime();
         CbtSession session = require(sessionId);
         CbtStage from = session.stage();
@@ -85,7 +115,7 @@ public class CbtFlow {
             boolean hold = from == CbtStage.SAFETY_HOLD;
             String reply = hold
                     ? ask(CbtStage.SAFETY_HOLD, Map.of())
-                    : "这一轮已经结束了。如果想继续，开一轮新的。";
+                    : msg(FlowMessages.STAGE_ENDED);
             return finish(session, from, CbtTurnEvent.BLOCKED,
                     hold ? TurnResult.SAFETY_HOLD : TurnResult.ENDED,
                     reply, null, CbtTurnEvent.NONE, t0);
@@ -106,18 +136,30 @@ public class CbtFlow {
                     reply, screen.rule(), CbtTurnEvent.NONE, t0);
         }
 
-        // 命中风险词但被第三人称语境放行：放行也要留痕，否则误报与漏判都无法复核。
-        String safetyRule = screen.reason() == null ? null : "context_guard";
+        // 命中风险词但语境指向他人/引用：不暂停，但必须留痕并进入人工复核队列。
+        // 旧实现只写一个 context_guard 字符串，没有任何人能看到它——"放行"等于消失。
+        String safetyRule = null;
+        if (screen.review()) {
+            session.setSafetyStatus("review");
+            session.setSafetyReason(screen.reason());
+            safetyRule = screen.rule();
+            log.info("安全分流转人工复核 session={} rule={} reason={}",
+                    session.id(), screen.rule(), screen.reason());
+        }
 
         if (session.awaitingUser()) {
             session.addMessage(CbtMessage.user(session.stage(), message));
-            String reply = "这句话我先没写进记录——它需要你确认。\n\n" + session.pendingQuestion();
+            String reply = msg(FlowMessages.CONFIRM_REQUIRED) + "\n\n" + session.pendingQuestion();
             session.addMessage(CbtMessage.assistant(session.stage(), reply));
             return finish(session, from, CbtTurnEvent.BLOCKED, TurnResult.AWAITING_CONFIRMATION,
                     reply, safetyRule, CbtTurnEvent.NONE, t0);
         }
 
         session.addMessage(CbtMessage.user(from, message));
+        // 只把用户自己写下的情绪词打成标签（见 EmotionTagger 的边界说明）。
+        for (String tag : EmotionTagger.tag(message)) {
+            if (!session.emotions().contains(tag)) session.emotions().add(tag);
+        }
 
         String reply;
         String modelMode = CbtTurnEvent.NONE;
@@ -176,7 +218,7 @@ public class CbtFlow {
                         "thought", safe(session.candidateThought()),
                         "plan", message));
             }
-            default -> reply = "这一轮已经结束了。如果想继续，开一轮新的。";
+            default -> reply = msg(FlowMessages.STAGE_ENDED);
         }
 
         session.setPendingQuestion(reply);
@@ -190,6 +232,10 @@ public class CbtFlow {
 
     /** 唯一能写入 userConfirmedThought 的入口。普通消息永远改不了这个字段。 */
     public TurnResult confirm(String sessionId, String thought) {
+        return locked(sessionId, () -> confirmLocked(sessionId, thought));
+    }
+
+    private TurnResult confirmLocked(String sessionId, String thought) {
         long t0 = System.nanoTime();
         CbtSession session = require(sessionId);
         CbtStage from = session.stage();
@@ -202,8 +248,9 @@ public class CbtFlow {
         advance(session, from);
 
         String question = ask(session.stage(), Map.of());
-        String reply = "好，已经记下：\n· 你的说法：「" + confirmed + "」\n· 行动计划：「"
-                + safe(session.actionPlan()) + "」\n\n" + question;
+        String reply = msg(FlowMessages.CONFIRM_ACK, Map.of(
+                "thought", confirmed,
+                "plan", safe(session.actionPlan()))) + "\n\n" + question;
         session.setPendingQuestion(question);
         session.addMessage(CbtMessage.assistant(CbtStage.ACTION_REVIEW, reply));
         return finish(session, from, CbtTurnEvent.CONFIRM, TurnResult.AWAITING_USER, reply,
@@ -211,12 +258,16 @@ public class CbtFlow {
     }
 
     public TurnResult end(String sessionId) {
+        return locked(sessionId, () -> endLocked(sessionId));
+    }
+
+    private TurnResult endLocked(String sessionId) {
         long t0 = System.nanoTime();
         CbtSession session = require(sessionId);
         CbtStage from = session.stage();
         session.setStage(CbtStage.ENDED);
         session.setAwaitingUser(false);
-        return finish(session, from, CbtTurnEvent.END, TurnResult.ENDED, "这一轮结束了。",
+        return finish(session, from, CbtTurnEvent.END, TurnResult.ENDED, msg(FlowMessages.END),
                 null, CbtTurnEvent.NONE, t0);
     }
 
@@ -229,9 +280,27 @@ public class CbtFlow {
         return require(sessionId).history();
     }
 
+    /** 取一句系统话术（非阶段提问），并替换占位符；配置缺失时用内置默认。 */
+    private String msg(String key, Map<String, String> vars) {
+        String text = flow.get().message(key);
+        for (Map.Entry<String, String> e : vars.entrySet()) {
+            text = text.replace("{{" + e.getKey() + "}}", e.getValue() == null ? "" : e.getValue());
+        }
+        return text;
+    }
+
+    private String msg(String key) {
+        return msg(key, Map.of());
+    }
+
     /** 取当前流程定义里这个阶段的话术，并把占位符替换成真实内容。 */
     private String ask(CbtStage stage, Map<String, String> vars) {
         String text = flow.get().textOf(stage);
+        if (text == null || text.isBlank()) {
+            // 流程配置漏了话术时，宁可给一句说明，也不要给用户一张空白纸片。
+            log.error("阶段 {} 没有配置话术，已使用兜底文案；请检查流程画布", stage);
+            text = "这一步的话术还没有配置好。你的记录已经存下了，可以先去「窗外」看看。";
+        }
         for (Map.Entry<String, String> e : vars.entrySet()) {
             text = text.replace("{{" + e.getKey() + "}}", e.getValue() == null ? "" : e.getValue());
         }
@@ -241,9 +310,20 @@ public class CbtFlow {
     /** 前往下一步：先看分支规则，再退回默认去向；判断节点会被连续求值，不等待用户输入。 */
     private void advance(CbtSession session, CbtStage from) {
         String target = resolve(session, flow.get().stage(from));
-        int guard = 0;
-        while (target != null && !target.isBlank() && guard++ < 4) {
-            CbtStage stage = CbtStage.valueOf(target);
+        Set<CbtStage> visited = new LinkedHashSet<>();
+        visited.add(from);
+        while (target != null && !target.isBlank()) {
+            CbtStage stage;
+            try {
+                stage = CbtStage.valueOf(target);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("流程配置指向未知节点：" + target);
+            }
+            // 以前用 guard<4 兜底：成环时会静默停在 CONDITION，而 CONDITION 没有话术，
+            // 用户看到的是一张空白纸片。现在宁可显式报错，也不要无声地卡住。
+            if (!visited.add(stage)) {
+                throw new IllegalStateException("流程配置存在环：" + visited + " → " + stage);
+            }
             session.setStage(stage);
             if (stage != CbtStage.CONDITION) return;
             target = resolve(session, flow.get().stage(stage));
@@ -328,8 +408,9 @@ public class CbtFlow {
     /** 把"原想法 + 新证据"合成一句更接近事实的说法。模板兜底，模型可用时优先用模型。 */
     private Gen balance(CbtSession s, String newEvidence) {
         String thought = safe(s.automaticThought());
-        String template = "「" + thought + "」是一个预测，不是事实。从现有信息看，另一种可能是："
-                + trim(newEvidence, 40) + "。";
+        String template = msg(FlowMessages.BALANCE_TEMPLATE, Map.of(
+                "thought", thought,
+                "evidence", trim(newEvidence, 40)));
         if (!modelEnabled(CbtStage.COGNITIVE_REVIEW)) {
             return new Gen(template, CbtTurnEvent.TEMPLATE, null);
         }
@@ -361,9 +442,11 @@ public class CbtFlow {
 
     /** 总结优先用模型，但模型输出不合格时退回模板——记录不能因为模型抽风而没有内容。 */
     private Gen summarize(CbtSession s) {
-        String template = String.format(
-                "这一轮：情境是「%s」，当时的想法是「%s」，你后来看到「%s」。行动计划：%s。",
-                safe(s.situation()), safe(s.automaticThought()), safe(s.candidateThought()), safe(s.actionPlan()));
+        String template = msg(FlowMessages.SUMMARY_TEMPLATE, Map.of(
+                "situation", safe(s.situation()),
+                "thought", safe(s.automaticThought()),
+                "evidence", safe(s.candidateThought()),
+                "plan", safe(s.actionPlan())));
         if (!modelEnabled(CbtStage.ACTION_REVIEW)) {
             return new Gen(template, CbtTurnEvent.TEMPLATE, null);
         }

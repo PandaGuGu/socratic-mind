@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
  * 否则 ?session=&tab= 这类深链会在跳转时被丢掉。
  */
 @Controller
-@ConditionalOnProperty(name = "psych.internal.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "psych.internal.enabled", havingValue = "true")
 public class InternalPageController {
 
     @GetMapping({"/internal", "/internal/"})

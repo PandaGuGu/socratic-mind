@@ -10,3 +10,8 @@ psych:
   # 会话域落库：与知识库共用同一个数据源，但开关独立（可只持久化会话）
   session:
     store: jdbc
+  # 本地 compose 档默认打开控制台；上生产请关掉或换令牌
+  internal:
+    enabled: true
+    token: ${PSYCH_INTERNAL_TOKEN:dev-internal-token}
+    dev-hint: true          # 本机验收：自动填入上面的令牌，不再弹窗

@@ -3,21 +3,39 @@ package com.socraticmind.infrastructure.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socraticmind.common.port.ChatPort;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 /** OpenAI 兼容的 /chat/completions 适配器。 */
 public class HttpChatAdapter implements ChatPort {
 
+    /** 连接与读取都必须有上限：上游卡住时，不能把 Tomcat 的请求线程一起拖住。 */
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+
+    /** CBT 的两次生成都很短（一句改写 / 一段总结），限住上限既省钱也防跑飞。 */
+    private static final int MAX_TOKENS = 400;
+
     private final RestClient client;
     private final String model;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public HttpChatAdapter(String baseUrl, String apiKey, String model) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalStateException("psych.ai.base-url 未配置：无法调用真实模型");
+        }
         this.model = model;
+        HttpClient http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
+        factory.setReadTimeout(READ_TIMEOUT);
+
         this.client = RestClient.builder()
+                .requestFactory(factory)
                 .baseUrl(baseUrl)
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", "application/json")
@@ -29,6 +47,7 @@ public class HttpChatAdapter implements ChatPort {
         Map<String, Object> body = Map.of(
                 "model", model,
                 "temperature", 0.2,
+                "max_tokens", MAX_TOKENS,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)
@@ -37,7 +56,13 @@ public class HttpChatAdapter implements ChatPort {
         String raw = client.post().uri("/chat/completions").body(body).retrieve().body(String.class);
         try {
             JsonNode root = mapper.readTree(raw);
-            return root.path("choices").path(0).path("message").path("content").asText("");
+            String content = root.path("choices").path(0).path("message").path("content").asText("");
+            if (content.isBlank()) {
+                throw new IllegalStateException("模型返回了空内容");
+            }
+            return content;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalStateException("解析 chat 响应失败", e);
         }

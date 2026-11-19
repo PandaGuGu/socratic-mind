@@ -60,6 +60,8 @@ public class CbtScript {
             case "intervention_decision" -> CbtStage.INTERVENTION_DECISION;
             case "action_confirm" -> CbtStage.ACTION_CONFIRM;
             case "action_review" -> CbtStage.ACTION_REVIEW;
+            case "behavioral_experiment" -> CbtStage.BEHAVIORAL_EXPERIMENT;
+            case "practical_problem_solving" -> CbtStage.PRACTICAL_PROBLEM_SOLVING;
             case "safety_hold" -> CbtStage.SAFETY_HOLD;
             default -> null;
         };

@@ -58,12 +58,17 @@ class KnowledgeChainTest {
     }
 
     @Test
-    void publishedDocumentBecomesSearchable() {
+    void documentBecomesSearchableOnlyAfterReview() {
         var result = ingestion.ingest(new IngestCommand("test", "示例：注意力恢复",
                 "内部示例", null, "zh", true,
                 "# 注意力恢复\n\n## 自然暴露\n\n在自然环境中停留一段时间，有助于注意力的恢复，这一现象常被称为注意力恢复理论。"));
 
-        assertEquals(KnowledgeDocument.PUBLISHED, result.status());
+        // publish=true 只是"提交审核"：入库不产生可引用的证据
+        assertEquals(KnowledgeDocument.REVIEWING, result.status());
+        assertEquals(RagAnswer.INSUFFICIENT, flow.run("自然环境对注意力恢复有什么帮助").status(),
+                "未审核的内容不得成为依据");
+
+        store.updateDocumentStatus(result.documentId(), KnowledgeDocument.PUBLISHED);
         RagAnswer answer = flow.run("自然环境对注意力恢复有什么帮助");
         assertEquals(RagAnswer.ANSWERED, answer.status());
         assertFalse(answer.citations().isEmpty());

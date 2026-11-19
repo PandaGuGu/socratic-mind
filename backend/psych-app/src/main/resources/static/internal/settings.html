@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 规则与参数</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --surface: #fff; --surface-2: #fbfaf7;
+    --ink: #1b1e1c; --ink-soft: #4a514d; --muted: #7c837e;
+    --line: #e5e2da; --accent: #0d7a63; --accent-deep: #095a49; --accent-soft: #e7f2ee;
+    --warn: #b26a06; --warn-soft: #fdf3e3; --refer: #9b3b32; --refer-soft: #f8eeec;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.6 var(--sans); }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 22px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 15px; letter-spacing: .02em; }
+  header h1 span { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  header .links { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  a.btn, button.btn { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); text-decoration: none; cursor: pointer; }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  input, textarea, select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; }
+  textarea { font-family: var(--mono); font-size: 12px; line-height: 1.5; resize: vertical; }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 22px 60px; display: grid; gap: 18px; }
+  section.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  section.card h2 { margin: 0 0 4px; font-size: 14px; }
+  section.card p.hint { margin: 0 0 12px; color: var(--muted); font-size: 12px; }
+  .rule { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface-2); }
+  .rule.off { opacity: .62; }
+  .rule-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .rule-head .id { font-family: var(--mono); font-size: 12px; color: var(--accent-deep); }
+  .rule-head .label { font-weight: 600; }
+  .rule-head .spacer { margin-left: auto; }
+  .rule-head select { width: 110px; }
+  .rule-head label { display: flex; gap: 6px; align-items: center; color: var(--ink-soft); }
+  .rule-head input[type=checkbox] { width: auto; }
+  .rule .note { color: var(--muted); font-size: 12px; margin: 6px 0 4px; }
+  .rule textarea { min-height: 62px; }
+  .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .row label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .msg { font-size: 12px; }
+  .msg.ok { color: var(--accent-deep); }
+  .msg.bad { color: var(--refer); }
+  .out { margin-top: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); font-size: 12px; }
+  .out.hold { border-color: #e3c6c1; background: var(--refer-soft); }
+  .out.review { border-color: #f0d5a8; background: var(--warn-soft); }
+  .cases { display: grid; gap: 6px; margin-top: 10px; font-size: 12px; }
+  .case-row { display: grid; grid-template-columns: minmax(0,1.6fr) 130px minmax(0,1fr) 48px; gap: 8px; align-items: center; }
+  .case-row input, .case-row select { padding: 5px 8px; }
+  h3.sub { margin: 18px 0 2px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .rule-head input.id-input { width: 150px; font-family: var(--mono); font-size: 12px; }
+  .hist { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .hist h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .hist .v { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; font-family: var(--mono); font-size: 12px; }
+  .hist .v .meta { color: var(--muted); font-family: var(--sans); font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist .v .ops { display: flex; gap: 4px; }
+  .hist .v .ops .btn { padding: 2px 8px; font-size: 11px; }
+  .snap { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .snap-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .snap-head h3 { margin: 0; font-size: 13px; }
+  .snap-head .who { color: var(--muted); font-size: 12px; }
+  .snap-head .spacer { margin-left: auto; }
+  .snap table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 14px; }
+  .snap th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+  .snap td { padding: 5px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  .snap td.mono { font-family: var(--mono); font-size: 11px; word-break: break-all; }
+  .snap tr.diff td { background: #fff8e6; }
+  .snap .tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--muted); margin-left: 6px; }
+  .snap .tag.add { border-color: #b8ddd1; background: var(--accent-soft); color: var(--accent-deep); }
+  .snap .tag.del { border-color: #e3c6c1; background: var(--refer-soft); color: var(--refer); }
+  .snap .empty { color: var(--muted); font-size: 12px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1b1e1c; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Socratic Mind <span>规则与参数</span></h1>
+  <div class="links">
+    <label style="font-size:12px;color:var(--muted)">操作者
+      <input id="actor" style="width:110px;display:inline-block;margin-left:6px" placeholder="ops">
+    </label>
+    <a class="btn" href="./index.html">会话</a>
+    <a class="btn" href="./flow.html">流程画布</a>
+    <a class="btn" href="./policy.html">输出策略</a>
+    <button class="btn" id="reload">刷新</button>
+  </div>
+</header>
+
+<main>
+
+  <section class="card">
+    <h2>安全分流规则</h2>
+    <p class="hint">
+      规则和用例都由你维护：可以新建、删除、改正则。保存前会做两件事：结构校验（正则能否编译、
+      是否还有启用的 hold 规则）与<b>用例逐条回放</b>。把「我不想活了」这类句子改到不再暂停、
+      或删掉唯一覆盖它的规则，保存会被拒绝并指出失效的用例；把用例删空也会被拦住。
+      保存即生效，历史版本可回滚。
+    </p>
+    <div id="rules"></div>
+    <div class="actions">
+      <button class="btn" id="addRule">＋ 新增规则</button>
+      <button class="btn" id="validateRules">校验草稿</button>
+      <button class="btn primary" id="saveRules">保存并生效</button>
+      <span class="msg" id="rulesMsg"></span>
+    </div>
+
+    <div class="actions" style="margin-top:16px">
+      <input id="probe" placeholder="贴一句话，看看当前规则会怎么判" style="flex:1;min-width:280px">
+      <button class="btn" id="probeBtn">试一下</button>
+    </div>
+    <div id="probeOut"></div>
+
+    <h3 class="sub">发布用例（保存时逐条回放，结果必须与期望一致）</h3>
+    <div class="cases" id="cases"></div>
+    <div class="actions">
+      <button class="btn" id="addCase">＋ 新增用例</button>
+      <span class="msg" id="casesMsg"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>运行参数</h2>
+    <p class="hint">限流与长度。保存后下一轮请求立即按新值判断；数值有范围限制，避免 0 条/分钟这类事故。</p>
+    <div class="row">
+      <div><label>单条消息上限（字）</label><input id="maxMessageChars" type="number" min="100" max="20000"></div>
+      <div><label>每用户每分钟消息数</label><input id="messagesPerMinute" type="number" min="1" max="1000"></div>
+      <div><label>每 IP 每小时开新会话</label><input id="newSessionsPerHour" type="number" min="1" max="10000"></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="saveLimits">保存</button>
+      <span class="msg" id="limitsMsg"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>系统话术</h2>
+    <p class="hint">
+      阶段提问（"最近有什么事搁在心里"这类）在流程画布上改；这里改的是系统在你点错、结束、
+      确认时说的话，以及平衡想法与总结的模板。保存即发布，与画布共用同一份流程配置与版本历史。
+    </p>
+    <div id="messages"></div>
+    <div class="actions">
+      <button class="btn primary" id="saveMessages">保存并发布</button>
+      <span class="msg" id="messagesMsg"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>历史版本与回滚</h2>
+    <p class="hint">每次保存都会留一份快照。回滚不是覆盖旧文件，而是把旧版本当成一次新的保存——所以版本号继续往前走，每一次生效都有记录。</p>
+    <div class="hist">
+      <div><h3>流程话术 flow</h3><div id="histFlow"></div></div>
+      <div><h3>安全规则 safety</h3><div id="histSafety"></div></div>
+      <div><h3>运行参数 limits</h3><div id="histLimits"></div></div>
+    </div>
+    <div id="snapshot"></div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="./auth.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const ACTOR_KEY = "sm-internal-actor";
+
+$("actor").value = localStorage.getItem(ACTOR_KEY) || "ops";
+$("actor").addEventListener("change", () => localStorage.setItem(ACTOR_KEY, $("actor").value.trim() || "ops"));
+
+function actor() {
+  return $("actor").value.trim() || "ops";
+}
+
+function toast(text) {
+  const el = $("toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function esc(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function api(path, options) {
+  const opts = Object.assign({}, options || {});
+  opts.headers = Object.assign({}, opts.headers || {});
+  if (opts.body) opts.headers["Content-Type"] = "application/json";
+  const res = await fetch(path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || data.error || ("请求失败 " + res.status));
+  }
+  return data;
+}
+
+function say(el, text, ok) {
+  const node = $(el);
+  node.textContent = text;
+  node.className = "msg " + (ok ? "ok" : "bad");
+}
+
+/* ---------- 安全规则 ---------- */
+
+let rulesState = null;
+let casesState = [];
+
+const LEVELS = [
+  ["hold", "hold · 命中即暂停"],
+  ["context", "context · 只影响是否暂停"],
+  ["signal", "signal · 压过语境"],
+  ["ignore", "ignore · 先抹掉"]
+];
+
+const EXPECTS = [
+  ["HOLD", "必须暂停"],
+  ["NOT_HOLD", "不许暂停"],
+  ["NOT_PASS", "至少复核"],
+  ["PASS", "必须放过"]
+];
+
+function renderRules() {
+  $("rules").innerHTML = rulesState.rules.map((r, i) => `
+    <div class="rule ${r.enabled === false ? "off" : ""}">
+      <div class="rule-head">
+        <input class="id-input" data-i="${i}" data-k="id" value="${esc(r.id)}" placeholder="规则 id" spellcheck="false">
+        <input data-i="${i}" data-k="label" value="${esc(r.label || "")}" placeholder="名称" style="width:120px">
+        <span class="spacer"></span>
+        <select data-i="${i}" data-k="level">
+          ${LEVELS.map(([v, label]) => `<option value="${v}" ${v === r.level ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+        <label><input type="checkbox" data-i="${i}" data-k="enabled" ${r.enabled === false ? "" : "checked"}>启用</label>
+        <button class="btn" type="button" data-del-rule="${i}">删除</button>
+      </div>
+      <div class="note">${esc(r.note || "")}</div>
+      <textarea data-i="${i}" data-k="pattern" spellcheck="false">${esc(r.pattern)}</textarea>
+    </div>`).join("");
+}
+
+function collectRules() {
+  const rules = rulesState.rules.map((r) => Object.assign({}, r));
+  $("rules").querySelectorAll("[data-i]").forEach((el) => {
+    const i = Number(el.dataset.i);
+    const k = el.dataset.k;
+    rules[i][k] = k === "enabled" ? el.checked : el.value;
+  });
+  return rules;
+}
+
+function renderCases() {
+  $("cases").innerHTML = casesState.map((c, i) => `
+    <div class="case-row">
+      <input data-ci="${i}" data-ck="text" value="${esc(c.text)}" placeholder="一句话">
+      <select data-ci="${i}" data-ck="expect">
+        ${EXPECTS.map(([v, label]) => `<option value="${v}" ${v === c.expect ? "selected" : ""}>${label}</option>`).join("")}
+      </select>
+      <input data-ci="${i}" data-ck="why" value="${esc(c.why || "")}" placeholder="为什么这么期望">
+      <button class="btn" type="button" data-del-case="${i}">删</button>
+    </div>`).join("");
+}
+
+function collectCases() {
+  const cases = casesState.map((c) => Object.assign({}, c));
+  $("cases").querySelectorAll("[data-ci]").forEach((el) => {
+    cases[Number(el.dataset.ci)][el.dataset.ck] = el.value;
+  });
+  return cases;
+}
+
+function draft() {
+  return {
+    version: rulesState.version,
+    updatedAt: rulesState.updatedAt,
+    updatedBy: actor(),
+    rules: collectRules(),
+    cases: collectCases()
+  };
+}
+
+$("addRule").addEventListener("click", () => {
+  rulesState.rules.push({ id: "", label: "", level: "hold", pattern: "", enabled: true, note: "" });
+  renderRules();
+});
+
+$("addCase").addEventListener("click", () => {
+  casesState.push({ text: "", expect: "HOLD", why: "" });
+  renderCases();
+});
+
+document.addEventListener("click", (e) => {
+  const delRule = e.target.closest("[data-del-rule]");
+  if (delRule) {
+    const i = Number(delRule.dataset.delRule);
+    const id = rulesState.rules[i].id || "这一条";
+    if (window.confirm("删除规则「" + id + "」？保存时若有用例依赖它，会被拒绝并告诉你哪几条失效。")) {
+      rulesState.rules.splice(i, 1);
+      renderRules();
+    }
+    return;
+  }
+  const delCase = e.target.closest("[data-del-case]");
+  if (delCase) {
+    casesState.splice(Number(delCase.dataset.delCase), 1);
+    renderCases();
+  }
+});
+
+$("rules").addEventListener("input", () => {
+  const rules = collectRules();
+  $("rules").querySelectorAll(".rule").forEach((el, i) => {
+    el.classList.toggle("off", rules[i].enabled === false);
+  });
+});
+
+$("validateRules").addEventListener("click", async () => {
+  try {
+    const result = await api("/api/internal/safety/rules/validate", {
+      method: "POST", body: JSON.stringify(draft())
+    });
+    if (result.ok) say("rulesMsg", "草稿通过：结构合法，用例回放全部符合预期", true);
+    else say("rulesMsg", "未通过：" + result.errors.join("；"), false);
+  } catch (e) {
+    say("rulesMsg", e.message, false);
+  }
+});
+
+$("saveRules").addEventListener("click", async () => {
+  try {
+    const saved = await api("/api/internal/safety/rules", {
+      method: "PUT", body: JSON.stringify(draft())
+    });
+    rulesState = saved;
+    casesState = saved.cases || [];
+    renderRules();
+    renderCases();
+    say("rulesMsg", "已保存 v" + saved.version + "，下一轮立即生效", true);
+    toast("安全规则已生效 v" + saved.version);
+    loadHistory();
+  } catch (e) {
+    say("rulesMsg", "保存被拒：" + e.message, false);
+  }
+});
+
+$("probeBtn").addEventListener("click", async () => {
+  const text = $("probe").value.trim();
+  if (!text) { $("probeOut").innerHTML = ""; return; }
+  try {
+    const r = await api("/api/internal/safety/rules/test", {
+      method: "POST", body: JSON.stringify({ text })
+    });
+    const kind = r.hold ? "hold" : r.review ? "review" : "";
+    const verdict = r.hold ? "暂停并转介" : r.review ? "不暂停，转人工复核" : "按普通消息放过";
+    $("probeOut").innerHTML =
+      `<div class="out ${kind}"><b>${verdict}</b>` +
+      (r.rule ? `　规则：<code>${esc(r.rule)}</code>` : "") +
+      (r.reason ? `<br>${esc(r.reason)}` : "") + `</div>`;
+  } catch (e) {
+    $("probeOut").innerHTML = `<div class="out">${esc(e.message)}</div>`;
+  }
+});
+
+/* ---------- 运行参数 ---------- */
+
+let limitsState = null;
+
+async function loadLimits() {
+  const view = await api("/api/internal/limits");
+  limitsState = view.limits;
+  $("maxMessageChars").value = view.limits.maxMessageChars;
+  $("messagesPerMinute").value = view.limits.messagesPerMinute;
+  $("newSessionsPerHour").value = view.limits.newSessionsPerHour;
+}
+
+$("saveLimits").addEventListener("click", async () => {
+  try {
+    const payload = {
+      version: limitsState ? limitsState.version : 1,
+      updatedBy: actor(),
+      maxMessageChars: Number($("maxMessageChars").value),
+      messagesPerMinute: Number($("messagesPerMinute").value),
+      newSessionsPerHour: Number($("newSessionsPerHour").value)
+    };
+    const saved = await api("/api/internal/limits", { method: "PUT", body: JSON.stringify(payload) });
+    limitsState = saved;
+    say("limitsMsg", "已保存 v" + saved.version, true);
+    loadHistory();
+  } catch (e) {
+    say("limitsMsg", e.message, false);
+  }
+});
+
+/* ---------- 系统话术（flow.messages） ---------- */
+
+const MESSAGES = [
+  ["stage_ended", "一轮结束后再说话", "没有占位符"],
+  ["confirm_required", "待确认时收到普通消息", "没有占位符"],
+  ["confirm_ack", "确认回执", "可用 {{thought}} {{plan}}"],
+  ["end", "用户主动结束", "没有占位符"],
+  ["balance_template", "平衡想法模板（模型不可用时兜底）", "可用 {{thought}} {{evidence}}"],
+  ["summary_template", "总结模板（模型不可用时兜底）", "可用 {{situation}} {{thought}} {{evidence}} {{plan}}"]
+];
+
+let flowState = null;
+
+function renderMessages() {
+  const messages = (flowState && flowState.messages) || {};
+  $("messages").innerHTML = MESSAGES.map(([key, label, hint]) => `
+    <div class="rule">
+      <div class="rule-head">
+        <span class="id">${esc(key)}</span>
+        <span class="label">${esc(label)}</span>
+      </div>
+      <div class="note">${esc(hint)}</div>
+      <textarea data-msg="${esc(key)}" spellcheck="false">${esc(messages[key] || "")}</textarea>
+    </div>`).join("");
+}
+
+async function loadFlow() {
+  const view = await api("/api/internal/flow");
+  flowState = view.definition;
+  renderMessages();
+}
+
+$("saveMessages").addEventListener("click", async () => {
+  try {
+    const messages = Object.assign({}, flowState.messages || {});
+    $("messages").querySelectorAll("[data-msg]").forEach((el) => {
+      messages[el.dataset.msg] = el.value;
+    });
+    const definition = Object.assign({}, flowState, { messages });
+    const view = await api("/api/internal/flow", {
+      method: "PUT",
+      body: JSON.stringify({ definition, updatedBy: actor() })
+    });
+    flowState = view.definition;
+    renderMessages();
+    say("messagesMsg", "已发布 v" + view.definition.version, true);
+    toast("系统话术已生效 v" + view.definition.version);
+    loadHistory();
+  } catch (e) {
+    say("messagesMsg", "发布被拒：" + e.message, false);
+  }
+});
+
+/* ---------- 历史与回滚 ---------- */
+
+let historyState = null;
+
+function fmtTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function renderHistory(kind, entries) {
+  const box = $("hist" + kind.charAt(0).toUpperCase() + kind.slice(1));
+  if (!entries || !entries.length) {
+    box.innerHTML = `<div class="v"><span>—</span><span class="meta">还没有快照，保存一次就会有</span></div>`;
+    return;
+  }
+  box.innerHTML = entries.map((e) => `
+    <div class="v">
+      <span>v${e.version}</span>
+      <span class="meta" title="${esc(e.updatedBy || "")}">${fmtTime(e.updatedAt)} · ${esc(e.updatedBy || "")}</span>
+      <span class="ops">
+        <button class="btn" type="button" data-view-kind="${kind}" data-view-version="${e.version}">看</button>
+        <button class="btn" type="button" data-kind="${kind}" data-version="${e.version}">回滚</button>
+      </span>
+    </div>`).join("");
+}
+
+async function loadHistory() {
+  historyState = await api("/api/internal/config/history");
+  renderHistory("flow", historyState.flow);
+  renderHistory("safety", historyState.safety);
+  renderHistory("limits", historyState.limits);
+}
+
+/* ---------- 版本对比视图 ---------- */
+
+function same(a, b) {
+  return String(a == null ? "" : a) === String(b == null ? "" : b);
+}
+
+function byKey(list, key) {
+  const map = {};
+  (list || []).forEach((x) => { map[x[key]] = x; });
+  return map;
+}
+
+function unionKeys(a, b) {
+  return Array.from(new Set([].concat(Object.keys(a || {}), Object.keys(b || {}))));
+}
+
+function limitsTable(oldL, curL) {
+  const rows = [
+    ["单条消息上限（字）", "maxMessageChars"],
+    ["每分钟消息数", "messagesPerMinute"],
+    ["每小时开新会话", "newSessionsPerHour"]
+  ];
+  return `<table><thead><tr><th>参数</th><th>该版本</th><th>当前</th></tr></thead><tbody>` +
+    rows.map(([label, key]) => {
+      const changed = !same(oldL[key], curL[key]);
+      return `<tr class="${changed ? "diff" : ""}"><td>${label}</td><td class="mono">${esc(oldL[key])}</td><td class="mono">${esc(curL[key])}</td></tr>`;
+    }).join("") + `</tbody></table>`;
+}
+
+function safetyTables(oldS, curS) {
+  const oldRules = byKey(oldS.rules, "id");
+  const curRules = byKey(curS.rules, "id");
+  const ruleRows = unionKeys(oldRules, curRules).map((id) => {
+    const o = oldRules[id];
+    const c = curRules[id];
+    if (!c) {
+      return `<tr class="diff"><td>${esc(id)}<span class="tag del">当前已删</span></td><td>—</td><td class="mono">${esc(o.pattern)}</td></tr>`;
+    }
+    if (!o) {
+      return `<tr class="diff"><td>${esc(id)}<span class="tag add">该版本没有</span></td><td>${esc(c.level)}</td><td class="mono">${esc(c.pattern)}</td></tr>`;
+    }
+    const changed = !same(o.pattern, c.pattern) || !same(o.level, c.level) || o.enabled === false !== (c.enabled === false);
+    return `<tr class="${changed ? "diff" : ""}"><td>${esc(id)}${c.enabled === false ? '<span class="tag">已停用</span>' : ""}</td>
+      <td>${esc(o.level)}</td><td class="mono">${esc(o.pattern)}</td></tr>`;
+  }).join("");
+
+  const oldCases = byKey(oldS.cases, "text");
+  const curCases = byKey(curS.cases, "text");
+  const caseRows = unionKeys(oldCases, curCases).map((text) => {
+    const o = oldCases[text];
+    const c = curCases[text];
+    if (!c) return `<tr class="diff"><td>${esc(text)}<span class="tag del">当前已删</span></td><td>${esc(o.expect)}</td></tr>`;
+    if (!o) return `<tr class="diff"><td>${esc(text)}<span class="tag add">该版本没有</span></td><td>${esc(c.expect)}</td></tr>`;
+    const changed = !same(o.expect, c.expect);
+    return `<tr class="${changed ? "diff" : ""}"><td>${esc(text)}</td><td>${esc(o.expect)}</td></tr>`;
+  }).join("");
+
+  return `<table><thead><tr><th>规则</th><th>级别</th><th>该版本的正则</th></tr></thead><tbody>${ruleRows}</tbody></table>` +
+    `<table><thead><tr><th>用例</th><th>期望</th></tr></thead><tbody>${caseRows}</tbody></table>`;
+}
+
+function flowTables(oldF, curF) {
+  const oldM = oldF.messages || {};
+  const curM = curF.messages || {};
+  const msgRows = unionKeys(oldM, curM).map((key) => {
+    const changed = !same(oldM[key], curM[key]);
+    return `<tr class="${changed ? "diff" : ""}"><td class="mono">${esc(key)}</td>
+      <td>${esc(oldM[key] || "（无）")}</td><td>${esc(curM[key] || "（无）")}</td></tr>`;
+  }).join("");
+
+  const oldStages = oldF.stages || {};
+  const curStages = curF.stages || {};
+  const stageRows = unionKeys(oldStages, curStages).map((id) => {
+    const o = oldStages[id];
+    const c = curStages[id];
+    if (!c) return `<tr class="diff"><td>${esc(id)}</td><td>—</td><td>—<span class="tag del">当前已删</span></td></tr>`;
+    if (!o) return `<tr class="diff"><td>${esc(id)}</td><td>—</td><td class="mono">${esc(c.next || "(结束)")}<span class="tag add">该版本没有</span></td></tr>`;
+    const changed = !same(o.text, c.text) || !same(o.next, c.next) || !same(o.model, c.model);
+    return `<tr class="${changed ? "diff" : ""}"><td>${esc(id)}</td>
+      <td>${esc((o.text || "").slice(0, 60))}</td><td class="mono">${esc(o.next || "(结束)")}</td></tr>`;
+  }).join("");
+
+  return `<table><thead><tr><th>系统话术</th><th>该版本</th><th>当前</th></tr></thead><tbody>${msgRows}</tbody></table>` +
+    `<table><thead><tr><th>节点</th><th>话术（截断）</th><th>去向</th></tr></thead><tbody>${stageRows}</tbody></table>`;
+}
+
+async function viewSnapshot(kind, version) {
+  const box = $("snapshot");
+  box.innerHTML = `<div class="snap"><span class="empty">正在读取 ${esc(kind)} v${version}…</span></div>`;
+  try {
+    const data = await api(`/api/internal/config/snapshot?kind=${encodeURIComponent(kind)}&version=${version}`);
+    const oldV = data.value;
+    const curV = data.current;
+    let body;
+    if (kind === "limits") body = limitsTable(oldV, curV);
+    else if (kind === "safety") body = safetyTables(oldV, curV);
+    else body = flowTables(oldV, curV);
+
+    box.innerHTML = `
+      <div class="snap">
+        <div class="snap-head">
+          <h3>${esc(kind)} v${version}</h3>
+          <span class="who">${fmtTime(oldV.updatedAt)} · ${esc(oldV.updatedBy || "system")}　对比当前 v${curV.version}${oldV.version !== curV.version ? "" : "（就是当前版本）"}</span>
+          <span class="spacer"></span>
+          <button class="btn" type="button" id="closeSnap">关闭</button>
+          <button class="btn" type="button" data-kind="${kind}" data-version="${version}">回滚到此版本</button>
+        </div>
+        <p class="hint" style="margin:0 0 10px">黄色行表示该版本与当前不同；“该版本的正则 / 话术”一列是当时的原文。</p>
+        ${body}
+      </div>`;
+    $("closeSnap").addEventListener("click", () => { box.innerHTML = ""; });
+  } catch (e) {
+    box.innerHTML = `<div class="snap"><span class="empty">读不出来：${esc(e.message)}</span></div>`;
+  }
+}
+
+document.addEventListener("click", async (e) => {
+  const viewBtn = e.target.closest("button[data-view-kind]");
+  if (viewBtn) {
+    await viewSnapshot(viewBtn.dataset.viewKind, Number(viewBtn.dataset.viewVersion));
+    $("snapshot").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+
+  const btn = e.target.closest("button[data-kind]");
+  if (!btn) return;
+  const kind = btn.dataset.kind;
+  const version = Number(btn.dataset.version);
+  if (!window.confirm(`回滚 ${kind} 到 v${version}？会生成一个新版本，不会删除任何历史。`)) return;
+  try {
+    await api("/api/internal/config/rollback", {
+      method: "POST", body: JSON.stringify({ kind, version, actor: actor() })
+    });
+    toast(`已回滚到 ${kind} v${version}`);
+    $("snapshot").innerHTML = "";
+    await loadAll();
+  } catch (err) {
+    toast("回滚失败：" + err.message);
+  }
+});
+
+/* ---------- 启动 ---------- */
+
+async function loadAll() {
+  const view = await api("/api/internal/safety/rules");
+  rulesState = view.definition;
+  casesState = view.definition.cases || [];
+  renderRules();
+  renderCases();
+  await loadLimits();
+  await loadFlow();
+  await loadHistory();
+}
+
+$("reload").addEventListener("click", () => loadAll().then(() => toast("已刷新")).catch((e) => toast(e.message)));
+
+loadAll().catch((e) => toast("加载失败：" + e.message));
+</script>
+</body>
+</html>

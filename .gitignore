@@ -87,6 +87,10 @@ eval/datasets/private/
 *.orig
 *.rej
 
+# ---- 后台配置的运行期快照 ----
+# 每次保存生成 v<n>.json，属于本机运行状态；配置本身（config/*.json）要进库。
+backend/config/history/
+
 # ---- 系统 ----
 .DS_Store
 Thumbs.db

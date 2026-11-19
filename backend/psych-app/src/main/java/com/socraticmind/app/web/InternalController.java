@@ -8,6 +8,14 @@ import com.socraticmind.agent.cbt.flow.FlowDefinition;
 import com.socraticmind.agent.cbt.flow.FlowParamsStore;
 import com.socraticmind.agent.cbt.flow.FlowValidator;
 import com.socraticmind.agent.cbt.flow.StageSpec;
+import com.socraticmind.agent.cbt.safety.SafetyCase;
+import com.socraticmind.agent.cbt.safety.SafetyRules;
+import com.socraticmind.agent.cbt.safety.SafetyRulesStore;
+import com.socraticmind.agent.cbt.safety.SafetyRulesValidator;
+import com.socraticmind.agent.cbt.safety.SafetyScreener;
+import com.socraticmind.agent.config.ConfigVersion;
+import com.socraticmind.agent.config.RuntimeLimits;
+import com.socraticmind.agent.config.RuntimeLimitsStore;
 import com.socraticmind.common.guard.GuardRules;
 import com.socraticmind.common.guard.GuardViolation;
 import com.socraticmind.common.guard.OutputPolicy;
@@ -28,6 +36,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,18 +53,21 @@ import java.util.Map;
  * - 诚实：把"内存档 / 桩模型 / 无鉴权"三件事显式暴露，避免演示时被误认为生产可用；
  * - 可复现：演示会话走真实流程，不是前端编造的假数据。
  *
- * 设计说明见 docs/02-设计/内部后台.md。默认只在开发期开启：
- * psych.internal.enabled=false 即可整体关掉。
+ * 设计说明见 docs/02-设计/内部后台.md。**默认关闭**：
+ * 只有显式 {@code psych.internal.enabled=true} 才会装配，且必须同时配置
+ * {@code psych.internal.token}，否则启动失败——宁可起不来，也不要裸奔。
  */
 @RestController
 @RequestMapping("/api/internal")
-@ConditionalOnProperty(name = "psych.internal.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "psych.internal.enabled", havingValue = "true")
 public class InternalController {
 
     private final CbtFlow flow;
     private final CbtSessionStore store;
     private final OutputPolicyStore policyStore;
     private final FlowParamsStore flowParams;
+    private final SafetyRulesStore safetyRules;
+    private final RuntimeLimitsStore limits;
     private final GuardAuditLog guardAudit;
     private final String aiProvider;
     private final String chatModel;
@@ -65,18 +77,23 @@ public class InternalController {
                               CbtSessionStore store,
                               OutputPolicyStore policyStore,
                               FlowParamsStore flowParams,
+                              SafetyRulesStore safetyRules,
+                              RuntimeLimitsStore limits,
                               GuardAuditLog guardAudit,
                               @Value("${psych.ai.provider:stub}") String aiProvider,
                               @Value("${psych.ai.chat-model:}") String chatModel,
-                              @Value("${psych.internal.auth:false}") boolean authEnabled) {
+                              @Value("${psych.internal.token:}") String internalToken) {
         this.flow = flow;
         this.store = store;
         this.policyStore = policyStore;
         this.flowParams = flowParams;
+        this.safetyRules = safetyRules;
+        this.limits = limits;
         this.guardAudit = guardAudit;
         this.aiProvider = aiProvider;
         this.chatModel = chatModel;
-        this.authEnabled = authEnabled;
+        // 开启内部接口时令牌是必填的（见 InternalAuthInterceptor），这里如实反映"有没有钥匙"
+        this.authEnabled = internalToken != null && !internalToken.isBlank();
     }
 
     public record RuntimeView(
@@ -88,6 +105,7 @@ public class InternalController {
             boolean authEnabled,
             int sessions,
             int safetyHolds,
+            int pendingReview,
             int awaiting,
             int events,
             int policyVersion,
@@ -149,11 +167,13 @@ public class InternalController {
             stageCounts.put(stage.name(), 0);
         }
         int holds = 0;
+        int review = 0;
         int awaiting = 0;
         int events = 0;
         for (CbtSession s : all) {
             stageCounts.merge(s.stage().name(), 1, Integer::sum);
             if (s.stage() == CbtStage.SAFETY_HOLD) holds++;
+            if ("review".equals(s.safetyStatus())) review++;
             if (s.awaitingUser()) awaiting++;
             events += s.trace().size();
         }
@@ -164,7 +184,7 @@ public class InternalController {
                 .count();
         return new RuntimeView(storeName, durable, aiProvider, chatModel,
                 "stub".equalsIgnoreCase(aiProvider), authEnabled,
-                all.size(), holds, awaiting, events,
+                all.size(), holds, review, awaiting, events,
                 policyStore.get().version(), guardRejections, flowParams.get().version(),
                 stageCounts, Instant.now());
     }
@@ -175,7 +195,7 @@ public class InternalController {
                                      @RequestParam(defaultValue = "false") boolean safetyOnly) {
         List<SessionRow> rows = new ArrayList<>();
         for (CbtSession s : store.findByUser(userId)) {
-            if (safetyOnly && s.stage() != CbtStage.SAFETY_HOLD) continue;
+            if (safetyOnly && s.stage() != CbtStage.SAFETY_HOLD && !"review".equals(s.safetyStatus())) continue;
             if (stage != null && !stage.isBlank() && !s.stage().name().equalsIgnoreCase(stage)) continue;
             rows.add(SessionRow.of(s));
         }
@@ -190,6 +210,38 @@ public class InternalController {
                 s.history(),
                 s.trace(),
                 branches(s));
+    }
+
+    /**
+     * 待复核队列：命中风险词但被判为他人/引用语境的会话。
+     *
+     * "放行"不是终点——这里存在的意义是让某个人真的能看到它。
+     * 没有这个出口，规则里的 context_guard 只是写了一个没人读的字符串。
+     */
+    public record SafetyReviewRow(
+            String sessionId,
+            String userId,
+            CbtStage stage,
+            String safetyStatus,
+            String safetyReason,
+            String targetProblem,
+            int turns,
+            Instant updatedAt
+    ) {
+    }
+
+    @GetMapping("/safety/review")
+    public List<SafetyReviewRow> safetyReview() {
+        List<SafetyReviewRow> rows = new ArrayList<>();
+        for (CbtSession s : store.findByUser(null)) {
+            boolean review = "review".equals(s.safetyStatus());
+            boolean hold = s.stage() == CbtStage.SAFETY_HOLD;
+            if (!review && !hold) continue;
+            rows.add(new SafetyReviewRow(s.id(), s.userId(), s.stage(), s.safetyStatus(),
+                    s.safetyReason(), s.targetProblem(), s.trace().size(), s.updatedAt()));
+        }
+        rows.sort((a, b) -> b.updatedAt().compareTo(a.updatedAt()));
+        return rows;
     }
 
     public record DemoRequest(String kind) {
@@ -324,6 +376,134 @@ public class InternalController {
         }
     }
 
+    // ---------------------------------------------------------------- 安全规则
+
+    /** 谁改的：控制台会带 X-Internal-Actor；不带就记 ops。 */
+    private static final String ACTOR_HEADER = "X-Internal-Actor";
+
+    public record SafetyRulesView(SafetyRules definition, String path, List<Integer> history, int cases) {
+    }
+
+    public record TextRequest(String text) {
+    }
+
+    public record RollbackRequest(String kind, Integer version, String actor) {
+    }
+
+    @GetMapping("/safety/rules")
+    public SafetyRulesView safetyRules() {
+        SafetyRules current = safetyRules.get();
+        return new SafetyRulesView(current, safetyRules.path().toString(),
+                safetyRules.history(), current.cases().size());
+    }
+
+    @PutMapping("/safety/rules")
+    public SafetyRules saveSafetyRules(@RequestBody SafetyRules incoming,
+                                       @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        // 请求体里的 updatedBy 优先：HTTP 头只允许 Latin-1，中文操作者名放头里会被浏览器拒绝或变成乱码。
+        return safetyRules.save(incoming, firstNonBlank(incoming.updatedBy(), actor));
+    }
+
+    /** 保存前先跑一遍：结构 + 固定用例回放，返回逐条错误，不落盘。 */
+    @PostMapping("/safety/rules/validate")
+    public Map<String, Object> validateSafetyRules(@RequestBody SafetyRules draft) {
+        List<String> errors = SafetyRulesValidator.validateAll(draft);
+        return Map.of("ok", errors.isEmpty(), "errors", errors);
+    }
+
+    @PostMapping("/safety/rules/test")
+    public SafetyScreener.Screen testSafetyRules(@RequestBody(required = false) TextRequest request) {
+        return SafetyScreener.screen(safetyRules.get(), request == null ? "" : request.text());
+    }
+
+    @GetMapping("/safety/cases")
+    public List<SafetyCase> safetyCases() {
+        return safetyRules.get().cases();
+    }
+
+    // ---------------------------------------------------------------- 运行参数
+
+    public record LimitsView(RuntimeLimits limits, String path, List<Integer> history) {
+    }
+
+    @GetMapping("/limits")
+    public LimitsView limits() {
+        return new LimitsView(limits.get(), limits.path().toString(), limits.history());
+    }
+
+    @PutMapping("/limits")
+    public RuntimeLimits saveLimits(@RequestBody RuntimeLimits incoming,
+                                    @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        return limits.save(incoming, firstNonBlank(incoming.updatedBy(), actor));
+    }
+
+    // ---------------------------------------------------------------- 历史与回滚
+
+    @GetMapping("/config/history")
+    public Map<String, List<ConfigVersion>> configHistory() {
+        return Map.of(
+                "flow", flowParams.historyEntries(),
+                "safety", safetyRules.historyEntries(),
+                "limits", limits.historyEntries());
+    }
+
+    /**
+     * 取某一版的内容，同时带上当前生效版本——页面据此做对比高亮。
+     * 只读：不改变任何状态；回滚仍要走 /config/rollback。
+     */
+    @GetMapping("/config/snapshot")
+    public Map<String, Object> configSnapshot(@RequestParam String kind, @RequestParam int version) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("kind", kind);
+        out.put("version", version);
+        switch (kind) {
+            case "flow" -> {
+                out.put("value", require(flowParams.snapshot(version), kind, version));
+                out.put("current", flowParams.get());
+            }
+            case "safety" -> {
+                out.put("value", require(safetyRules.snapshot(version), kind, version));
+                out.put("current", safetyRules.get());
+            }
+            case "limits" -> {
+                out.put("value", require(limits.snapshot(version), kind, version));
+                out.put("current", limits.get());
+            }
+            default -> throw new IllegalArgumentException("kind 只能是 flow / safety / limits");
+        }
+        return out;
+    }
+
+    private static Object require(Object snapshot, String kind, int version) {
+        if (snapshot == null) {
+            throw new IllegalArgumentException("没有这个历史版本：" + kind + " v" + version);
+        }
+        return snapshot;
+    }
+
+    /** 回滚不是覆盖：它把旧快照当成一次新的保存，所以版本号继续往前走。 */
+    @PostMapping("/config/rollback")
+    public Map<String, Object> rollback(@RequestBody RollbackRequest request,
+                                        @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        if (request == null || request.kind() == null || request.version() == null) {
+            throw new IllegalArgumentException("需要 kind 与 version");
+        }
+        int version = request.version();
+        String who = firstNonBlank(request.actor(), actor);
+        switch (request.kind()) {
+            case "flow" -> flowParams.rollback(version, who);
+            case "safety" -> safetyRules.rollback(version, who);
+            case "limits" -> limits.rollback(version, who);
+            default -> throw new IllegalArgumentException("kind 只能是 flow / safety / limits");
+        }
+        return Map.of("rolledBackTo", version, "history", configHistory());
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) return first.trim();
+        return second;
+    }
+
     private static Map<String, Object> flowRules() {
         Map<String, Object> rules = new LinkedHashMap<>();
         rules.put("allowedNext", FlowValidator.ALLOWED_NEXT);
@@ -331,6 +511,7 @@ public class InternalController {
         rules.put("allowedBranch", FlowValidator.ALLOWED_BRANCH);
         rules.put("interventionTypes", FlowValidator.INTERVENTION_TYPES);
         rules.put("placeholders", FlowValidator.PLACEHOLDERS);
+        rules.put("messageKeys", com.socraticmind.agent.cbt.flow.FlowMessages.PLACEHOLDERS);
         rules.put("predicates", ConditionWhen.ALL.stream()
                 .map(w -> Map.of("when", w, "label", ConditionWhen.label(w)))
                 .toList());

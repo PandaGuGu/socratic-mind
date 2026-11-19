@@ -2,7 +2,8 @@ package com.socraticmind.app;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socraticmind.agent.cbt.CbtFlow;
-import com.socraticmind.agent.cbt.SafetyScreener;
+import com.socraticmind.agent.cbt.safety.SafetyRulesStore;
+import com.socraticmind.agent.cbt.safety.SafetyScreener;
 import com.socraticmind.agent.cbt.TurnResult;
 import com.socraticmind.agent.cbt.flow.BranchRule;
 import com.socraticmind.agent.cbt.flow.ConditionWhen;
@@ -59,7 +60,10 @@ class FlowBranchTest {
     }
 
     private CbtFlow flow(FlowParamsStore params) {
-        return new CbtFlow(new InMemoryCbtSessionStore(), new StubChatAdapter(), new SafetyScreener(), params);
+        SafetyRulesStore safety = new SafetyRulesStore(
+                dir.resolve("safety.json").toString(), dir.resolve("history").toString(), new ObjectMapper());
+        return new CbtFlow(new InMemoryCbtSessionStore(), new StubChatAdapter(),
+                new SafetyScreener(safety), params);
     }
 
     @Test
@@ -121,9 +125,8 @@ class FlowBranchTest {
         FlowParamsStore params = store();
         FlowDefinition base = params.defaults();
         Map<String, StageSpec> stages = new LinkedHashMap<>(base.stages());
-        StageSpec decision = stages.get("INTERVENTION_DECISION");
-        stages.put("INTERVENTION_DECISION", new StageSpec(decision.title(), decision.text(), null, "none",
-                List.of(new BranchRule(ConditionWhen.ELSE, "BEHAVIORAL_EXPERIMENT")), decision.x(), decision.y()));
+        // 把行为实验节点拿掉，再让分支指向它——校验必须报"不存在的节点"
+        stages.remove("BEHAVIORAL_EXPERIMENT");
 
         FlowDefinition bad = new FlowDefinition(base.version(), null, "test", stages, base.intervention());
         assertTrue(FlowValidator.validate(bad).stream()

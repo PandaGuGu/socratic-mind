@@ -12,16 +12,23 @@ psych:
   # 会话存储：memory 重启即丢（默认，开发用）；jdbc 落库，见 application-pg.yml / application-h2.yml
   session:
     store: memory
+  # 匿名身份令牌的签名密钥（生产必须显式配置，至少 16 字节）。
+  # 留空时启动生成临时密钥：安全，但重启后旧令牌全部失效。
+  security:
+    secret: ${PSYCH_USER_SECRET:}
   seed:
     enabled: true
   ai:
     provider: stub
     embedding-dimension: 256
-  # 内部只读控制台（/internal 与 /api/internal）。接口无鉴权，只允许本机或可信内网，
-  # 对外部署时置 false。详见 docs/02-设计/内部后台.md
+  # 内部控制台（/internal 与 /api/internal）。**默认关闭**。
+  # 打开时必须同时给出令牌，否则启动失败；浏览器端第一次访问会提示输入。
+  # 开发档（h2 / pg / http）已代为打开并给了默认令牌，只适合本机。
   internal:
-    enabled: true
-    auth: false
+    enabled: false
+    token: ${PSYCH_INTERNAL_TOKEN:}
+    # 开发档专用：把默认令牌直接告诉页面并自动填入。默认关闭（生产不得开启）。
+    dev-hint: false
   # 输出策略文件：运维在 /internal/policy.html 改完保存即写入这里并热加载。
   # 不存在时用内置默认值；建议纳入 git，便于 review 与回滚。
   guard:

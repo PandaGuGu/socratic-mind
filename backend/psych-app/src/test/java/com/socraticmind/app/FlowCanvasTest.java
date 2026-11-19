@@ -2,7 +2,8 @@ package com.socraticmind.app;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socraticmind.agent.cbt.CbtFlow;
-import com.socraticmind.agent.cbt.SafetyScreener;
+import com.socraticmind.agent.cbt.safety.SafetyRulesStore;
+import com.socraticmind.agent.cbt.safety.SafetyScreener;
 import com.socraticmind.agent.cbt.TurnResult;
 import com.socraticmind.agent.cbt.flow.FlowDefinition;
 import com.socraticmind.agent.cbt.flow.FlowParamsStore;
@@ -45,7 +46,10 @@ class FlowCanvasTest {
     }
 
     private CbtFlow flow(FlowParamsStore params) {
-        return new CbtFlow(new InMemoryCbtSessionStore(), new StubChatAdapter(), new SafetyScreener(), params);
+        SafetyRulesStore safety = new SafetyRulesStore(
+                dir.resolve("safety.json").toString(), dir.resolve("history").toString(), new ObjectMapper());
+        return new CbtFlow(new InMemoryCbtSessionStore(), new StubChatAdapter(),
+                new SafetyScreener(safety), params);
     }
 
     @Test

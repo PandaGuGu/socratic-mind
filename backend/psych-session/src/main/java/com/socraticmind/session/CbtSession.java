@@ -1,8 +1,8 @@
 package com.socraticmind.session;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 一次 CBT 会话的全部状态。
@@ -27,9 +27,15 @@ public class CbtSession {
     private String targetProblem;
     private String situation;
     private String automaticThought;
-    private final List<String> emotions = new ArrayList<>();
-    private final List<String> evidenceFor = new ArrayList<>();
-    private final List<String> evidenceAgainst = new ArrayList<>();
+    /**
+     * 这四个列表会被"读接口"和"写流程"同时碰到：
+     * 控制台在序列化历史时，用户可能正在追加一条消息。
+     * 用 CopyOnWriteArrayList 让迭代拿到快照，避免偶发的
+     * ConcurrentModificationException（代价是每次追加复制一份，几十条量级可忽略）。
+     */
+    private final List<String> emotions = new CopyOnWriteArrayList<>();
+    private final List<String> evidenceFor = new CopyOnWriteArrayList<>();
+    private final List<String> evidenceAgainst = new CopyOnWriteArrayList<>();
 
     private String candidateThought;
     private String userConfirmedThought;
@@ -40,10 +46,10 @@ public class CbtSession {
 
     private String pendingQuestion;
     private boolean awaitingUser;
-    private final List<CbtMessage> messages = new ArrayList<>();
+    private final List<CbtMessage> messages = new CopyOnWriteArrayList<>();
 
     /** 审计轨迹：每一轮为什么这么走。与 messages 分开存，导出时不必带上。 */
-    private final List<CbtTurnEvent> trace = new ArrayList<>();
+    private final List<CbtTurnEvent> trace = new CopyOnWriteArrayList<>();
 
     public CbtSession(String id, String threadId, String userId) {
         this.id = id;

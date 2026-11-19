@@ -10,6 +10,7 @@ import com.socraticmind.session.CbtTurnEvent;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.ResultSet;
 import java.sql.Timestamp;
@@ -26,6 +27,8 @@ import java.util.Optional;
  * 1. **整轮覆盖写**：每次 save 先删该会话的消息与轨迹再重建。
  *    会话规模是"几十条"量级，简单换来"内存与库永远一致"；真要追加式，
  *    等 cbt_message 上百万行再说（那时接口不变，换实现即可）。
+ *    覆盖写必须在一个事务里：UPDATE 成功、DELETE 成功、batch INSERT 失败
+ *    会留下一条"有会话、没消息"的空壳记录，而那恰好是最难察觉的坏数据。
  * 2. **只依赖 CbtSessionStore 端口**：换库不改业务代码，这也是当初把存储做成端口的理由。
  */
 @Component
@@ -60,6 +63,7 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
     }
 
     @Override
+    @Transactional
     public void save(CbtSession s) {
         Object[] args = new Object[]{
                 s.threadId(), s.userId(), s.stage().name(), s.awaitingUser(),

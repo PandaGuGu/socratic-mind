@@ -52,10 +52,14 @@ class CbtFlowTest {
         assertNotEquals("其实前三次有两次还行", afterReview.candidateThought(),
                 "候选想法应是改写后的说法，不能直接存证据原句");
 
+        // 计划里出现"写"→ 命中行为实验分支：先追问"什么时候做、怎么算完成"，再进确认
         TurnResult t4 = flow.handle(started.sessionId(), "提前写下三条具体预测，会后核对");
-        assertEquals(CbtStage.ACTION_CONFIRM, t4.stage());
-        assertEquals(TurnResult.AWAITING_CONFIRMATION, t4.status());
-        assertTrue(t4.awaitingConfirmation());
+        assertEquals(CbtStage.BEHAVIORAL_EXPERIMENT, t4.stage());
+
+        TurnResult t5 = flow.handle(started.sessionId(), "周六上午写三条，会后逐条核对");
+        assertEquals(CbtStage.ACTION_CONFIRM, t5.stage());
+        assertEquals(TurnResult.AWAITING_CONFIRMATION, t5.status());
+        assertTrue(t5.awaitingConfirmation());
 
         CbtSession session = store.find(started.sessionId()).orElseThrow();
         assertNull(session.userConfirmedThought(), "中断时不能有已确认的结论");
@@ -96,6 +100,8 @@ class CbtFlowTest {
         flow.handle(started.sessionId(), "我根本不适合读研");
         flow.handle(started.sessionId(), "上学期也拖过，最后还是交了");
         flow.handle(started.sessionId(), "先写三百字");
+        // 行为实验分支：确认之前还要把行动缩小到可执行的粒度
+        flow.handle(started.sessionId(), "明天上午写一百字，写完发给自己");
         flow.confirm(started.sessionId(), null);
 
         TurnResult end = flow.handle(started.sessionId(), "写了，没有想象中难");

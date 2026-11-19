@@ -14,6 +14,11 @@ psych:
     api-key: ${PSYCH_AI_API_KEY:}
     chat-model: ${PSYCH_AI_CHAT_MODEL:}
     embedding-model: ${PSYCH_AI_EMBEDDING_MODEL:}
+  # 联调档也打开控制台，方便看轨迹与拦截记录
+  internal:
+    enabled: true
+    token: ${PSYCH_INTERNAL_TOKEN:dev-internal-token}
+    dev-hint: true          # 本机验收：自动填入上面的令牌，不再弹窗
 
 logging:
   level:

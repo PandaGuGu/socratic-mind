@@ -21,7 +21,8 @@ public record FlowDefinition(
         String updatedAt,
         String updatedBy,
         Map<String, StageSpec> stages,
-        Map<String, List<String>> intervention
+        Map<String, List<String>> intervention,
+        Map<String, String> messages
 ) {
 
     public FlowDefinition {
@@ -31,6 +32,22 @@ public record FlowDefinition(
         intervention = intervention == null
                 ? Map.of()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(intervention));
+        messages = messages == null
+                ? FlowMessages.defaults()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(messages));
+    }
+
+    /** 兼容旧调用：没有自定义 messages 的构造。 */
+    public FlowDefinition(int version, String updatedAt, String updatedBy,
+                          Map<String, StageSpec> stages, Map<String, List<String>> intervention) {
+        this(version, updatedAt, updatedBy, stages, intervention, FlowMessages.defaults());
+    }
+
+    /** 取一句系统话术；缺失时退回内置默认，避免"配置漏了一个键就没有话" 。 */
+    public String message(String key) {
+        String value = messages.get(key);
+        if (value != null && !value.isBlank()) return value;
+        return FlowMessages.defaults().getOrDefault(key, "");
     }
 
     public StageSpec stage(CbtStage stage) {

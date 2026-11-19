@@ -95,8 +95,8 @@ class CbtTraceTest {
 
         CbtTurnEvent last = traceOf(started.sessionId()).get(1);
         assertEquals(CbtTurnEvent.ANSWER, last.action());
-        assertEquals("context_guard", last.safetyRule(),
-                "被第三人称语境放行也要留痕，否则漏判无法回溯");
+        assertEquals("self_harm", last.safetyRule(),
+                "被引用语境放行也要留痕（并进人工复核），否则漏判无法回溯");
     }
 
     @Test

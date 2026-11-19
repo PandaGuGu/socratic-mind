@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.socraticmind</groupId>
     <artifactId>psych-assistant</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
   </parent>
   <artifactId>psych-app</artifactId>
   <name>psych-app</name>

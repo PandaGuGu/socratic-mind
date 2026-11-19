@@ -40,7 +40,10 @@ public class IngestionService {
         String documentId = Ids.of("doc");
         String versionId = documentId + "_v1";
         String language = cmd.language() == null ? "zh" : cmd.language();
-        String status = cmd.publish() ? KnowledgeDocument.PUBLISHED : KnowledgeDocument.DRAFT;
+        // 入库永远不直接发布。publish 只表示"提交审核"，能不能成为证据由人工审核决定。
+        // 旧实现允许 publish=true 直通 PUBLISHED，而检索只看 published——
+        // 于是任何匿名调用方都能把一段话塞进"证据库"，再被系统当作依据引用。
+        String status = cmd.publish() ? KnowledgeDocument.REVIEWING : KnowledgeDocument.DRAFT;
 
         MarkdownParser.ParsedDocument parsed = parser.parse(cmd.title(), cmd.content());
         ParentChildChunker.Result chunked = chunker.chunk(documentId, versionId, language, parsed.sections());
@@ -58,7 +61,8 @@ public class IngestionService {
                     c.titlePath(), c.sectionPath(), c.content(), vector, c.pageStart(), c.pageEnd(),
                     c.language(), false);
             chunks.add(embedded);
-            evidence.add(evidenceExtractor.extract(embedded, cmd.publish() ? "approved" : "pending"));
+            // 证据的"已审核"属性不在这里给：此刻还没有人看过它。
+            evidence.add(evidenceExtractor.extract(embedded, "pending"));
         }
 
         KnowledgeDocument doc = new KnowledgeDocument(documentId, cmd.collection(), parsed.title(),

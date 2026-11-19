@@ -166,6 +166,9 @@ function renderBadges(o) {
   if (o.safetyHolds > 0) {
     badges.push(`<span class="badge is-warn"><i></i>安全暂停 ${o.safetyHolds}</span>`);
   }
+  if (o.pendingReview > 0) {
+    badges.push(`<span class="badge is-warn"><i></i>待复核 ${o.pendingReview}</span>`);
+  }
   $("badges").innerHTML = badges.join("");
   $("storeNote").textContent = o.durable
     ? `存储：${o.store}（会话、消息、轮次轨迹均已落库）`
@@ -176,7 +179,7 @@ function renderBadges(o) {
 
 function visibleSessions() {
   return S.sessions.filter((s) => {
-    if (S.filter === "safety") return s.stage === "SAFETY_HOLD";
+    if (S.filter === "safety") return s.stage === "SAFETY_HOLD" || s.safetyStatus === "review";
     if (S.filter === "awaiting") return s.awaiting;
     if (S.filter === "demo") return s.demo;
     return true;
