@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 知识库后台</title>
+<link rel="stylesheet" href="./knowledge.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="7.5"></circle>
+        <path d="M10 2.5v15M2.5 10h15"></path>
+      </svg>
+      <div class="brand-text">
+        <h1>Socratic Mind <span>知识库 · 内部</span></h1>
+      </div>
+    </div>
+    <nav class="nav" aria-label="内部后台">
+      <a href="./index.html">会话</a>
+      <a href="./flow.html">流程画布</a>
+      <a href="./policy.html">输出策略</a>
+      <a href="./settings.html">规则与参数</a>
+      <a class="active" href="./knowledge.html">知识库</a>
+    </nav>
+    <div class="top-right">
+      <div class="badges" id="badges"></div>
+      <button class="btn" id="refreshBtn" type="button">刷新</button>
+    </div>
+  </header>
+
+  <div class="kb-body">
+
+    <aside class="sessions">
+      <div class="panel-head">
+        <h2>资料</h2>
+        <span class="count" id="docCount">0</span>
+      </div>
+      <div class="filters" id="docFilters" role="tablist">
+        <button class="filter is-on" data-status="all" type="button">全部</button>
+        <button class="filter" data-status="reviewing" type="button">待审核</button>
+        <button class="filter" data-status="published" type="button">已发布</button>
+        <button class="filter" data-status="draft" type="button">草稿</button>
+      </div>
+      <div class="session-list" id="docList"></div>
+      <div class="panel-foot" id="storeNote">—</div>
+    </aside>
+
+    <main class="detail">
+      <div class="detail-head">
+        <div class="tabs" role="tablist" id="tabs">
+          <button class="tab is-on" data-tab="search" type="button">检索调试</button>
+          <button class="tab" data-tab="chat" type="button">问答试跑</button>
+          <button class="tab" data-tab="detail" type="button">资料详情</button>
+          <button class="tab" data-tab="ingest" type="button">新增资料</button>
+        </div>
+        <div class="detail-meta" id="meta"></div>
+      </div>
+      <div class="detail-body" id="body"></div>
+    </main>
+
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="./auth.js"></script>
+<script src="./knowledge.js"></script>
+</body>
+</html>

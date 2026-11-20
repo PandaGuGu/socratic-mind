@@ -30,6 +30,9 @@ public interface KnowledgeStore {
 
     List<Chunk> chunksByIds(Collection<String> ids);
 
+    /** 管理侧读取：返回该文档的全部块（含父块），按章节与序号排序。不参与检索。 */
+    List<Chunk> listChunks(String documentId);
+
     List<EvidenceItem> evidenceOfChunks(Collection<String> chunkIds);
 
     long countChunks();

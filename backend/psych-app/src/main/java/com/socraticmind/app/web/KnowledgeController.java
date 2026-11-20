@@ -2,6 +2,7 @@ package com.socraticmind.app.web;
 
 import com.socraticmind.agent.dto.SearchResult;
 import com.socraticmind.agent.knowledge.KnowledgeFlow;
+import com.socraticmind.common.model.Chunk;
 import com.socraticmind.common.model.KnowledgeDocument;
 import com.socraticmind.common.model.RagAnswer;
 import com.socraticmind.common.port.KnowledgeStore;
@@ -11,6 +12,7 @@ import com.socraticmind.knowledge.service.IngestionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,11 +32,14 @@ public class KnowledgeController {
     private final KnowledgeFlow flow;
     private final IngestionService ingestion;
     private final KnowledgeStore store;
+    private final String storeKind;
 
-    public KnowledgeController(KnowledgeFlow flow, IngestionService ingestion, KnowledgeStore store) {
+    public KnowledgeController(KnowledgeFlow flow, IngestionService ingestion, KnowledgeStore store,
+                               @Value("${psych.store:memory}") String storeKind) {
         this.flow = flow;
         this.ingestion = ingestion;
         this.store = store;
+        this.storeKind = storeKind;
     }
 
     public record ChatRequest(@NotBlank String message) {
@@ -58,6 +63,25 @@ public class KnowledgeController {
     }
 
     public record ReviewRequest(@NotBlank String decision) {
+    }
+
+    /** 管理端只读视图：不暴露向量，避免把调参噪音带到页面。 */
+    public record ChunkView(
+            String id,
+            String parentId,
+            int index,
+            String titlePath,
+            String sectionPath,
+            String content,
+            boolean parent,
+            Integer pageStart,
+            Integer pageEnd,
+            String language
+    ) {
+        static ChunkView of(Chunk c) {
+            return new ChunkView(c.id(), c.parentId(), c.index(), c.titlePath(), c.sectionPath(),
+                    c.content(), c.parent(), c.pageStart(), c.pageEnd(), c.language());
+        }
     }
 
     @PostMapping("/chat")
@@ -108,14 +132,24 @@ public class KnowledgeController {
         return store.findDocuments();
     }
 
+    /** 资料详情里的切分预览：含父块，按章节分组渲染。 */
+    @GetMapping("/documents/{id}/chunks")
+    public ResponseEntity<List<ChunkView>> chunks(@PathVariable String id) {
+        if (store.findDocument(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(store.listChunks(id).stream().map(ChunkView::of).toList());
+    }
+
     @GetMapping("/stats")
     public Map<String, Object> stats() {
         Map<String, Object> out = new LinkedHashMap<>();
         List<KnowledgeDocument> docs = store.findDocuments();
         out.put("documents", docs.size());
         out.put("published", docs.stream().filter(d -> KnowledgeDocument.PUBLISHED.equals(d.status())).count());
+        out.put("reviewing", docs.stream().filter(d -> KnowledgeDocument.REVIEWING.equals(d.status())).count());
         out.put("chunks", store.countChunks());
-        out.put("store", "see psych.store");
+        out.put("store", storeKind);
         return out;
     }
 }

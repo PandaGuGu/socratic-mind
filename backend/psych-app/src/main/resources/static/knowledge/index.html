@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 知识问答</title>
+<link rel="stylesheet" href="./knowledge.css">
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <a class="brand" href="/room/" aria-label="返回房间">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="7.5"></circle>
+        <path d="M10 2.5v15M2.5 10h15"></path>
+      </svg>
+      <span class="brand-name">Socratic Mind</span>
+      <span class="brand-sub">知识</span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="/room/">房间</a>
+      <a class="active" href="/knowledge/">知识</a>
+    </nav>
+    <div class="top-note">科普 · 不替代治疗</div>
+  </header>
+
+  <div class="layout">
+
+    <aside class="rail">
+      <div class="rail-head">
+        <h2>可以问</h2>
+      </div>
+      <div class="suggestions" id="suggestions"></div>
+      <p class="rail-note">一次只问一件事。回答会尽量标出处。</p>
+    </aside>
+
+    <main class="main">
+      <div class="intro">
+        <p class="kicker">KNOWLEDGE · 科普问答</p>
+        <h1>问一个关于心理学或 CBT 的问题。</h1>
+        <p class="lede">回答会尽量标出来源；资料不足时会直接说明，不推测。</p>
+      </div>
+
+      <form class="ask" id="askForm">
+        <input id="question" class="ask-input" autocomplete="off"
+               placeholder="例如：焦虑症有哪些常见症状？" aria-label="你的问题">
+        <button class="btn-primary" type="submit">提问</button>
+      </form>
+      <p class="ask-note">这不是诊断工具，也不提供药物或治疗指令。</p>
+
+      <section class="answer-area" id="answerArea" aria-live="polite"></section>
+
+      <footer class="page-foot">
+        如果有伤害自己的想法，请联系 <b>12356</b> 心理援助热线或 <b>120</b>。
+      </footer>
+    </main>
+
+    <aside class="sources">
+      <div class="sources-head">
+        <h2>出处</h2>
+        <span class="count" id="sourceCount">0</span>
+      </div>
+      <div class="source-list" id="sourceList">
+        <p class="empty">提问后，这里会列出可核对的出处。</p>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script src="./knowledge.js"></script>
+</body>
+</html>

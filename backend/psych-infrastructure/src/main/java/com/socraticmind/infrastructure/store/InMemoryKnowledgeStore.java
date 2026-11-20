@@ -81,7 +81,8 @@ public class InMemoryKnowledgeStore implements KnowledgeStore {
             double score = TextUtils.cosine(query, c.embedding());
             if (score > 0) hits.add(new RetrievedChunk(c, score, "vector"));
         }
-        hits.sort(Comparator.comparingDouble(RetrievedChunk::score).reversed());
+        hits.sort(Comparator.comparingDouble(RetrievedChunk::score).reversed()
+                .thenComparing(h -> h.chunk().id()));
         return hits.stream().limit(limit).toList();
     }
 
@@ -95,7 +96,8 @@ public class InMemoryKnowledgeStore implements KnowledgeStore {
             double score = TextUtils.lexicalScore(query, c.titlePath() + " " + c.sectionPath(), c.content());
             if (score > 0) hits.add(new RetrievedChunk(c, score, "text"));
         }
-        hits.sort(Comparator.comparingDouble(RetrievedChunk::score).reversed());
+        hits.sort(Comparator.comparingDouble(RetrievedChunk::score).reversed()
+                .thenComparing(h -> h.chunk().id()));
         return hits.stream().limit(limit).toList();
     }
 
@@ -107,6 +109,17 @@ public class InMemoryKnowledgeStore implements KnowledgeStore {
             if (c != null) found.put(id, c);
         }
         return new ArrayList<>(found.values());
+    }
+
+    @Override
+    public List<Chunk> listChunks(String documentId) {
+        return chunks.values().stream()
+                .filter(c -> c.documentId().equals(documentId))
+                .sorted(Comparator.comparing(Chunk::sectionPath,
+                                Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(Chunk::parent, Comparator.reverseOrder())
+                        .thenComparingInt(Chunk::index))
+                .toList();
     }
 
     @Override

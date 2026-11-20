@@ -94,7 +94,7 @@ public class PgKnowledgeStore implements KnowledgeStore {
                 SELECT c.id, 1 - (c.embedding <=> ?::vector) AS score
                 FROM kb_chunk c JOIN kb_document d ON d.id = c.document_id
                 WHERE c.is_parent = false AND c.embedding IS NOT NULL AND d.status = 'published'
-                """ + filter + " ORDER BY c.embedding <=> ?::vector LIMIT ?";
+                """ + filter + " ORDER BY c.embedding <=> ?::vector, c.id LIMIT ?";
 
         List<Map<String, Object>> rows = allowedDocumentIds == null
                 ? jdbc.queryForList(sql, vec, vec, limit)
@@ -121,7 +121,7 @@ public class PgKnowledgeStore implements KnowledgeStore {
                 SELECT c.id FROM kb_chunk c JOIN kb_document d ON d.id = c.document_id
                 WHERE c.is_parent = false AND d.status = 'published'
                   AND (c.content ILIKE ANY(?::text[]) OR c.title_path ILIKE ANY(?::text[]))
-                """ + filter + " LIMIT ?";
+                """ + filter + " ORDER BY c.id LIMIT ?";
 
         List<String> ids = allowedDocumentIds == null
                 ? jdbc.queryForList(sql, String.class, toArray(Arrays.asList(patterns)), toArray(Arrays.asList(patterns)), limit)
@@ -153,6 +153,15 @@ public class PgKnowledgeStore implements KnowledgeStore {
             if (c != null) ordered.add(c);
         }
         return ordered;
+    }
+
+    @Override
+    public List<Chunk> listChunks(String documentId) {
+        return jdbc.query("""
+                SELECT * FROM kb_chunk
+                WHERE document_id = ?
+                ORDER BY section_path ASC NULLS FIRST, is_parent DESC, chunk_index ASC
+                """, CHUNK_MAPPER, documentId);
     }
 
     @Override
