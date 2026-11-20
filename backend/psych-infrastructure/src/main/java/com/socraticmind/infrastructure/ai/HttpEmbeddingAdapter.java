@@ -3,6 +3,7 @@ package com.socraticmind.infrastructure.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.socraticmind.common.port.EmbeddingPort;
+import com.socraticmind.common.support.TextUtils;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -32,10 +33,18 @@ public class HttpEmbeddingAdapter implements EmbeddingPort {
         try {
             JsonNode root = mapper.readTree(raw);
             JsonNode arr = root.path("data").path(0).path("embedding");
+            if (!arr.isArray() || arr.isEmpty()) {
+                // 空向量比报错更危险：写进 pgvector 会得到 "vector must have at least 1 dimension"，
+                // 或者更糟——被当成"这条资料没有向量"悄悄排除在检索之外。
+                throw new IllegalStateException("embedding 服务返回了空向量（model=" + model
+                        + "），响应片段：" + TextUtils.truncate(String.valueOf(raw), 160));
+            }
             float[] v = new float[arr.size()];
             for (int i = 0; i < arr.size(); i++) v[i] = (float) arr.get(i).asDouble();
             dimension = v.length;
             return v;
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalStateException("解析 embedding 响应失败", e);
         }
