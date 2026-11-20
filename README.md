@@ -7,7 +7,7 @@
 
 | 版本 | 测试 | 模型 | 状态 |
 |-|-|-|-|
-| v0.2.0 | 102 项通过 | 默认桩，可接 OpenAI 兼容接口 | 可跑通完整一轮，未上线 |
+| v0.3.0 | 108 项通过 | 默认桩，对话与向量可分源接真实服务 | 知识问答可用，未上线 |
 
 ![房间：点一下小人，它才开始问](docs/assets/current/room.png)
 
@@ -67,18 +67,22 @@ export PSYCH_USER_SECRET="换成你自己的随机串，至少 16 字节"   # �
 export PSYCH_INTERNAL_TOKEN="dev-internal-token"
 
 # 本机没有 Docker：H2 文件库，重启数据还在
-java -jar psych-app/target/psych-app-0.2.0.jar --server.port=8099 --spring.profiles.active=h2
+java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profiles.active=h2
 ```
 
 | 地址 | 是什么 |
 |-|-|
 | <http://localhost:8099/room/> | 产品界面（对话） |
+| <http://localhost:8099/knowledge/> | 用户知识问答（纸本阅读风格） |
 | <http://localhost:8099/internal> | 控制台：会话列表、阶段链、逐轮轨迹、待复核队列 |
 | <http://localhost:8099/internal/settings.html> | 规则与参数：安全规则、用例、限流、系统话术、版本回滚 |
+| <http://localhost:8099/internal/knowledge.html> | 知识库：切分预览、检索调试、问答试跑、入库与审核 |
 | <http://localhost:8099/internal/flow.html> | 流程画布 |
 | <http://localhost:8099/internal/policy.html> | 输出策略（禁句、拦截） |
 
 开发档会把内部令牌自动填进页面，验收时不用手打。接真实模型用 `--spring.profiles.active=http` 并配 `psych.ai.*`。
+前台用户侧（房间、知识问答）用纸本阅读风格；后台运营侧保留工具型控制台，两套不强行统一，见 [UI 设计规范](docs/04-规范/UI设计规范.md)。
+本地向量可以走 Ollama 的 BGE-M3（免费、1024 维）：`ollama serve && ollama pull bge-m3`，再按 `application-http.yml` 里的 `PSYCH_AI_EMBEDDING_*` 配置；对话与向量允许不同源。
 
 ## 后台长什么样
 
@@ -108,7 +112,7 @@ java -jar psych-app/target/psych-app-0.2.0.jar --server.port=8099 --spring.profi
 
 | 项 | 结果 |
 |-|-|
-| 单元 + 集成测试 | 102 项通过（`mvn -o test`） |
+| 单元 + 集成测试 | 108 项通过（`mvn -o test`） |
 | 端到端 | 五阶段 → 行为实验分支 → 改说法确认 → 安全暂停 → 复核队列，跑通 |
 | 重启存活 | 杀进程重启，同一令牌仍能读到上一轮 7 条轨迹、12 条消息 |
 | 归属隔离 | 无令牌 401、伪造令牌 401、他人会话 404 |
@@ -119,8 +123,8 @@ java -jar psych-app/target/psych-app-0.2.0.jar --server.port=8099 --spring.profi
 ## 还没做到
 
 - 模型层默认是桩：质量、延迟、成本都没有真实数据；
-- 向量检索用哈希桩，语义召回未被证明；
-- M6 评估未开始，`eval/datasets` 为空；
+- 默认向量仍是哈希桩；BGE-M3 本地向量已验证（Recall@5 1.0 / MRR 0.822），但未成为默认，PG 的 vector(256) 也未迁移；
+- M6 评估有骨架和一组真实基线：20 条 WHO 语料题 + 16 条开发冒烟题，正式测试集与三组对照未建；
 - PostgreSQL/pgvector 只做过 H2 兼容模式验证；
 - 令牌是设备级，换设备或清缓存即失去旧记录；
 - 安全规则来自工程常识，尚未经过临床审核。
@@ -131,6 +135,7 @@ java -jar psych-app/target/psych-app-0.2.0.jar --server.port=8099 --spring.profi
 |-|-|
 | 五分钟了解背景与取舍 | [相关方案横向对比](docs/01-方案/02-相关方案横向对比.md) |
 | 接手代码 | [模块拆分](docs/01-方案/03-模块拆分.md) → [API 契约](docs/02-设计/API契约.md) |
+| 看界面规范 | [UI 设计规范](docs/04-规范/UI设计规范.md) → [纸本设计稿](docs/design/knowledge-admin-v1.html) |
 | 上线与运维 | [内部后台](docs/02-设计/内部后台.md) → [外部依赖约定](docs/04-规范/外部依赖与付费资源约定.md) |
 | 看全部文档 | [docs/README](docs/README.md)（一页地图） |
 
