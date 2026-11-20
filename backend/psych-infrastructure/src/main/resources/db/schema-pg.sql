@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS kb_chunk (
     title_path          TEXT,
     section_path        TEXT,
     content             TEXT NOT NULL,
+    -- 维度必须与 embedding 模型一致：哈希桩 256，BGE-M3 1024。
+    -- 切换模型时不能直接复用旧列：清空 kb_chunk 后重建该列与 HNSW 索引。
     embedding           vector(256),
     page_start          INT,
     page_end            INT,

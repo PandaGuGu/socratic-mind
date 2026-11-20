@@ -1,19 +1,33 @@
-# 真实模型档：对话走 http，向量仍是桩（DeepSeek 没有 embeddings 端点）
+# 真实模型档：对话与向量可以不同源。
 #
+# 对话（OpenAI 兼容）：
 #   export PSYCH_AI_BASE_URL=https://api.deepseek.com
 #   export PSYCH_AI_API_KEY=sk-...
 #   export PSYCH_AI_CHAT_MODEL=deepseek-flash
-#   启动加 --spring.profiles.active=http
+#
+# 本地 BGE-M3（Ollama，1024 维）：
+#   ollama serve
+#   ollama pull bge-m3
+#   export PSYCH_AI_EMBEDDING_PROVIDER=http
+#   export PSYCH_AI_EMBEDDING_BASE_URL=http://localhost:11434/v1
+#   export PSYCH_AI_EMBEDDING_API_KEY=ollama
+#   export PSYCH_AI_EMBEDDING_MODEL=bge-m3
+#
+# 启动加 --spring.profiles.active=http
 psych:
   ai:
     provider: http
-    chat-provider: http
-    embedding-provider: stub
-    embedding-dimension: 256
+    chat-provider: ${PSYCH_AI_CHAT_PROVIDER:http}
+    embedding-provider: ${PSYCH_AI_EMBEDDING_PROVIDER:stub}
+    embedding-dimension: ${PSYCH_AI_EMBEDDING_DIMENSION:256}
     base-url: ${PSYCH_AI_BASE_URL:}
     api-key: ${PSYCH_AI_API_KEY:}
     chat-model: ${PSYCH_AI_CHAT_MODEL:}
+    embedding-base-url: ${PSYCH_AI_EMBEDDING_BASE_URL:}
+    embedding-api-key: ${PSYCH_AI_EMBEDDING_API_KEY:}
     embedding-model: ${PSYCH_AI_EMBEDDING_MODEL:}
+    temperature: ${PSYCH_AI_TEMPERATURE:0.2}
+    thinking-disabled: ${PSYCH_AI_THINKING_DISABLED:false}
   # 联调档也打开控制台，方便看轨迹与拦截记录
   internal:
     enabled: true

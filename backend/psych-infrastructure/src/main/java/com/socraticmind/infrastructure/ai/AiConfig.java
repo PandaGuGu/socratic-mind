@@ -26,10 +26,12 @@ public class AiConfig {
         if (!"http".equalsIgnoreCase(provider)) {
             return new HashEmbeddingAdapter(props.getEmbeddingDimension());
         }
-        require(props.getBaseUrl(), "psych.ai.base-url");
-        require(props.getApiKey(), "psych.ai.api-key");
+        String baseUrl = resolve(props.getEmbeddingBaseUrl(), props.getBaseUrl());
+        String apiKey = resolve(props.getEmbeddingApiKey(), props.getApiKey());
+        require(baseUrl, "psych.ai.embedding-base-url");
+        require(apiKey, "psych.ai.embedding-api-key");
         require(props.getEmbeddingModel(), "psych.ai.embedding-model");
-        return new HttpEmbeddingAdapter(props.getBaseUrl(), props.getApiKey(), props.getEmbeddingModel());
+        return new HttpEmbeddingAdapter(baseUrl, apiKey, props.getEmbeddingModel());
     }
 
     @Bean
@@ -42,7 +44,8 @@ public class AiConfig {
             require(props.getBaseUrl(), "psych.ai.base-url");
             require(props.getApiKey(), "psych.ai.api-key");
             require(props.getChatModel(), "psych.ai.chat-model");
-            delegate = new HttpChatAdapter(props.getBaseUrl(), props.getApiKey(), props.getChatModel());
+            delegate = new HttpChatAdapter(props.getBaseUrl(), props.getApiKey(), props.getChatModel(),
+                    props.getTemperature(), props.isThinkingDisabled());
         }
         // 所有模型调用统一过输出守卫：规则由运维在 /internal/policy.html 维护，改完即时生效。
         return new GuardedChatPort(delegate, policyStore, auditLog);

@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,13 +24,18 @@ public class HttpChatAdapter implements ChatPort {
 
     private final RestClient client;
     private final String model;
+    private final double temperature;
+    private final boolean thinkingDisabled;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public HttpChatAdapter(String baseUrl, String apiKey, String model) {
+    public HttpChatAdapter(String baseUrl, String apiKey, String model,
+                           double temperature, boolean thinkingDisabled) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException("psych.ai.base-url 未配置：无法调用真实模型");
         }
         this.model = model;
+        this.temperature = temperature;
+        this.thinkingDisabled = thinkingDisabled;
         HttpClient http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(READ_TIMEOUT);
@@ -44,15 +50,18 @@ public class HttpChatAdapter implements ChatPort {
 
     @Override
     public String chat(String systemPrompt, String userPrompt) {
-        Map<String, Object> body = Map.of(
-                "model", model,
-                "temperature", 0.2,
-                "max_tokens", MAX_TOKENS,
-                "messages", List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user", "content", userPrompt)
-                )
-        );
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("temperature", temperature);
+        body.put("max_tokens", MAX_TOKENS);
+        body.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)
+        ));
+        // Kimi K2.6 默认开启思考；显式关闭后才是"直接回答"，也才允许 0.6 的温度。
+        if (thinkingDisabled) {
+            body.put("thinking", Map.of("type", "disabled"));
+        }
         String raw = client.post().uri("/chat/completions").body(body).retrieve().body(String.class);
         try {
             JsonNode root = mapper.readTree(raw);
