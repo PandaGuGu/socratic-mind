@@ -1,0 +1,77 @@
+# 全部服务：应用 + PostgreSQL/pgvector。
+#
+#   bash scripts/stack.sh up            # 推荐：自动生成 .env、等健康检查、打印地址
+#   docker compose up -d --build        # 手动等价写法（需先有 .env）
+#
+# 想连本地向量模型（BGE-M3，容器里的 Ollama）时再加一层：docker-compose.ai.yml。
+# 变量含义见 .env.example，改动前先读 deploy/README.md。
+
+name: socratic-mind
+
+x-app-env: &app-env
+  # pg 档：知识库与会话都落 PostgreSQL
+  SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-pg}
+  PSYCH_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-psych}
+  PSYCH_DB_USER: ${POSTGRES_USER:-psych}
+  PSYCH_DB_PASSWORD: ${POSTGRES_PASSWORD:?缺少 POSTGRES_PASSWORD：请先跑 scripts/stack.sh（会自动生成 .env）}
+  # 会话令牌签名密钥：换了它，旧令牌全部失效
+  PSYCH_USER_SECRET: ${PSYCH_USER_SECRET:?缺少 PSYCH_USER_SECRET：请先跑 scripts/stack.sh（会自动生成 .env）}
+  # 内部后台的钥匙；容器档默认不让页面自动填令牌
+  PSYCH_INTERNAL_TOKEN: ${PSYCH_INTERNAL_TOKEN:?缺少 PSYCH_INTERNAL_TOKEN：请先跑 scripts/stack.sh（会自动生成 .env）}
+  PSYCH_INTERNAL_DEV_HINT: ${PSYCH_INTERNAL_DEV_HINT:-false}
+  # 模型：默认全桩，零成本。接真实对话模型见 deploy/README.md「接真实模型」
+  PSYCH_AI_PROVIDER: ${PSYCH_AI_PROVIDER:-stub}
+  PSYCH_AI_CHAT_PROVIDER: ${PSYCH_AI_CHAT_PROVIDER:-stub}
+  PSYCH_AI_BASE_URL: ${PSYCH_AI_BASE_URL:-}
+  PSYCH_AI_API_KEY: ${PSYCH_AI_API_KEY:-}
+  PSYCH_AI_CHAT_MODEL: ${PSYCH_AI_CHAT_MODEL:-}
+  PSYCH_AI_TEMPERATURE: ${PSYCH_AI_TEMPERATURE:-0.2}
+  PSYCH_AI_THINKING_DISABLED: ${PSYCH_AI_THINKING_DISABLED:-false}
+  # 维度必须与 PG 的 vector 列一致，改了要清库重来（docker compose down -v）
+  PSYCH_AI_EMBEDDING_DIMENSION: "256"
+  TZ: ${TZ:-Asia/Shanghai}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: psych-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-psych}
+      POSTGRES_USER: ${POSTGRES_USER:-psych}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?缺少 POSTGRES_PASSWORD：请先跑 scripts/stack.sh}
+      # 中文全文检索需要稳定排序规则
+      LANG: C.UTF-8
+    ports:
+      # 给 psql/DBeaver 留个口；不与本机 5432 抢端口
+      - "${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: socratic-mind/app:${APP_IMAGE_TAG:-local}
+    container_name: psych-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+    ports:
+      - "${APP_PORT:-8099}:8080"
+    volumes:
+      # 后台改的规则、话术、流程参数留在卷里；重建容器不丢，删卷才清
+      - appconfig:/app/config
+
+volumes:
+  pgdata:
+  appconfig:

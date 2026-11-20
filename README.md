@@ -59,6 +59,29 @@
 
 ## 跑起来
 
+### 方式一：Docker（全部服务，推荐）
+
+```bash
+bash scripts/stack.sh up        # Git Bash / WSL / Linux / macOS
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up   # Windows 原生终端
+```
+
+一条命令做完这些：生成 `.env`（随机密钥）→ 构建应用镜像 → 起 PostgreSQL/pgvector → 等健康检查 → 打印地址与内部令牌。
+数据落在命名卷里，`down` 不丢，`reset` 才清空。
+
+| 容器 | 是什么 |
+|-|-|
+| `psych-app` | 应用本体（多阶段构建，运行镜像只有 JRE） |
+| `psych-postgres` | PostgreSQL 16 + pgvector，知识库与会话都落这里 |
+| `psych-ollama` | 可选，加 `--ai` 才起：本地 BGE-M3 向量，1024 维 |
+
+想让检索用真向量：`bash scripts/stack.sh up --ai`（首次需拉约 1.2 GB 模型）。细节与踩坑见 [deploy/README](deploy/README.md)。
+
+### 方式二：本机 jar（没有 Docker 时）
+
 ```bash
 cd backend
 mvn -o package
@@ -66,7 +89,7 @@ mvn -o package
 export PSYCH_USER_SECRET="换成你自己的随机串，至少 16 字节"   # 签发会话令牌；不配也能起，但重启后旧令牌失效
 export PSYCH_INTERNAL_TOKEN="dev-internal-token"
 
-# 本机没有 Docker：H2 文件库，重启数据还在
+# H2 文件库，重启数据还在
 java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profiles.active=h2
 ```
 
@@ -80,7 +103,8 @@ java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profi
 | <http://localhost:8099/internal/flow.html> | 流程画布 |
 | <http://localhost:8099/internal/policy.html> | 输出策略（禁句、拦截） |
 
-开发档会把内部令牌自动填进页面，验收时不用手打。接真实模型用 `--spring.profiles.active=http` 并配 `psych.ai.*`。
+开发档会把内部令牌自动填进页面，验收时不用手打；Docker 档默认不自动填（`PSYCH_INTERNAL_DEV_HINT=false`），令牌在 `stack.sh up` 结束时打印。
+接真实模型用 `--spring.profiles.active=http` 并配 `psych.ai.*`。
 前台用户侧（房间、知识问答）用纸本阅读风格；后台运营侧保留工具型控制台，两套不强行统一，见 [UI 设计规范](docs/04-规范/UI设计规范.md)。
 本地向量可以走 Ollama 的 BGE-M3（免费、1024 维）：`ollama serve && ollama pull bge-m3`，再按 `application-http.yml` 里的 `PSYCH_AI_EMBEDDING_*` 配置；对话与向量允许不同源。
 
@@ -125,7 +149,7 @@ java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profi
 - 模型层默认是桩：质量、延迟、成本都没有真实数据；
 - 默认向量仍是哈希桩；BGE-M3 本地向量已验证（Recall@5 1.0 / MRR 0.822），但未成为默认，PG 的 vector(256) 也未迁移；
 - M6 评估有骨架和一组真实基线：20 条 WHO 语料题 + 16 条开发冒烟题，正式测试集与三组对照未建；
-- PostgreSQL/pgvector 只做过 H2 兼容模式验证；
+- PostgreSQL/pgvector 有一键容器编排，但 `PgKnowledgeStore` 还没对真实 PG 实跑过（此前只用 H2 兼容模式验证会话域）；
 - 令牌是设备级，换设备或清缓存即失去旧记录；
 - 安全规则来自工程常识，尚未经过临床审核。
 

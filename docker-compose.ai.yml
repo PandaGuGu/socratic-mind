@@ -1,0 +1,58 @@
+# 可选叠层：把向量服务也放进容器（Ollama + BGE-M3，1024 维，免费）。
+#
+#   bash scripts/stack.sh up --ai
+#   # 等价：docker compose -f docker-compose.yml -f docker-compose.ai.yml up -d --build
+#
+# 注意两点：
+# 1. 首次要拉 bge-m3（约 1.2 GB），CPU 推理会慢，答案生成仍是桩——这里只把"检索"变真；
+# 2. 向量维度从 256 变成 1024，PG 的 vector 列在建表时定死，所以必须新库：
+#    已有 256 维的数据要 docker compose down -v 清掉重来。
+
+services:
+  app:
+    environment:
+      # http 档负责装配真实模型端点，pg 档负责落库，两个都要
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-pg},http
+      # 对话仍是桩；要用真实对话模型，把下面 4 个变量写进 .env
+      PSYCH_AI_CHAT_PROVIDER: ${PSYCH_AI_CHAT_PROVIDER:-stub}
+      PSYCH_AI_EMBEDDING_PROVIDER: http
+      PSYCH_AI_EMBEDDING_BASE_URL: http://ollama:11434/v1
+      # Ollama 的 OpenAI 兼容端点不校验 key，但适配器要求非空
+      PSYCH_AI_EMBEDDING_API_KEY: ollama
+      PSYCH_AI_EMBEDDING_MODEL: ${OLLAMA_EMBED_MODEL:-bge-m3}
+      PSYCH_AI_EMBEDDING_DIMENSION: "1024"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      # 等模型拉完再启动，否则首次灌示例语料会因为找不到模型直接失败
+      ollama-pull:
+        condition: service_completed_successfully
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: psych-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: psych-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_EMBED_MODEL:-bge-m3}"]
+    restart: "no"
+
+volumes:
+  ollama:

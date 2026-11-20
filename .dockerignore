@@ -1,0 +1,34 @@
+# 构建上下文只留 backend：镜像里不需要文档、评估集、前端原型
+.git
+.gitignore
+.gitattributes
+.github
+
+# 构建产物与本机数据（必须排除：target 里可能有旧版本 jar）
+**/target/
+backend/data/
+backend/config/history/
+*.log
+hs_err_pid*
+
+docs/
+eval/
+frontend/
+scripts/
+deploy/
+.screenshots/
+.trae-html-share-packages/
+
+# 凭证与本机配置
+.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-*secret*.yml
+**/application-prod.yml
+
+# 杂项
+.DS_Store
+Thumbs.db
+desktop.ini
+node_modules/
