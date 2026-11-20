@@ -1,7 +1,8 @@
-# syntax=docker/dockerfile:1
-#
 # 全部服务都跑容器：应用本身用多阶段构建，运行镜像不带 Maven、不带源码。
 #   docker compose up -d --build      # 或 bash scripts/stack.sh up
+#
+# 不写 # syntax=docker/dockerfile:1：那行会强制从 Docker Hub 拉前端镜像，
+# 国内网络直接卡住；Docker 内置前端已经支持下面的 RUN --mount 缓存。
 #
 # 构建产物固定叫 /src/app.jar，避免 target/ 里残留多个版本的 jar 让 COPY 撞车。
 

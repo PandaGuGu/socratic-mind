@@ -97,6 +97,32 @@ compose() {
   fi
 }
 
+# Docker Hub 在部分网络下拉不动。配了 DOCKER_MIRROR 就先经镜像源拉取再打回标准标签，
+# 仓库里的镜像名保持不变；没配就交给 compose 自己拉。
+ensure_images() {
+  local mirror="${DOCKER_MIRROR:-}"
+  local images=("pgvector/pgvector:pg16" "maven:3.9-eclipse-temurin-21" "eclipse-temurin:21-jre-alpine")
+  if [ "$AI" -eq 1 ]; then
+    images+=("ollama/ollama:latest")
+  fi
+  local img src
+  for img in "${images[@]}"; do
+    if docker image inspect "$img" >/dev/null 2>&1; then
+      continue
+    fi
+    if [ -z "$mirror" ]; then
+      continue
+    fi
+    case "$img" in
+      pgvector/*|ollama/*) src="$mirror/$img" ;;
+      *) src="$mirror/library/$img" ;;
+    esac
+    info "从镜像源拉取 $img"
+    docker pull "$src" >/dev/null || die "拉取 $src 失败：检查 .env 里的 DOCKER_MIRROR 是否可用"
+    docker tag "$src" "$img"
+  done
+}
+
 wait_healthy() {
   local url="http://127.0.0.1:${APP_PORT}/actuator/health"
   local waited=0
@@ -139,8 +165,15 @@ case "$CMD" in
   up)
     require_docker
     ensure_env
-    info "构建并启动容器（首次较慢：要下 JDK/Maven/PG 镜像并编译）"
-    compose up -d --build
+    load_env
+    ensure_images
+    info "构建并启动容器（首次较慢：要编译并下 PG 镜像）"
+    if ! compose up -d --build; then
+      echo "✗ 启动失败。最常见的两个原因：" >&2
+      echo "  · 拉不到 Docker Hub 镜像：在 .env 里设 DOCKER_MIRROR=docker.m.daocloud.io 后重试；" >&2
+      echo "  · Docker Desktop 没配代理：设置 → Resources → Proxies。" >&2
+      exit 1
+    fi
     wait_healthy
     summary
     ;;

@@ -87,6 +87,25 @@ function Invoke-Compose {
     if ($LASTEXITCODE -ne 0) { Stop-With "docker compose 执行失败（exit $LASTEXITCODE）" }
 }
 
+# Docker Hub 在部分网络下拉不动。配了 DOCKER_MIRROR 就先经镜像源拉取再打回标准标签，
+# 仓库里的镜像名保持不变；没配就交给 compose 自己拉。
+function Ensure-Images {
+    $map = Get-EnvMap
+    $mirror = $map['DOCKER_MIRROR']
+    $images = @('pgvector/pgvector:pg16', 'maven:3.9-eclipse-temurin-21', 'eclipse-temurin:21-jre-alpine')
+    if ($Ai) { $images += 'ollama/ollama:latest' }
+    foreach ($img in $images) {
+        & docker image inspect $img *> $null
+        if ($LASTEXITCODE -eq 0) { continue }
+        if (-not $mirror) { continue }
+        $src = if ($img -match '^(pgvector|ollama)/') { "$mirror/$img" } else { "$mirror/library/$img" }
+        Write-Info "从镜像源拉取 $img"
+        & docker pull $src *> $null
+        if ($LASTEXITCODE -ne 0) { Stop-With "拉取 $src 失败：检查 .env 里的 DOCKER_MIRROR 是否可用" }
+        & docker tag $src $img *> $null
+    }
+}
+
 function Wait-Healthy {
     $envMap = Get-EnvMap
     $port = if ($envMap.APP_PORT) { $envMap.APP_PORT } else { '8099' }
@@ -134,8 +153,16 @@ switch ($Command) {
     'up' {
         Assert-Docker
         Initialize-EnvFile
-        Write-Info '构建并启动容器（首次较慢：要下 JDK/Maven/PG 镜像并编译）'
-        Invoke-Compose up -d --build
+        Ensure-Images
+        Write-Info '构建并启动容器（首次较慢：要编译并下 PG 镜像）'
+        try {
+            Invoke-Compose up -d --build
+        } catch {
+            Write-Host '✗ 启动失败。最常见的两个原因：' -ForegroundColor Red
+            Write-Host '  · 拉不到 Docker Hub 镜像：在 .env 里设 DOCKER_MIRROR=docker.m.daocloud.io 后重试；'
+            Write-Host '  · Docker Desktop 没配代理：设置 → Resources → Proxies。'
+            exit 1
+        }
         Wait-Healthy
         Show-Summary
     }
