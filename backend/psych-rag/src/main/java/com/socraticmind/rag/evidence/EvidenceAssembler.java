@@ -4,6 +4,7 @@ import com.socraticmind.common.model.Chunk;
 import com.socraticmind.common.model.Citation;
 import com.socraticmind.common.model.EvidenceItem;
 import com.socraticmind.common.model.KnowledgeDocument;
+import com.socraticmind.common.port.EmbeddingPort;
 import com.socraticmind.common.port.KnowledgeStore;
 import com.socraticmind.common.support.TextUtils;
 import com.socraticmind.rag.dto.EvidencePack;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 证据组装：命中 → 可引用证据。
@@ -27,10 +30,18 @@ public class EvidenceAssembler {
     private static final int MAX_ITEMS = 4;
     private static final int PARENT_CONTEXT_CHARS = 320;
 
-    private final KnowledgeStore store;
+    /**
+     * 语义向量的相关性门槛。仅在真实 embedding（非 stub）时启用；
+     * 0.55 是在 BGE-M3 + WHO 中文语料上校准的起点，换模型后要重新测。
+     */
+    private static final double MIN_VECTOR_RELEVANCE = 0.55;
 
-    public EvidenceAssembler(KnowledgeStore store) {
+    private final KnowledgeStore store;
+    private final boolean semanticVectors;
+
+    public EvidenceAssembler(KnowledgeStore store, EmbeddingPort embedding) {
         this.store = store;
+        this.semanticVectors = !embedding.modelId().startsWith("stub");
     }
 
     public EvidencePack assemble(String query, List<Hit> hits) {
@@ -71,19 +82,28 @@ public class EvidenceAssembler {
         }
 
         // 只数命中数量是不够的：向量路总会给出"最近"的块，哪怕毫不相关。
-        // 因此先看相关性（词法重合度），再看是否双路一致或多条命中。
+        // 词法重合度对口语化问题太苛刻，真实 embedding 下再看一眼语义相似度；
+        // 哈希桩不参与，避免"共同词多"被误当成语义相关。
         double bestOverlap = 0;
         for (PackItem item : items) {
             bestOverlap = Math.max(bestOverlap, TextUtils.lexicalScore(query,
                     item.chunk().titlePath() + " " + item.chunk().sectionPath(), item.chunk().content()));
         }
+        Set<String> itemIds = items.stream().map(item -> item.chunk().id()).collect(Collectors.toSet());
+        double bestVector = hits.stream()
+                .filter(h -> itemIds.contains(h.chunk().id()))
+                .mapToDouble(Hit::vectorScore)
+                .max().orElse(0);
         boolean dualRoute = hits.stream().anyMatch(h -> "both".equals(h.via()));
-        boolean relevant = bestOverlap >= 0.12;
+        boolean relevant = bestOverlap >= 0.12
+                || (semanticVectors && bestVector >= MIN_VECTOR_RELEVANCE);
         boolean sufficient = relevant && (dualRoute || items.size() >= 2);
 
         String reason = sufficient
-                ? "命中 " + items.size() + " 条，相关性 " + round(bestOverlap) + "，双路一致=" + dualRoute
-                : "相关性不足（最高 " + round(bestOverlap) + "，命中 " + items.size() + " 条），按保守策略降级";
+                ? "命中 " + items.size() + " 条，词法 " + round(bestOverlap) + "，向量 " + round(bestVector)
+                        + "，双路一致=" + dualRoute
+                : "相关性不足（词法 " + round(bestOverlap) + "，向量 " + round(bestVector)
+                        + "，命中 " + items.size() + " 条），按保守策略降级";
 
         return new EvidencePack(query, items, sufficient, reason);
     }

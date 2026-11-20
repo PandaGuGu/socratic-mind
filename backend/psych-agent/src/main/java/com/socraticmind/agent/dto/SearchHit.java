@@ -7,6 +7,8 @@ public record SearchHit(
         String documentTitle,
         String section,
         double score,
+        double vectorScore,
+        double textScore,
         String via,
         String preview
 ) {

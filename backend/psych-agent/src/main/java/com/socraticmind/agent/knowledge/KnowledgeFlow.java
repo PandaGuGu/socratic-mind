@@ -98,8 +98,10 @@ public class KnowledgeFlow {
             Optional<KnowledgeDocument> doc = store.findDocument(h.chunk().documentId());
             out.add(new SearchHit(h.chunk().id(), h.chunk().documentId(),
                     doc.map(KnowledgeDocument::title).orElse("-"),
-                    h.chunk().sectionPath(), Math.round(h.score() * 10000) / 10000.0, h.via(),
-                    TextUtils.truncate(h.chunk().content(), 60)));
+                    h.chunk().sectionPath(), Math.round(h.score() * 10000) / 10000.0,
+                    Math.round(h.vectorScore() * 10000) / 10000.0,
+                    Math.round(h.textScore() * 10000) / 10000.0,
+                    h.via(), TextUtils.truncate(h.chunk().content(), 60)));
         }
         return new SearchResult(question, type, rewritten, out);
     }

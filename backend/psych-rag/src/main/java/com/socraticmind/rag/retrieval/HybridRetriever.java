@@ -41,27 +41,39 @@ public class HybridRetriever {
         Map<String, Double> fused = new LinkedHashMap<>();
         Map<String, Chunk> chunks = new LinkedHashMap<>();
         Map<String, String[]> via = new LinkedHashMap<>();
+        Map<String, Double> vectorScores = new LinkedHashMap<>();
+        Map<String, Double> textScores = new LinkedHashMap<>();
 
         for (int i = 0; i < vectorHits.size(); i++) {
             RetrievedChunk rc = vectorHits.get(i);
             fused.merge(rc.chunk().id(), 1.0 / (RRF_K + i + 1), Double::sum);
             chunks.putIfAbsent(rc.chunk().id(), rc.chunk());
             via.computeIfAbsent(rc.chunk().id(), k -> new String[]{"", ""})[0] = "vector";
+            vectorScores.merge(rc.chunk().id(), rc.score(), Math::max);
         }
         for (int i = 0; i < textHits.size(); i++) {
             RetrievedChunk rc = textHits.get(i);
             fused.merge(rc.chunk().id(), 1.0 / (RRF_K + i + 1), Double::sum);
             chunks.putIfAbsent(rc.chunk().id(), rc.chunk());
             via.computeIfAbsent(rc.chunk().id(), k -> new String[]{"", ""})[1] = "text";
+            textScores.merge(rc.chunk().id(), rc.score(), Math::max);
         }
 
         List<Hit> hits = new ArrayList<>();
         fused.forEach((id, score) -> {
             String[] routes = via.get(id);
             String path = routes[0].isEmpty() ? "text" : routes[1].isEmpty() ? "vector" : "both";
-            hits.add(new Hit(chunks.get(id), score, path));
+            hits.add(new Hit(chunks.get(id), score, path,
+                    vectorScores.getOrDefault(id, 0.0), textScores.getOrDefault(id, 0.0)));
         });
-        hits.sort((a, b) -> Double.compare(b.score(), a.score()));
+        // RRF 分很粗，同分很常见；用单路向量分和 chunk id 兜底，保证同一语料每次排序一致。
+        hits.sort((a, b) -> {
+            int byScore = Double.compare(b.score(), a.score());
+            if (byScore != 0) return byScore;
+            int byVector = Double.compare(b.vectorScore(), a.vectorScore());
+            if (byVector != 0) return byVector;
+            return a.chunk().id().compareTo(b.chunk().id());
+        });
         return hits.size() > topK ? hits.subList(0, topK) : hits;
     }
 }
