@@ -33,10 +33,10 @@ mvn -o test                 # 108 项
 mvn -o package -DskipTests
 
 # 本机：H2 文件库，重启数据还在
-java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profiles.active=h2
+java -jar psych-app/target/psych-app-0.3.1.jar --server.port=8099 --spring.profiles.active=h2
 
 # 需要 PostgreSQL + pgvector 时（代码已写，本机未实跑）
-java -jar psych-app/target/psych-app-0.3.0.jar --spring.profiles.active=pg
+java -jar psych-app/target/psych-app-0.3.1.jar --spring.profiles.active=pg
 ```
 
 默认档（不带 profile）用内存存储 + 桩模型，不需要数据库也不需要 API key，启动即灌入示例语料。

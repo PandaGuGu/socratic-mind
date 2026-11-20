@@ -7,7 +7,7 @@
 
 | 版本 | 测试 | 模型 | 状态 |
 |-|-|-|-|
-| v0.3.0 | 108 项通过 | 默认桩，对话与向量可分源接真实服务 | 知识问答可用，未上线 |
+| v0.3.1 | 108 项通过 | 默认桩，对话与向量可分源接真实服务 | 一条命令起全部服务，未上线 |
 
 ![房间：点一下小人，它才开始问](docs/assets/current/room.png)
 
@@ -91,7 +91,7 @@ export PSYCH_USER_SECRET="换成你自己的随机串，至少 16 字节"   # �
 export PSYCH_INTERNAL_TOKEN="dev-internal-token"
 
 # H2 文件库，重启数据还在
-java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profiles.active=h2
+java -jar psych-app/target/psych-app-0.3.1.jar --server.port=8099 --spring.profiles.active=h2
 ```
 
 | 地址 | 是什么 |
