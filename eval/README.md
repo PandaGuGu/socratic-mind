@@ -21,13 +21,55 @@ eval/
 
 用例格式与建集规则见 [docs/05-评估/测试集说明.md](../docs/05-评估/测试集说明.md)。
 
-## 跑法（M6 定稿）
+## 跑法
+
+知识检索/问答脚本已可用（只打本机 HTTP 接口，不直连模型；stub 档零成本）：
 
 ```bash
-# 预期形态，脚本尚未实现
-python runners/run_eval.py --suite knowledge --dataset datasets/knowledge/v1.jsonl
-python runners/run_eval.py --suite safety    --dataset datasets/safety/v1.jsonl
+python eval/runners/run_eval.py --suite knowledge --mode both --base-url http://localhost:8099
+python eval/runners/run_eval.py --mode search --dataset eval/datasets/knowledge/dev-v1.jsonl
 ```
+
+- `--mode search`：Recall@K、MRR，不触发生成；
+- `--mode chat`：拒答准确率、关键词命中、引用有效率；
+- `dev-v1.jsonl` 基于仓库内示例语料，只验证脚本与口径，不是临床评估结果；
+- `who-v1.jsonl` 基于 WHO 中文实况报道的 20 条真实语料题（15 可答 + 5 应拒答），用于对比哈希向量与真实 embedding；依赖 `eval/datasets/private/corpus/` 下的本地语料（不入库）。
+
+safety / cbt 两个 suite 的脚本仍未实现。
+
+## 语料入库
+
+```bash
+# 默认只提交审核（status=reviewing），审核通过才可检索
+python eval/runners/ingest_corpus.py --dir eval/datasets/private/corpus
+
+# 演示用：入库后立即审核通过，跳过人工审核
+python eval/runners/ingest_corpus.py --dir eval/datasets/private/corpus --approve
+```
+
+真实语料放在 `eval/datasets/private/`（已 gitignore），不进版本库。
+本机验证用过 WHO 中文实况报道（CC BY-NC-SA 3.0 IGO），只证明管道与切分，不作为临床依据。
+
+复现 WHO 基线：
+
+```bash
+python eval/runners/ingest_corpus.py --dir eval/datasets/private/corpus --approve
+python eval/runners/run_eval.py --dataset eval/datasets/knowledge/who-v1.jsonl --mode both
+```
+
+`--approve` 只为复现基线跳过人工审核；正常流程应在 `/internal/knowledge.html` 里逐篇审核。
+
+## 真实语料基线（2026-11-20）
+
+`who-v1` 20 条，检索 topK=5：
+
+| 向量 | Recall@5 | MRR | 回答率 | 拒答准确率 |
+|-|-|-|-|-|
+| stub-hash-256 | 0.933 | 0.622 | 0.8 | 0.0 |
+| BGE-M3（Ollama，1024 维） | 1.0 | 0.822 | 1.0 | 0.0 |
+
+BGE-M3 修掉了 3 条口语化误拒，并把 MRR 从 0.622 提到 0.822；5 条无答案题仍被回答。
+问题已经从“语义召回”转到“证据是否真的回答了问题”，下一步需要问题类型与答案可验证性判断，而不是继续调相似度阈值。
 
 ## 三组对照
 

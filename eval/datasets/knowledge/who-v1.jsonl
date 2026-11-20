@@ -1,0 +1,20 @@
+{"id":"who_0001","question":"焦虑症有哪些常见症状？","expected":[{"document":"焦虑症","sections":["症状和模式"]}],"difficulty":"easy","note":"症状型问题，看能否定位到症状小节"}
+{"id":"who_0002","question":"焦虑症怎么治疗？","expected":[{"document":"焦虑症","sections":["诊断和治疗"]}],"difficulty":"easy","note":"治疗型问题"}
+{"id":"who_0003","question":"认知行为疗法对焦虑症有帮助吗？","expected":[{"document":"焦虑症","sections":["诊断和治疗"]}],"difficulty":"medium","note":"答案埋在治疗小节，不是独立条目"}
+{"id":"who_0004","question":"抑郁障碍的主要表现是什么？","expected":[{"document":"抑郁障碍","sections":["症状和类型"]}],"difficulty":"easy","note":"与焦虑症症状区分，检验文档路由"}
+{"id":"who_0005","question":"抑郁症的治疗方法有哪些？","expected":[{"document":"抑郁障碍","sections":["诊断和治疗"]}],"difficulty":"easy","note":"治疗型问题"}
+{"id":"who_0006","question":"抑郁症患者可以怎么自我调节？","expected":[{"document":"抑郁障碍","sections":["自我保健"]}],"difficulty":"medium","note":"口语化，与标题“自我保健”用词不一致"}
+{"id":"who_0007","question":"哪些因素会影响心理健康？","expected":[{"document":"心理健康","sections":["风险和保护性因素"]}],"difficulty":"easy","note":"概念型问题"}
+{"id":"who_0008","question":"世卫组织建议各国如何改善精神卫生？","expected":[{"document":"心理健康","sections":["世卫组织的反应"]}],"difficulty":"medium","note":"机构建议类问题"}
+{"id":"who_0009","question":"如何预防自杀？","expected":[{"document":"自杀","sections":["预防与控制"]}],"difficulty":"easy","note":"预防型问题"}
+{"id":"who_0010","question":"自杀的高风险人群有哪些？","expected":[{"document":"自杀","sections":["风险人群"]}],"difficulty":"easy","note":"人群识别"}
+{"id":"who_0011","question":"出现自杀念头时应该找谁帮忙？","expected":[{"document":"抑郁障碍","sections":["自我保健"]},{"document":"自杀","sections":["预防与控制"]}],"difficulty":"medium","note":"跨文档可答，允许两种正确出处"}
+{"id":"who_0012","question":"最近总睡不着、没胃口，心情也一直很低落，这是怎么回事？","expected":[{"document":"抑郁障碍","sections":["症状和类型"]}],"difficulty":"hard","note":"不含“抑郁”关键词，检验语义召回"}
+{"id":"who_0013","question":"我总是不敢去人多的地方，怕被大家盯着看，这属于哪种焦虑？","expected":[{"document":"焦虑症","sections":["症状和模式"]}],"difficulty":"hard","note":"口语化描述社交焦虑，检验同义匹配"}
+{"id":"who_0014","question":"心里总是悬着、放不下来，是不是焦虑症？","expected":[{"document":"焦虑症","sections":["概述","症状和模式"]}],"difficulty":"medium","note":"保留“焦虑”关键词，但表述口语化"}
+{"id":"who_0015","question":"做什么都提不起劲，对以前喜欢的事也没兴趣，是不是抑郁了？","expected":[{"document":"抑郁障碍","sections":["症状和类型"]}],"difficulty":"medium","note":"口语化，含“抑郁”关键词"}
+{"id":"who_0016","question":"舍曲林治疗广泛性焦虑症的起始剂量是多少？","expected_refusal":true,"difficulty":"easy","note":"语料只提 SSRI，没有具体剂量"}
+{"id":"who_0017","question":"DSM-5 诊断社交焦虑障碍需要满足几条标准？","expected_refusal":true,"difficulty":"medium","note":"语料没有诊断标准条目"}
+{"id":"who_0018","question":"CBT 治疗青少年抑郁的随机对照试验效应量是多少？","expected_refusal":true,"difficulty":"hard","note":"语料说 CBT 有效，但没有效应量数据"}
+{"id":"who_0019","question":"中国成年人焦虑症的患病率是多少？","expected_refusal":true,"difficulty":"hard","note":"语料只有全球数据，没有中国分项"}
+{"id":"who_0020","question":"经颅磁刺激治疗抑郁症一般需要做几个疗程？","expected_refusal":true,"difficulty":"medium","note":"语料没有物理治疗疗程"}

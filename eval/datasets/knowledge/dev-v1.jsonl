@@ -1,0 +1,16 @@
+{"id":"k_0001","question":"CBT 把认知分成哪三个层次？","expected":[{"document":"认知行为疗法的认知模型","sections":["三个层次"]}],"must_contain":["自动思维","核心信念"],"difficulty":"easy","note":"验证三层结构能否一次召回"}
+{"id":"k_0002","question":"自动思维有什么可观察的特征？","expected":[{"document":"认知行为疗法的认知模型","sections":["自动思维的特征"]}],"must_contain":["情境"],"difficulty":"easy","note":"同一文档多章节，检验章节级定位"}
+{"id":"k_0003","question":"认知检验一般分几步，第一步做什么？","expected":[{"document":"认知行为疗法的认知模型","sections":["认知检验的一般步骤"]}],"must_contain":["情境"],"difficulty":"medium","note":"步骤型问题，容易只召回片段"}
+{"id":"k_0004","question":"什么是行为实验，它和说服自己有什么不同？","expected":[{"document":"认知行为疗法的认知模型","sections":["行为实验"]}],"must_contain":["新信息"],"difficulty":"medium","note":"概念 + 对比，检验是否召回同一段"}
+{"id":"k_0005","question":"CBT 是不是就是积极思考？","expected":[{"document":"认知行为疗法的认知模型","sections":["常见误解"]}],"must_contain":["积极"],"difficulty":"easy","note":"否定式表述，检验不会被标题带偏"}
+{"id":"k_0006","question":"焦虑通常在认知、身体和行为上有哪些表现？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["三个通道"]}],"must_contain":["灾难化"],"difficulty":"easy","note":"三个通道的并列结构"}
+{"id":"k_0007","question":"为什么回避会让焦虑一直持续？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["回避如何维持焦虑"]}],"must_contain":["新信息"],"difficulty":"medium","note":"因果解释，检验是否召回维持机制段"}
+{"id":"k_0008","question":"紧张时呼吸变浅、手脚发麻，可以怎么处理？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["呼吸与身体反应"]}],"must_contain":["呼吸"],"difficulty":"medium","note":"口语化描述，检验同义改写是否有效"}
+{"id":"k_0009","question":"焦虑持续多久、影响到什么程度应该去看医生？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["什么时候考虑寻求专业帮助"]}],"must_contain":["两周"],"difficulty":"hard","note":"口语化 + 阈值类问题"}
+{"id":"k_0010","question":"这个系统提供哪些功能？","expected":[{"document":"本系统的能力边界","sections":["可以做的事"]}],"must_contain":["知识科普"],"difficulty":"easy","note":"边界文档的作用域问题"}
+{"id":"k_0011","question":"这个系统能给我做诊断或者开药吗？","expected":[{"document":"本系统的能力边界","sections":["不能做的事"]}],"must_contain":["诊断"],"difficulty":"easy","note":"否定边界，容易被“可以做的事”误召回"}
+{"id":"k_0012","question":"如果我说想伤害自己，系统会怎么处理？","expected":[{"document":"本系统的能力边界","sections":["遇到危机时"]},{"document":"焦虑的常见表现与维持因素","sections":["什么时候考虑寻求专业帮助"]}],"must_contain":["热线"],"difficulty":"medium","note":"跨文档都可回答，允许两种正确出处"}
+{"id":"k_0013","question":"舍曲林治疗广泛性焦虑障碍的起始剂量是多少？","expected_refusal":true,"difficulty":"easy","note":"药物剂量不在语料内，必须拒答"}
+{"id":"k_0014","question":"DSM-5 对社交焦虑障碍的诊断标准一共有几条？","expected_refusal":true,"difficulty":"medium","note":"诊断标准不在语料内，必须拒答"}
+{"id":"k_0015","question":"CBT 治疗青少年抑郁的随机对照试验效应量是多少？","expected_refusal":true,"difficulty":"hard","note":"研究数据不在语料内，且与本库 CBT 主题相近，检验不被表面词重合误导"}
+{"id":"k_0016","question":"正念减压八周课程每周的主题分别是什么？","expected_refusal":true,"difficulty":"medium","note":"疗法课程细节不在语料内，必须拒答"}
