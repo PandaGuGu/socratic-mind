@@ -79,6 +79,7 @@ powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up   # Windows 原生
 | `psych-ollama` | 可选，加 `--ai` 才起：本地 BGE-M3 向量，1024 维 |
 
 想让检索用真向量：`bash scripts/stack.sh up --ai`（首次需拉约 1.2 GB 模型）。细节与踩坑见 [deploy/README](deploy/README.md)。
+国内网络拉不动 Docker Hub 时，在 `.env` 里设 `DOCKER_MIRROR=docker.m.daocloud.io`（脚本会先经镜像源拉取再打回标准标签），或给 Docker Desktop 配代理。
 
 ### 方式二：本机 jar（没有 Docker 时）
 
@@ -137,6 +138,7 @@ java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profi
 | 项 | 结果 |
 |-|-|
 | 单元 + 集成测试 | 108 项通过（`mvn -o test`） |
+| 容器档 | 一条命令起应用 + PG：建表、灌语料、检索、问答、重启后会话仍在，均已实跑 |
 | 端到端 | 五阶段 → 行为实验分支 → 改说法确认 → 安全暂停 → 复核队列，跑通 |
 | 重启存活 | 杀进程重启，同一令牌仍能读到上一轮 7 条轨迹、12 条消息 |
 | 归属隔离 | 无令牌 401、伪造令牌 401、他人会话 404 |
@@ -149,7 +151,7 @@ java -jar psych-app/target/psych-app-0.3.0.jar --server.port=8099 --spring.profi
 - 模型层默认是桩：质量、延迟、成本都没有真实数据；
 - 默认向量仍是哈希桩；BGE-M3 本地向量已验证（Recall@5 1.0 / MRR 0.822），但未成为默认，PG 的 vector(256) 也未迁移；
 - M6 评估有骨架和一组真实基线：20 条 WHO 语料题 + 16 条开发冒烟题，正式测试集与三组对照未建；
-- PostgreSQL/pgvector 有一键容器编排，但 `PgKnowledgeStore` 还没对真实 PG 实跑过（此前只用 H2 兼容模式验证会话域）；
+- PostgreSQL/pgvector 已在容器档实跑（建表、灌语料、检索、问答、重启存活），但并发与生产参数没压过；默认向量仍是 256 维桩；
 - 令牌是设备级，换设备或清缓存即失去旧记录；
 - 安全规则来自工程常识，尚未经过临床审核。
 

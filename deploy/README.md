@@ -88,12 +88,25 @@ minio（原始文档存储）与 redis（缓存/限流）都还没接，等真�
 
 ## 验证状态
 
-| 项 | 状态 |
+2026-11-20 在本机 Docker Desktop 29.9 上实跑，Windows 11 + Git Bash。
+
+| 项 | 结果 |
 |-|-|
-| `docker compose config`（基础档、AI 叠加档） | 已渲染通过，变量与 `depends_on` 合并正确 |
-| 镜像构建与容器启动 | **未实跑**：本机 Docker Desktop 未启动，`com.docker.service` 处于 Stopped |
-| 应用 + PG 首次建表 / 灌示例语料 | 代码顺序已修（建表先于种子语料），待实跑确认 |
-| `--ai` 档的 1024 维建表 | 同一处修复覆盖，待实跑确认 |
+| 镜像构建 | 通过，首次 10 分 38 秒（Maven 依赖要下全）；二次复用缓存后秒级 |
+| 基础档启动 | 通过：PG healthy → 应用 healthy → 脚本打印入口，二次 `up` 用 14 秒 |
+| 建表与灌语料 | 通过：6 张表（kb/cbt 两域）、3 篇示例文档、34 块（17 父 + 17 子）、`vector(256)` |
+| 检索 | 通过：两路命中带 `vectorScore` / `textScore`，`via=both` 生效 |
+| 知识问答 | 通过：返回带脚注引用的答案；无关问题判 `insufficient_evidence` 并说明原因 |
+| 内部接口鉴权 | 通过：无 `X-Internal-Token` → 401，带令牌 → 200 |
+| 会话持久化 | 通过：发消息后 `docker compose restart app`，会话、阶段与轨迹仍在 |
+| `down` 后再 `up` | 通过：命名卷保留，库内文档与轮次未丢 |
+| 1024 维建表（http 向量） | 通过：用本地假 embedding 服务替代 Ollama，建出 `vector(1024)`，17 次向量调用后灌语料、检索、问答均正常 |
+| Ollama 档（`--ai`） | **未验证**：本网拉 `ollama/ollama` 镜像约 8 MB/分钟，15 分钟下不完，已中止；镜像与模型都可达，属于带宽问题 |
+
+实跑中发现并修掉两个问题，都已入库：
+
+- `Dockerfile` 原本写了 `# syntax=docker/dockerfile:1`，会强制从 Docker Hub 拉前端镜像；国内网络直接卡死。现已去掉，用 Docker 内置前端。
+- embedding 服务返回空向量时，适配器原来静默生成零长数组，写库才炸成 `vector must have at least 1 dimension`。现在直接报错并带响应片段。
 
 ## 约定
 
