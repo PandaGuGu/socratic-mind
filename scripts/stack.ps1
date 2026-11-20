@@ -91,8 +91,8 @@ function Wait-Healthy {
     $envMap = Get-EnvMap
     $port = if ($envMap.APP_PORT) { $envMap.APP_PORT } else { '8099' }
     $url = "http://127.0.0.1:$port/actuator/health"
-    Write-Info '等应用健康（最长 180 秒，首次要构建镜像与灌示例语料）'
-    for ($waited = 0; $waited -lt 180; $waited += 3) {
+    Write-Info '等应用健康（最长 240 秒，首次要构建镜像与灌示例语料）'
+    for ($waited = 0; $waited -lt 240; $waited += 3) {
         try {
             $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 3
             if ($response.StatusCode -eq 200) {
@@ -104,7 +104,7 @@ function Wait-Healthy {
         }
         if ($waited -gt 0 -and $waited % 30 -eq 0) { Write-Host "  …已等 ${waited}s" }
     }
-    Write-Host '✗ 180 秒内没等到健康检查，最近日志：' -ForegroundColor Red
+    Write-Host '✗ 240 秒内没等到健康检查，最近日志：' -ForegroundColor Red
     Invoke-Compose ps
     Invoke-Compose logs --tail 60 app
     exit 1

@@ -100,8 +100,8 @@ compose() {
 wait_healthy() {
   local url="http://127.0.0.1:${APP_PORT}/actuator/health"
   local waited=0
-  info "等应用健康（最长 180 秒，首次要构建镜像与灌示例语料）"
-  while [ "$waited" -lt 180 ]; do
+  info "等应用健康（最长 240 秒，首次要构建镜像与灌示例语料）"
+  while [ "$waited" -lt 240 ]; do
     if curl -fsS "$url" >/dev/null 2>&1; then
       echo "✓ 应用已就绪：$url"
       return 0
@@ -112,7 +112,7 @@ wait_healthy() {
       echo "  …已等 ${waited}s"
     fi
   done
-  echo "✗ 180 秒内没等到健康检查，最近的日志：" >&2
+  echo "✗ 240 秒内没等到健康检查，最近的日志：" >&2
   compose ps >&2 || true
   compose logs --tail 60 app >&2 || true
   exit 1

@@ -39,7 +39,7 @@ USER app
 EXPOSE 8080
 
 # 应用启动要等数据库、要灌示例语料，给足 start-period
-HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=6 \
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=8 \
   CMD curl -fsS http://127.0.0.1:8080/actuator/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
