@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.socraticmind</groupId>
     <artifactId>psych-assistant</artifactId>
-    <version>0.3.1</version>
+    <version>0.4.0</version>
   </parent>
   <artifactId>psych-infrastructure</artifactId>
   <name>psych-infrastructure</name>
@@ -40,6 +40,11 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <!-- 情绪序列带 Instant，普通 ObjectMapper 会直接抛 "Java 8 date/time not supported" -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>

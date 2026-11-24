@@ -15,14 +15,18 @@ import com.socraticmind.session.CbtMessage;
 import com.socraticmind.session.CbtSession;
 import com.socraticmind.session.CbtSessionStore;
 import com.socraticmind.session.CbtStage;
+import com.socraticmind.session.CrisisCard;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -83,6 +87,18 @@ public class CbtController {
                                  @Size(max = 64) String clientMessageId) {
     }
 
+    /** 情绪自评：分数只能由用户点出来，服务端不接受"模型推断的分"。 */
+    public record MoodRequest(@Min(0) @Max(10) int score) {
+    }
+
+    /** 紧急联系人：只在安全暂停时回显，不做外呼、不发短信。 */
+    public record ContactRequest(
+            @Size(max = 32) String name,
+            @Size(max = 32) String phone,
+            @Size(max = 16) String relation
+    ) {
+    }
+
     public record SessionView(
             String sessionId,
             String threadId,
@@ -102,15 +118,27 @@ public class CbtController {
             String safetyStatus,
             int turnCount,
             Instant createdAt,
-            Instant updatedAt
+            Instant updatedAt,
+            /** 用户自己打的情绪分，按时间顺序；前端拿它画折线，后端不做插值。 */
+            java.util.List<Integer> moodSeries,
+            java.util.List<String> distortions,
+            String contactName,
+            String contactPhone,
+            String contactRelation,
+            Instant safetyAckAt,
+            CrisisCard crisis
     ) {
         static SessionView of(CbtSession s) {
+            boolean hold = "hold".equals(s.safetyStatus());
             return new SessionView(s.id(), s.threadId(), s.stage(), s.stage().label(),
                     s.stage().visibleIndex(), finished(s.stage()) ? "ended" : "running",
                     s.targetProblem(), s.automaticThought(), s.candidateThought(),
                     s.userConfirmedThought(), s.interventionType(), s.actionPlan(),
                     s.actionResult(), s.summary(), s.awaitingUser(), s.safetyStatus(),
-                    s.trace().size(), s.createdAt(), s.updatedAt());
+                    s.trace().size(), s.createdAt(), s.updatedAt(),
+                    s.moodPoints().stream().map(com.socraticmind.session.MoodPoint::score).toList(),
+                    s.distortions(), s.contactName(), s.contactPhone(), s.contactRelation(),
+                    s.safetyAckAt(), hold ? CrisisCard.of(s, s.safetyReason()) : null);
         }
 
         /**
@@ -209,6 +237,47 @@ public class CbtController {
                                     @RequestHeader(value = USER_TOKEN_HEADER, required = false) String token) {
         owned(id, identity(token));
         return flow.history(id);
+    }
+
+    /**
+     * 记一次情绪自评。低频自评（≤3）会进"关注"状态，只影响后台标记与下次提示，
+     * 不改变流程、不触发安全暂停——分数低不等于危机，这条边界不能混。
+     */
+    @PostMapping("/{id}/mood")
+    public SessionView mood(@PathVariable String id,
+                            @RequestHeader(value = USER_TOKEN_HEADER, required = false) String token,
+                            @Valid @RequestBody MoodRequest request) {
+        owned(id, identity(token));
+        CbtSession session = store.find(id).orElseThrow(() -> new NotFoundException(SESSION_NOT_FOUND));
+        session.addMood(request.score(), session.trace().size());
+        if (request.score() <= 3 && !"hold".equals(session.safetyStatus())) {
+            session.setSafetyStatus("watch");
+            session.setSafetyReason("自评 " + request.score() + "/10，进入关注（不是危机判定）");
+        }
+        store.save(session);
+        return SessionView.of(session);
+    }
+
+    /**
+     * 设置紧急联系人。允许随时改、允许只填称呼不填号码。
+     * 手机号只做基本清洗（保留数字、+、-、空格），不做格式校验——校验失败不该让人填不进去。
+     */
+    @PutMapping("/{id}/contact")
+    public SessionView contact(@PathVariable String id,
+                               @RequestHeader(value = USER_TOKEN_HEADER, required = false) String token,
+                               @Valid @RequestBody ContactRequest request) {
+        owned(id, identity(token));
+        CbtSession session = store.find(id).orElseThrow(() -> new NotFoundException(SESSION_NOT_FOUND));
+        String phone = request.phone() == null ? null : request.phone().replaceAll("[^0-9+\\- ]", "");
+        session.setContact(trim(request.name()), trim(phone), trim(request.relation()));
+        store.save(session);
+        return SessionView.of(session);
+    }
+
+    private static String trim(String value) {
+        if (value == null) return null;
+        String t = value.strip();
+        return t.isEmpty() ? null : t;
     }
 
     @PostMapping("/{id}/end")

@@ -420,14 +420,16 @@ function renderDetail() {
   const { session } = S.detail;
   meta.innerHTML = `<span>${esc(session.sessionId)}</span><span>· ${esc(session.stage)}</span>`;
 
+  const banner = renderSafetyBanner(session);
+
   if (S.tab === "trace") {
-    $("detailBody").innerHTML = renderTrace();
+    $("detailBody").innerHTML = banner + renderTrace();
   } else if (S.tab === "fields") {
-    $("detailBody").innerHTML = renderFields();
+    $("detailBody").innerHTML = banner + renderFields();
   } else if (S.tab === "messages") {
-    $("detailBody").innerHTML = renderMessages();
+    $("detailBody").innerHTML = banner + renderMessages();
   } else {
-    $("detailBody").innerHTML = renderRaw();
+    $("detailBody").innerHTML = banner + renderRaw();
     const copy = $("copyRaw");
     if (copy) {
       copy.addEventListener("click", async () => {
@@ -442,8 +444,53 @@ function renderDetail() {
   }
 }
 
-function renderTrace() {
-  const { trace } = S.detail;
+/**
+ * 安全状态横幅：hold（已暂停并转介）/ watch（自评偏低）/ review（待人工复核）。
+ * 这里只显示"该有人看一眼"的信息与联系人，不做任何自动外呼——
+ * 我们只负责让人看见，不替用户联系任何人。
+ */
+function renderSafetyBanner(s) {
+  const status = s.safetyStatus;
+  if (!["hold", "watch", "review"].includes(status)) return "";
+  const label = status === "hold" ? "安全暂停 · 已给热线"
+    : status === "watch" ? "关注 · 自评偏低"
+      : "待人工复核";
+  const contact = s.contactName
+    ? `${esc(s.contactName)}${s.contactRelation ? `（${esc(s.contactRelation)}）` : ""} · ${esc(s.contactPhone || "未填号码")}`
+    : "未留紧急联系人";
+  const acked = s.safetyAckAt
+    ? `已处理 ${esc(new Date(s.safetyAckAt).toLocaleString())}`
+    : "尚未处理";
+  const mood = Array.isArray(s.moodSeries) && s.moodSeries.length
+    ? `最近自评 ${s.moodSeries[s.moodSeries.length - 1]}/10`
+    : "";
+  return `<div class="safety-banner is-${esc(status)}">
+    <div class="sb-head"><strong>${label}</strong><span>${acked}</span></div>
+    <p>${esc(s.safetyReason || "—")}${mood ? " · " + mood : ""}</p>
+    <p class="sb-contact">紧急联系人：${contact}</p>
+    ${s.safetyAckAt ? "" : `<button class="btn" data-ack="${esc(s.sessionId)}" type="button">标记已处理</button>`}
+  </div>`;
+}
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-ack]");
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await fetch(`${API}/sessions/${btn.dataset.ack}/ack`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ by: "console" })
+    });
+    toast("已标记");
+    select(btn.dataset.ack);
+  } catch (err) {
+    btn.disabled = false;
+    toast("标记失败", true);
+  }
+});
+
+function renderTrace() {  const { trace } = S.detail;
   if (!trace.length) {
     return `<div class="notice">这条会话没有轨迹。若它来自旧版本进程，重启前产生的数据没有事件记录。</div>`;
   }

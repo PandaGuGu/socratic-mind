@@ -61,3 +61,15 @@ CREATE TABLE IF NOT EXISTS cbt_turn (
 CREATE INDEX IF NOT EXISTS idx_cbt_session_user ON cbt_session (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cbt_message_session ON cbt_message (session_id);
 CREATE INDEX IF NOT EXISTS idx_cbt_turn_session ON cbt_turn (session_id);
+
+-- 增量列（v0.4.0）：老库只跑 CREATE TABLE IF NOT EXISTS 不会长出新列，
+-- 因此把新增字段写成幂等的 ALTER。H2（PG 模式）与 PostgreSQL 都支持 ADD COLUMN IF NOT EXISTS。
+-- 情绪自评、认知偏差标签、紧急联系人、危机事件处置时间，四组都属于"后加的可空信息"，
+-- 空值就表示"用户没填/没评/没处理"，与"填了 0 分"能区分开。
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS mood_points     TEXT;
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS distortions     TEXT;
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS contact_name    VARCHAR(64);
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS contact_phone   VARCHAR(32);
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS contact_relation VARCHAR(32);
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS safety_ack_at   TIMESTAMP WITH TIME ZONE;
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS safety_ack_by   VARCHAR(64);

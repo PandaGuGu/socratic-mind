@@ -71,4 +71,22 @@ class PromptAssetTest {
         assertFalse(text.contains("！"), "全套文案不用感叹号（docs/04-规范/UI设计规范.md §7）");
         assertFalse(text.toLowerCase().contains("加油"), "不做安慰性套话");
     }
+
+    /**
+     * 共享前言是"禁止清单"，不是人格设定：四条硬边界缺一条，模型就有了越界的入口。
+     * 它被打进 psych-agent 的 classpath，CbtFlow 启动时读取，缺文件会直接启动失败。
+     */
+    @Test
+    void counselorPromptKeepsHardBoundaries() throws Exception {
+        try (InputStream in = getClass().getResourceAsStream("/prompts/cbt/counselor.md")) {
+            assertNotNull(in, "共享前言必须随 psych-agent 打包");
+            String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(text.contains("不诊断"), "缺诊断边界");
+            assertTrue(text.contains("不用药"), "缺用药边界");
+            assertTrue(text.contains("不承诺疗效"), "缺疗效边界");
+            assertTrue(text.contains("不制造依赖"), "缺依赖边界");
+            assertFalse(text.contains("！"), "前言同样不用感叹号");
+            assertFalse(text.contains("\r"));
+        }
+    }
 }

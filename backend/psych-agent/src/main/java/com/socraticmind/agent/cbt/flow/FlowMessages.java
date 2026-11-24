@@ -18,6 +18,7 @@ public final class FlowMessages {
     public static final String CONFIRM_REQUIRED = "confirm_required";
     public static final String CONFIRM_ACK = "confirm_ack";
     public static final String END = "end";
+    public static final String CONTENT_BLOCKED = "content_blocked";
     public static final String BALANCE_TEMPLATE = "balance_template";
     public static final String SUMMARY_TEMPLATE = "summary_template";
 
@@ -27,6 +28,7 @@ public final class FlowMessages {
             CONFIRM_REQUIRED, java.util.Set.of(),
             CONFIRM_ACK, java.util.Set.of("thought", "plan"),
             END, java.util.Set.of(),
+            CONTENT_BLOCKED, java.util.Set.of(),
             BALANCE_TEMPLATE, java.util.Set.of("thought", "evidence"),
             SUMMARY_TEMPLATE, java.util.Set.of("situation", "thought", "evidence", "plan"));
 
@@ -39,6 +41,7 @@ public final class FlowMessages {
         m.put(CONFIRM_REQUIRED, "这句话我先没写进记录——它需要你确认。");
         m.put(CONFIRM_ACK, "好，已经记下：\n· 你的说法：「{{thought}}」\n· 行动计划：「{{plan}}」");
         m.put(END, "这一轮结束了。");
+        m.put(CONTENT_BLOCKED, "这句我先接不住——这里只聊你自己的处境，不处理拉群、代写、买卖这类内容。想继续说，我在。");
         m.put(BALANCE_TEMPLATE,
                 "「{{thought}}」是一个预测，不是事实。从现有信息看，另一种可能是：{{evidence}}。");
         m.put(SUMMARY_TEMPLATE,

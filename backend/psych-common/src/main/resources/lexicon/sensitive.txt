@@ -1,0 +1,47 @@
+# 敏感词库：scope|category|action|word
+#
+# scope  : in（只看用户输入）/ out（只看模型输出）/ both
+# action : block（整句拦下，不推进流程）/ mask（打码，输出侧命中要重写）/ review（放行但进复核）
+#
+# 三条设计约定：
+# 1. 自伤/伤人**不在这里**。那类表达要按语境分流（本人/他人/引用），由 SafetyScreener
+#    的规则表处理；词库只做"脏东西"和"拉客"，两者混在一起会把"我想死"降级成一个违禁词。
+# 2. 词库宁窄勿宽。"废物""没用""安眠药"这类词是 CBT 的原料，用户会反复说，
+#    把它们当敏感词会把治疗性对话直接掐死。
+# 3. 中文词按"去掉标点与空白后的连续串"匹配，所以不用写"加 微 信"这类变体；
+#    全角、零宽、重复字在归一化阶段已经处理。
+
+in|solicit|block|加微信
+in|solicit|block|加我微信
+in|solicit|block|微信号
+in|solicit|block|扫码加
+in|solicit|block|私聊我
+in|solicit|block|加qq
+in|solicit|block|qq号
+in|solicit|block|拉你进群
+in|solicit|block|投资群
+in|solicit|block|荐股
+in|solicit|block|刷单
+in|solicit|block|代写
+both|solicit|mask|博彩
+both|solicit|mask|网贷
+both|illegal|review|买枪
+both|illegal|review|冰毒
+both|illegal|review|毒品交易
+both|illegal|review|办假证
+both|sexual|mask|裸聊
+both|sexual|mask|约炮
+both|sexual|mask|黄片
+both|abuse|mask|傻逼
+both|abuse|mask|脑残
+both|abuse|mask|贱人
+out|self_harm|mask|割腕
+out|self_harm|mask|上吊
+out|self_harm|mask|烧炭
+out|self_harm|mask|吞药
+out|diagnosis|mask|你得了抑郁症
+out|diagnosis|mask|诊断为抑郁
+out|diagnosis|mask|确诊为
+out|medication|mask|建议你吃药
+out|medication|mask|加大剂量
+out|medication|mask|停药

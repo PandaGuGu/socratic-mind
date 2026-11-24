@@ -51,8 +51,15 @@ public final class GuardRules {
                         "命中禁句「" + banned + "」", banned));
             }
         }
-        if (rule.novelty() > 0 && source != null && !source.isBlank()) {
-            double score = noveltyScore(text, source);
+        // 敏感词库：与上面的禁句分开，因为它的词表可以独立维护、分级。
+        // 命中 BLOCK/MASK 都算"这句不能原样出去"——区别只在运维视角（拦 vs 遮），
+        // 对模型来说是同一种反馈：重写一次，再不过就退回模板。
+        for (SensitiveLexicon.Hit hit : SensitiveLexicon.get().scanOutput(text)) {
+            if (hit.action() == SensitiveLexicon.Action.REVIEW) continue;
+            violations.add(new GuardViolation(GuardViolation.LEXICON,
+                    "命中敏感词「" + hit.word() + "」（" + hit.category() + "）", hit.word()));
+        }
+        if (rule.novelty() > 0 && source != null && !source.isBlank()) {            double score = noveltyScore(text, source);
             if (score < rule.novelty()) {
                 violations.add(new GuardViolation(GuardViolation.NOVELTY,
                         String.format("与输入重合度 %.2f，低于阈值 %.2f", score, rule.novelty()),

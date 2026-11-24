@@ -144,6 +144,61 @@
   .confirm button:disabled{opacity:.4; cursor:default;}
   body.is-safety .lightpool, body.is-safety .figure-halo{opacity:.22;}
   body.is-safety .window{filter:grayscale(.55) brightness(.82);}
+
+  /* 语音：只在浏览器里转文字，不录、不传、不留 */
+  .slip .line .mic{
+    width:30px; height:30px; flex:0 0 30px; border-radius:50%; cursor:pointer;
+    border:0.5px solid rgba(36,31,26,.26); background:none; color:rgba(36,31,26,.62);
+    font-family:var(--sans); font-size:11px; line-height:1;
+  }
+  .slip .line .mic.on{background:var(--ink); color:var(--paper); border-color:var(--ink); animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+  /* 偏差提示：只在这一轮出现，不写进记录、不带评判 */
+  .hint{display:none; margin-top:9px; font-family:var(--sans); font-size:11px; line-height:1.7; color:rgba(36,31,26,.52);}
+  .hint.on{display:block;}
+  .hint b{font-weight:500; color:rgba(36,31,26,.72);}
+
+  /* 情绪刻度 */
+  .mood{display:none; margin-top:12px; padding-top:10px; border-top:0.5px solid rgba(36,31,26,.10);}
+  .mood.on{display:block;}
+  .mood .cap{font-family:var(--sans); font-size:10.5px; color:rgba(36,31,26,.44); margin-bottom:7px;}
+  .scale{display:flex; gap:3px;}
+  .scale button{
+    flex:1; min-width:0; height:22px; cursor:pointer; border:0; border-radius:2px;
+    font-family:var(--mono); font-size:9.5px; color:rgba(36,31,26,.52);
+    background:rgba(36,31,26,.05);
+  }
+  .scale button:hover{background:rgba(36,31,26,.12);}
+  .scale button.on{background:var(--ink); color:var(--paper);}
+  .scale button.low{background:rgba(160,70,55,.16);}
+  .curve{display:block; width:100%; height:34px; margin-top:6px; opacity:.85;}
+
+  /* 危机卡片：暂停时才出现 */
+  .crisis{display:none; margin-top:12px; padding:13px 14px; border:0.5px solid rgba(150,70,55,.35); background:rgba(150,70,55,.05);}
+  .crisis.on{display:block;}
+  .crisis h4{font-family:var(--serif); font-size:13.5px; font-weight:400; color:var(--ink); margin-bottom:8px;}
+  .crisis .num{font-family:var(--mono); font-size:11.5px; line-height:1.9; color:rgba(36,31,26,.78); white-space:pre-wrap;}
+  .crisis .who{margin-top:9px; font-family:var(--sans); font-size:11.5px; color:rgba(36,31,26,.62); line-height:1.8;}
+  .crisis .notice{
+    width:100%; height:76px; margin-top:9px; padding:8px; resize:none; display:none;
+    border:0.5px solid rgba(36,31,26,.18); background:rgba(255,255,255,.45);
+    font-family:var(--serif); font-size:11px; line-height:1.7; color:rgba(36,31,26,.75);
+  }
+  .crisis .notice.on{display:block;}
+  .crisis .btns{display:flex; gap:8px; margin-top:9px; flex-wrap:wrap;}
+  .crisis .btns button{
+    font-family:var(--sans); font-size:11.5px; cursor:pointer; padding:6px 11px; border-radius:2px;
+    border:0.5px solid rgba(36,31,26,.26); background:none; color:rgba(36,31,26,.7);
+  }
+  .crisis .btns button.primary{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .crisis .form{display:none; margin-top:10px; gap:6px; flex-wrap:wrap;}
+  .crisis .form.on{display:flex;}
+  .crisis .form input{
+    flex:1; min-width:80px; padding:6px 8px; font-family:var(--sans); font-size:11.5px;
+    border:0.5px solid rgba(36,31,26,.2); background:rgba(255,255,255,.45); color:var(--ink); outline:none;
+  }
+  .crisis .form input::placeholder{color:rgba(36,31,26,.35);}
   .conn{position:absolute; left:26px; bottom:24px; font-family:var(--mono); font-size:9.5px; color:rgba(237,232,222,.28); letter-spacing:.06em;}
   .conn.bad{color:#C4675C;}
 </style>
@@ -210,6 +265,7 @@
         <button data-answer="就是睡不着，脑子停不下来">睡不着</button>
       </div>
       <div class="line" id="inputLine">
+        <button class="mic" id="mic" title="用说的（只在浏览器里转文字，不留录音）" aria-label="语音输入">说</button>
         <input id="field" type="text" placeholder="或者，自己说" autocomplete="off">
         <button class="send" id="send">说给它听</button>
       </div>
@@ -220,6 +276,16 @@
           <button id="cfEdit">我再改改</button>
         </div>
       </div>
+
+      <div class="hint" id="hintRow"></div>
+
+      <div class="mood" id="moodRow">
+        <div class="cap">此刻的状态，点一个数字 · 0 很糟，10 还好</div>
+        <div class="scale" id="moodScale"></div>
+        <svg class="curve" id="moodCurve" viewBox="0 0 240 34" preserveAspectRatio="none"></svg>
+      </div>
+
+      <div class="crisis" id="crisisCard"></div>
     </div>
 
     <div class="toast" id="toast">这一轮结束了。它还在。</div>
@@ -388,6 +454,10 @@ function showSlip(t, isStart) {
     renderSeeds();
     field.focus();
   }
+
+  renderHint(t);
+  renderMood(t);
+  renderCrisis(t);
 }
 
 function renderSeeds() {
@@ -395,6 +465,168 @@ function renderSeeds() {
   $("slipOpts").innerHTML = seeds
     .map((o) => '<button data-answer="' + o.replace(/"/g, "&quot;") + '">' + o + "</button>")
     .join("");
+}
+
+/* ---------- 偏差提示 / 情绪刻度 / 危机卡片 ---------- */
+
+function renderHint(t) {
+  const row = $("hintRow");
+  const tags = Array.isArray(t.distortions) ? t.distortions : [];
+  const show = tags.length && ["COGNITIVE_REVIEW", "INTERVENTION_DECISION"].includes(t.stage);
+  row.classList.toggle("on", Boolean(show));
+  if (!show) { row.innerHTML = ""; return; }
+  row.innerHTML = "这句话里有点 <b>「" + tags.join("」「") + "」</b> 的影子。"
+    + "不用急着承认或否认，先看看有没有不一样的情况。";
+}
+
+function renderMood(t) {
+  const row = $("moodRow");
+  const on = !S.safety && t.status !== "ended";
+  row.classList.toggle("on", on);
+  if (!on) return;
+  const scale = $("moodScale");
+  if (!scale.children.length) {
+    scale.innerHTML = Array.from({ length: 11 }, (_, i) =>
+      '<button data-score="' + i + '" class="' + (i <= 3 ? "low" : "") + '">' + i + "</button>").join("");
+  }
+  const scores = Array.isArray(t.moodSeries) ? t.moodSeries : [];
+  const last = scores.length ? scores[scores.length - 1] : null;
+  [...scale.children].forEach((b) => b.classList.toggle("on", Number(b.dataset.score) === last));
+  drawCurve(scores);
+}
+
+/** 一条细折线：只画用户自己给的分，不做平滑，不做预测。 */
+function drawCurve(scores) {
+  const svg = $("moodCurve");
+  if (scores.length < 2) { svg.innerHTML = ""; return; }
+  const w = 240, h = 34, pad = 2;
+  const pts = scores.map((s, i) => {
+    const x = pad + (i / (scores.length - 1)) * (w - pad * 2);
+    const y = h - pad - (s / 10) * (h - pad * 2);
+    return [x, y];
+  });
+  const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  svg.innerHTML = '<path d="' + d + '" fill="none" stroke="rgba(36,31,26,.45)" stroke-width="1"/>'
+    + pts.map((p) => '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1)
+      + '" r="1.8" fill="rgba(36,31,26,.55)"/>').join("");
+}
+
+async function logMood(score) {
+  if (!S.id || S.busy) return;
+  try {
+    const view = await api("/" + S.id + "/mood", jsonBody({ score }));
+    S.moods = view.moodSeries || [];
+    drawCurve(S.moods);
+    [...$("moodScale").children].forEach((b) =>
+      b.classList.toggle("on", Number(b.dataset.score) === score));
+    say(score <= 3 ? "记下了。" + score + " 分。要不要先停一下，缓口气？" : "记下了 · " + score + " 分");
+  } catch (e) {
+    say("没记上：" + e.message, 3000);
+  }
+}
+
+function maskPhone(phone) {
+  if (!phone) return "";
+  return phone.length >= 7 ? phone.slice(0, 3) + "****" + phone.slice(-2) : phone;
+}
+
+function renderCrisis(t) {
+  const card = $("crisisCard");
+  const c = t.crisis;
+  if (!c) { card.classList.remove("on"); card.innerHTML = ""; return; }
+  const who = c.contactName
+    ? '<div class="who">可以联系的人：' + esc(c.contactName)
+      + (c.contactRelation ? "（" + esc(c.contactRelation) + "）" : "")
+      + " · " + esc(maskPhone(c.contactPhone)) + "</div>"
+    : '<div class="who">还没留联系人。留一个，下次这种时候卡片里就会有他。</div>';
+
+  card.innerHTML =
+    '<h4>现在可以做的事</h4>'
+    + '<div class="num">' + c.hotlines.map(esc).join("\n") + "</div>"
+    + who
+    + '<textarea class="notice" id="noticeBox" readonly>' + esc(c.notice) + "</textarea>"
+    + '<div class="btns">'
+    + '<button class="primary" id="copyNotice">复制发给联系人的话</button>'
+    + '<button id="toggleContact">' + (c.contactName ? "换一个联系人" : "留一个联系人") + "</button>"
+    + "</div>"
+    + '<div class="form" id="contactForm">'
+    + '<input id="cName" placeholder="怎么称呼" maxlength="32" value="' + esc(c.contactName || "") + '">'
+    + '<input id="cPhone" placeholder="手机号（可不填）" maxlength="32" value="' + esc(c.contactPhone || "") + '">'
+    + '<input id="cRel" placeholder="关系，如室友" maxlength="16" value="' + esc(c.contactRelation || "") + '">'
+    + '<button id="saveContact">存下</button>'
+    + "</div>";
+  card.classList.add("on");
+
+  $("copyNotice").addEventListener("click", async () => {
+    const box = $("noticeBox");
+    box.classList.add("on");
+    try {
+      await navigator.clipboard.writeText(c.notice);
+      say("已复制。发不发由你决定。");
+    } catch (e) {
+      box.focus(); box.select();
+      say("选中了，按 Ctrl+C 复制");
+    }
+  });
+  $("toggleContact").addEventListener("click", () => $("contactForm").classList.toggle("on"));
+  $("saveContact").addEventListener("click", async () => {
+    try {
+      await api("/" + S.id + "/contact", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: $("cName").value.trim(),
+          phone: $("cPhone").value.trim(),
+          relation: $("cRel").value.trim()
+        })
+      });
+      say("存下了。只有你自己看得见。");
+      $("contactForm").classList.remove("on");
+    } catch (e) {
+      say("没存上：" + e.message, 3000);
+    }
+  });
+}
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ---------- 语音：浏览器内识别，不留音频 ---------- */
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null;
+let listening = false;
+
+function toggleVoice() {
+  if (S.safety || field.disabled) return;
+  if (!SR) { say("这个浏览器不支持语音，先用文字吧"); return; }
+  if (listening) { recog.stop(); return; }
+  recog = new SR();
+  recog.lang = "zh-CN";
+  recog.interimResults = true;
+  recog.continuous = false;
+  recog.onresult = (e) => {
+    let text = "";
+    for (const r of e.results) text += r[0].transcript;
+    field.value = text;
+  };
+  recog.onerror = (e) => {
+    listening = false;
+    $("mic").classList.remove("on");
+    say(e.error === "not-allowed" ? "没拿到麦克风权限" : "没听清，再说一次？");
+  };
+  recog.onend = () => { listening = false; $("mic").classList.remove("on"); };
+  try {
+    recog.start();
+    listening = true;
+    $("mic").classList.add("on");
+    say("在听…说完点一下，或者直接按发送");
+  } catch (e) {
+    say("语音起不来：" + e.message, 3000);
+  }
 }
 
 /* ---------- 发送 ---------- */
@@ -485,6 +717,11 @@ $("slipOpts").addEventListener("click", (e) => {
 });
 
 sendBtn.addEventListener("click", () => send(field.value));
+$("mic").addEventListener("click", toggleVoice);
+$("moodScale").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-score]");
+  if (b) logMood(Number(b.dataset.score));
+});
 field.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); send(field.value); }
 });
@@ -749,20 +986,41 @@ setConn("同源接口已就绪");
 })();
 
 
-if (DEMO === "1") {
+/**
+ * 演示脚本：?demo=1 走一遍完整五步；?demo=safety 走到检验后触发安全暂停。
+ * 两条都走真实接口与真实安全规则，不是前端假动画——演示时说什么就真的发生什么。
+ */
+const DEMO_LINES = {
+  "1": [
+    "下周组会要汇报，一想到就手心出汗",
+    "我肯定会搞砸",
+    "前三次有两次其实还行，组长只提了数据口径",
+    "提前写下三条具体预测，会后逐条核对",
+    "汇报前把三条预测写在便签上"
+  ],
+  safety: [
+    "下周组会要汇报，一想到就手心出汗",
+    "我肯定会被开除，一切都完了",
+    "上次其实只是被提醒了一句"
+  ]
+};
+
+if (DEMO) {
   (async () => {
     try {
       await ensureSession();
-      const lines = [
-        "下周组会要汇报，一想到就手心出汗",
-        "我肯定会搞砸",
-        "前三次有两次其实还行，组长只提了数据口径",
-        "提前写下三条具体预测，会后逐条核对",
-        "汇报前把三条预测写在便签上"
-      ];
-      for (const line of lines) {
+      for (const line of DEMO_LINES[DEMO] || DEMO_LINES["1"]) {
         await new Promise((r) => setTimeout(r, 1400));
         await send(line);
+      }
+      // 安全演示要先过"确认"这道中断点：普通消息推不动它，这是设计而不是 bug。
+      if (DEMO === "safety") {
+        await new Promise((r) => setTimeout(r, 900));
+        if (S.awaiting) {
+          await confirmThought();
+          await new Promise((r) => setTimeout(r, 900));
+        }
+        await send("我真的不想活了");
       }
       if (VIEW === "outside") {
         showScene(outside);

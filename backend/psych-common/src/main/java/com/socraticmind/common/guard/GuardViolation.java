@@ -12,6 +12,7 @@ public record GuardViolation(String rule, String detail, String fragment) {
     public static final String MAX_CHARS = "max_chars";
     public static final String BANNED = "banned";
     public static final String NOVELTY = "novelty";
+    public static final String LEXICON = "lexicon";
 
     public static String label(String rule) {
         return switch (rule) {
@@ -20,6 +21,7 @@ public record GuardViolation(String rule, String detail, String fragment) {
             case MAX_CHARS -> "太长";
             case BANNED -> "禁句";
             case NOVELTY -> "疑似编造";
+            case LEXICON -> "敏感词";
             default -> rule;
         };
     }

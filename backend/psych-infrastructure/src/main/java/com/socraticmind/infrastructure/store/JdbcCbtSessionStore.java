@@ -7,6 +7,7 @@ import com.socraticmind.session.CbtSession;
 import com.socraticmind.session.CbtSessionStore;
 import com.socraticmind.session.CbtStage;
 import com.socraticmind.session.CbtTurnEvent;
+import com.socraticmind.session.MoodPoint;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -35,8 +36,11 @@ import java.util.Optional;
 @ConditionalOnProperty(name = "psych.session.store", havingValue = "jdbc")
 public class JdbcCbtSessionStore implements CbtSessionStore {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper()
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
+    };
+    private static final TypeReference<List<MoodPoint>> MOOD_LIST = new TypeReference<>() {
     };
 
     private static final String UPDATE = """
@@ -44,7 +48,10 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
               safety_status = ?, safety_reason = ?, target_problem = ?, situation = ?, automatic_thought = ?,
               emotions = ?, evidence_for = ?, evidence_against = ?, candidate_thought = ?,
               user_confirmed_thought = ?, intervention_type = ?, action_plan = ?, action_result = ?,
-              summary = ?, pending_question = ?, created_at = ?, updated_at = ?
+              summary = ?, pending_question = ?, mood_points = ?, distortions = ?,
+              contact_name = ?, contact_phone = ?, contact_relation = ?,
+              safety_ack_at = ?, safety_ack_by = ?,
+              created_at = ?, updated_at = ?
             WHERE id = ?
             """;
 
@@ -52,8 +59,10 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
             INSERT INTO cbt_session (thread_id, user_id, stage, awaiting_user, safety_status, safety_reason,
               target_problem, situation, automatic_thought, emotions, evidence_for, evidence_against,
               candidate_thought, user_confirmed_thought, intervention_type, action_plan, action_result,
-              summary, pending_question, created_at, updated_at, id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              summary, pending_question, mood_points, distortions,
+              contact_name, contact_phone, contact_relation, safety_ack_at, safety_ack_by,
+              created_at, updated_at, id)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """;
 
     private final JdbcTemplate jdbc;
@@ -71,6 +80,9 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
                 json(s.emotions()), json(s.evidenceFor()), json(s.evidenceAgainst()), s.candidateThought(),
                 s.userConfirmedThought(), s.interventionType(), s.actionPlan(), s.actionResult(),
                 s.summary(), s.pendingQuestion(),
+                json(s.moodPoints()), json(s.distortions()),
+                s.contactName(), s.contactPhone(), s.contactRelation(),
+                s.safetyAckAt() == null ? null : Timestamp.from(s.safetyAckAt()), s.safetyAckBy(),
                 Timestamp.from(s.createdAt()), Timestamp.from(s.updatedAt()), s.id()
         };
         if (jdbc.update(UPDATE, args) == 0) {
@@ -159,6 +171,10 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
         s.setActionResult(rs.getString("action_result"));
         s.setSummary(rs.getString("summary"));
         s.setPendingQuestion(rs.getString("pending_question"));
+        s.restoreMood(moods(rs.getString("mood_points")));
+        s.addDistortions(list(rs.getString("distortions")));
+        s.setContact(rs.getString("contact_name"), rs.getString("contact_phone"), rs.getString("contact_relation"));
+        s.restoreAck(instant(rs, "safety_ack_at"), rs.getString("safety_ack_by"));
         // 时间戳最后恢复：前面的 set 与 add 都会把 updatedAt 刷成"现在"
         s.restoreTimes(instant(rs, "created_at"), instant(rs, "updated_at"));
         return s;
@@ -207,6 +223,24 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
             return JSON.writeValueAsString(values == null ? List.of() : values);
         } catch (Exception e) {
             throw new IllegalStateException("序列化列表失败", e);
+        }
+    }
+
+    /** 情绪序列存的是对象而不是字符串，单独一组重载。 */
+    private static String json(Object value) {
+        try {
+            return JSON.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException("序列化情绪序列失败", e);
+        }
+    }
+
+    private static List<MoodPoint> moods(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return JSON.readValue(json, MOOD_LIST);
+        } catch (Exception e) {
+            return List.of();
         }
     }
 

@@ -7,7 +7,7 @@
 
 | 版本 | 测试 | 模型 | 状态 |
 |-|-|-|-|
-| v0.3.1 | 108 项通过 | 默认桩，对话与向量可分源接真实服务 | 一条命令起全部服务，未上线 |
+| v0.4.0 | 119 项通过 | 默认桩，对话与向量可分源接真实服务 | 一条命令起全部服务，未上线 |
 
 ![房间：点一下小人，它才开始问](docs/assets/current/room.png)
 
@@ -57,6 +57,8 @@
 
 任何一步命中安全规则，流程立即停在转介页，给出 **12356** 与 **120**，后续消息不会把对话拉回普通流程。
 
+用户侧还有四件小事，都是为了"把话说出来"和"知道有没有变好"：**语音输入**（浏览器内转文字，不录音、不上传）、**情绪刻度**（自己点一个 0–10，画成一条线）、**危机卡片**（热线 + 你自己留的联系人 + 一段可以转发给对方的话）、**偏差提示**（候选，不是诊断）。
+
 ## 跑起来
 
 ### 方式一：Docker（全部服务，推荐）
@@ -91,7 +93,7 @@ export PSYCH_USER_SECRET="换成你自己的随机串，至少 16 字节"   # �
 export PSYCH_INTERNAL_TOKEN="dev-internal-token"
 
 # H2 文件库，重启数据还在
-java -jar psych-app/target/psych-app-0.3.1.jar --server.port=8099 --spring.profiles.active=h2
+java -jar psych-app/target/psych-app-0.4.0.jar --server.port=8099 --spring.profiles.active=h2
 ```
 
 | 地址 | 是什么 |
@@ -137,7 +139,7 @@ java -jar psych-app/target/psych-app-0.3.1.jar --server.port=8099 --spring.profi
 
 | 项 | 结果 |
 |-|-|
-| 单元 + 集成测试 | 108 项通过（`mvn -o test`） |
+| 单元 + 集成测试 | 119 项通过（`mvn -o test`） |
 | 容器档 | 一条命令起应用 + PG：建表、灌语料、检索、问答、重启后会话仍在，均已实跑 |
 | 端到端 | 五阶段 → 行为实验分支 → 改说法确认 → 安全暂停 → 复核队列，跑通 |
 | 重启存活 | 杀进程重启，同一令牌仍能读到上一轮 7 条轨迹、12 条消息 |
@@ -153,7 +155,10 @@ java -jar psych-app/target/psych-app-0.3.1.jar --server.port=8099 --spring.profi
 - M6 评估有骨架和一组真实基线：20 条 WHO 语料题 + 16 条开发冒烟题，正式测试集与三组对照未建；
 - PostgreSQL/pgvector 已在容器档实跑（建表、灌语料、检索、问答、重启存活），但并发与生产参数没压过；默认向量仍是 256 维桩；
 - 令牌是设备级，换设备或清缓存即失去旧记录；
-- 安全规则来自工程常识，尚未经过临床审核。
+- **没有账户系统**：无注册、登录、找回密码、多设备同步；身份就是那枚匿名令牌。要做账户，得先定"历史记录随账号走还是随设备走"，以及迁移方案；
+- 安全规则来自工程常识，尚未经过临床审核；
+- 语音走浏览器 Web Speech API（Chrome/Edge），Firefox 不支持，音频不落库；
+- 紧急联系人只触发界面与后台待办，**不自动外呼、不发短信**。
 
 ## 文档
 
@@ -161,7 +166,7 @@ java -jar psych-app/target/psych-app-0.3.1.jar --server.port=8099 --spring.profi
 |-|-|
 | 五分钟了解背景与取舍 | [相关方案横向对比](docs/01-方案/02-相关方案横向对比.md) |
 | 接手代码 | [模块拆分](docs/01-方案/03-模块拆分.md) → [API 契约](docs/02-设计/API契约.md) |
-| 看界面规范 | [UI 设计规范](docs/04-规范/UI设计规范.md) → [纸本设计稿](docs/design/knowledge-admin-v1.html) |
+| 看界面规范 | [UI 设计规范](docs/04-规范/UI设计规范.md) → 实机 `/internal/knowledge.html` |
 | 上线与运维 | [内部后台](docs/02-设计/内部后台.md) → [外部依赖约定](docs/04-规范/外部依赖与付费资源约定.md) |
 | 看全部文档 | [docs/README](docs/README.md)（一页地图） |
 

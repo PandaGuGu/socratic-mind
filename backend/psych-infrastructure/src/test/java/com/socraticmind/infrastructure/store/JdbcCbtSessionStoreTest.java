@@ -141,4 +141,28 @@ class JdbcCbtSessionStoreTest {
         assertNull(loaded.interventionType());
         assertTrue(loaded.history().isEmpty());
     }
+
+    /** v0.4.0 的新列：情绪序列带 Instant，必须能落库再读回来（曾因缺 JavaTimeModule 直接 503）。 */
+    @Test
+    void moodContactAndDistortionsSurvive() {
+        JdbcTemplate jdbc = template();
+        CbtSession s = new CbtSession("cbt_mood", "t", "u-4");
+        s.addMood(3, 1);
+        s.addMood(7, 3);
+        s.setContact("小周", "13800001111", "室友");
+        s.addDistortions(List.of("灾难化", "以偏概全"));
+        s.setSafetyStatus("hold");
+        s.ackSafety("tester");
+        new JdbcCbtSessionStore(jdbc).save(s);
+
+        CbtSession loaded = new JdbcCbtSessionStore(jdbc).find("cbt_mood").orElseThrow();
+        assertEquals(2, loaded.moodPoints().size());
+        assertEquals(3, loaded.moodPoints().get(0).score());
+        assertEquals(7, loaded.moodPoints().get(1).score());
+        assertEquals("小周", loaded.contactName());
+        assertEquals("13800001111", loaded.contactPhone());
+        assertEquals("室友", loaded.contactRelation());
+        assertEquals(List.of("灾难化", "以偏概全"), loaded.distortions());
+        assertEquals("tester", loaded.safetyAckBy());
+    }
 }

@@ -37,6 +37,26 @@ public class CbtSession {
     private final List<String> evidenceFor = new CopyOnWriteArrayList<>();
     private final List<String> evidenceAgainst = new CopyOnWriteArrayList<>();
 
+    /**
+     * 用户自己打的情绪分（0–10）。与 emotions 的区别：
+     * emotions 是"他说了哪些情绪词"，由文本标签得到；
+     * moodPoints 是"他给自己打了多少分"，只能由用户点击产生。
+     * 前者不能当曲线用（无强度、无方向），后者能。
+     */
+    private final List<MoodPoint> moodPoints = new CopyOnWriteArrayList<>();
+
+    /** 自动思维里标出的候选认知偏差（见 DistortionTagger）。只是线索，不是诊断。 */
+    private final List<String> distortions = new CopyOnWriteArrayList<>();
+
+    /** 紧急联系人：用户自己填，只在安全暂停时回显。手机号不落明文日志。 */
+    private String contactName;
+    private String contactPhone;
+    private String contactRelation;
+
+    /** 危机事件的处置时间：后台点过"已联系"才写，没写就是待处理。 */
+    private Instant safetyAckAt;
+    private String safetyAckBy;
+
     private String candidateThought;
     private String userConfirmedThought;
     private String interventionType;
@@ -99,6 +119,60 @@ public class CbtSession {
     public List<String> emotions() { return emotions; }
     public List<String> evidenceFor() { return evidenceFor; }
     public List<String> evidenceAgainst() { return evidenceAgainst; }
+
+    public List<MoodPoint> moodPoints() { return List.copyOf(moodPoints); }
+
+    /** 唯一写入口：分数来自用户点击，turn 用来对齐对话轮次。 */
+    public void addMood(int score, int turn) {
+        moodPoints.add(MoodPoint.of(turn, score));
+        updatedAt = Instant.now();
+    }
+
+    public List<String> distortions() { return distortions; }
+
+    /** 认知偏差只增不减：用户原话没变，标签就不该被后一轮覆盖掉。 */
+    public void addDistortions(List<String> tags) {
+        if (tags == null) return;
+        for (String tag : tags) {
+            if (!distortions.contains(tag)) distortions.add(tag);
+        }
+        updatedAt = Instant.now();
+    }
+
+    public String contactName() { return contactName; }
+    public String contactPhone() { return contactPhone; }
+    public String contactRelation() { return contactRelation; }
+
+    public void setContact(String name, String phone, String relation) {
+        this.contactName = name;
+        this.contactPhone = phone;
+        this.contactRelation = relation;
+        updatedAt = Instant.now();
+    }
+
+    public boolean hasContact() {
+        return (contactName != null && !contactName.isBlank())
+                || (contactPhone != null && !contactPhone.isBlank());
+    }
+
+    public Instant safetyAckAt() { return safetyAckAt; }
+    public String safetyAckBy() { return safetyAckBy; }
+
+    public void ackSafety(String by) {
+        this.safetyAckAt = Instant.now();
+        this.safetyAckBy = by;
+        updatedAt = this.safetyAckAt;
+    }
+
+    /** 从库里读回时用：保留原来的自评时间与轮次，不刷新 updatedAt。 */
+    public void restoreMood(java.util.List<MoodPoint> points) {
+        if (points != null) moodPoints.addAll(points);
+    }
+
+    public void restoreAck(Instant at, String by) {
+        this.safetyAckAt = at;
+        this.safetyAckBy = by;
+    }
 
     public String candidateThought() { return candidateThought; }
     public void setCandidateThought(String candidateThought) { this.candidateThought = candidateThought; }

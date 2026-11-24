@@ -8,6 +8,7 @@ import com.socraticmind.agent.cbt.flow.StageSpec;
 import com.socraticmind.agent.cbt.safety.SafetyScreener;
 import com.socraticmind.common.guard.ModelOutputRejectedException;
 import com.socraticmind.common.guard.PolicyProfiles;
+import com.socraticmind.common.guard.SensitiveLexicon;
 import com.socraticmind.common.port.ChatPort;
 import com.socraticmind.common.support.Ids;
 import com.socraticmind.session.CbtMessage;
@@ -15,6 +16,8 @@ import com.socraticmind.session.CbtSession;
 import com.socraticmind.session.CbtSessionStore;
 import com.socraticmind.session.CbtStage;
 import com.socraticmind.session.CbtTurnEvent;
+import com.socraticmind.session.CrisisCard;
+import com.socraticmind.session.MoodPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -43,19 +46,39 @@ public class CbtFlow {
 
     private static final Logger log = LoggerFactory.getLogger(CbtFlow.class);
 
-    private static final String BALANCE_SYSTEM = """
+    /**
+     * 共享前言：从 prompts/cbt/counselor.md 读入，拼在每处模型调用的最前面。
+     * 之前它只是两条分散的任务说明，缺一段"不许做什么"的统一约束；
+     * 现在改边界只改一个文件，两处调用同时生效。
+     */
+    private static final String COUNSELOR = loadCounselor();
+
+    private static final String BALANCE_TASK = """
             你在协助一个人做 CBT 的认知检验。
             给定"原想法"和"新信息"，写一句更接近事实的说法，不超过 40 个字。
             要求：保留原想法的关切，但不要下结论式断言；不要安慰、不要说教、不要用"你应该"；
             不要添加给定信息里没有的内容；只输出这句话本身，不要引号或解释。
             """;
 
-    private static final String SUMMARY_SYSTEM = """
+    private static final String SUMMARY_TASK = """
             你是一个 CBT 练习的记录整理者。
             只根据用户提供的字段写一段不超过 120 字的中文总结：
             陈述事实（情境、当时的想法、后来看到的信息、行动），不评价、不建议、不诊断。
             不要使用"你应该""你必须"这类句式。不要添加字段里没有的内容。
             """;
+
+    private static String loadCounselor() {
+        try (java.io.InputStream in = CbtFlow.class.getResourceAsStream("/prompts/cbt/counselor.md")) {
+            if (in == null) throw new IllegalStateException("缺少系统提示词：/prompts/cbt/counselor.md");
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).strip();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("读取系统提示词失败", e);
+        }
+    }
+
+    private static String system(String task) {
+        return COUNSELOR + "\n\n---\n\n" + task;
+    }
 
     private final CbtSessionStore store;
     private final ChatPort chat;
@@ -147,6 +170,34 @@ public class CbtFlow {
                     session.id(), screen.rule(), screen.reason());
         }
 
+        // 敏感词：自伤风险已经由上面的安全门处理完，这里只剩"拉客、脏话、违法"。
+        // BLOCK 整句拦下且不推进——流程不动，用户换句话就能继续；
+        // REVIEW 放行但打上复核标记，因为它可能是求助语境下的正常叙述。
+        List<SensitiveLexicon.Hit> lexiconHits = SensitiveLexicon.get().scanInput(message);
+        SensitiveLexicon.Hit blockedHit = lexiconHits.stream()
+                .filter(h -> h.action() == SensitiveLexicon.Action.BLOCK)
+                .findFirst().orElse(null);
+        if (blockedHit != null) {
+            session.addMessage(CbtMessage.user(from, message));
+            String reply = msg(FlowMessages.CONTENT_BLOCKED);
+            session.addMessage(CbtMessage.assistant(from, reply));
+            log.info("敏感词拦截 session={} category={} word={}",
+                    session.id(), blockedHit.category(), blockedHit.word());
+            return finish(session, from, CbtTurnEvent.BLOCKED, TurnResult.CONTENT_BLOCKED,
+                    reply, null, CbtTurnEvent.NONE, "lexicon:" + blockedHit.category(), t0);
+        }
+        String lexiconRule = lexiconHits.stream()
+                .filter(h -> h.action() == SensitiveLexicon.Action.REVIEW)
+                .map(h -> "lexicon:" + h.category())
+                .findFirst().orElse(null);
+        if (lexiconRule != null) {
+            if (session.safetyStatus() == null || "normal".equals(session.safetyStatus())) {
+                session.setSafetyStatus("review");
+                session.setSafetyReason("敏感词命中：" + lexiconRule);
+            }
+            if (safetyRule == null) safetyRule = lexiconRule;
+        }
+
         if (session.awaitingUser()) {
             session.addMessage(CbtMessage.user(session.stage(), message));
             String reply = msg(FlowMessages.CONFIRM_REQUIRED) + "\n\n" + session.pendingQuestion();
@@ -173,6 +224,8 @@ public class CbtFlow {
             }
             case COGNITIVE_EXTRACTION -> {
                 session.setAutomaticThought(message);
+                // 偏差标签只用于"提示从哪个方向找不同情况"，不写进总结、不告诉用户"你有XX思维"。
+                session.addDistortions(DistortionTagger.tag(message));
                 advance(session, from);
                 reply = ask(session.stage(), Map.of("thought", message));
             }
@@ -381,9 +434,13 @@ public class CbtFlow {
     }
 
     private TurnResult result(CbtSession session, String status, String response) {
+        boolean hold = "hold".equals(session.safetyStatus());
         return new TurnResult(session.id(), session.stage(), session.stage().label(),
                 session.stage().visibleIndex(), status, response,
-                session.awaitingUser(), session.safetyStatus(), session.userConfirmedThought());
+                session.awaitingUser(), session.safetyStatus(), session.userConfirmedThought(),
+                session.distortions(),
+                session.moodPoints().stream().map(MoodPoint::score).toList(),
+                hold ? CrisisCard.of(session, session.safetyReason()) : null);
     }
 
     /**
@@ -419,7 +476,7 @@ public class CbtFlow {
                     原想法：%s
                     新信息：%s
                     """.formatted(thought, newEvidence);
-            String out = chat.chat(BALANCE_SYSTEM, prompt, PolicyProfiles.CBT_BALANCE);
+            String out = chat.chat(system(BALANCE_TASK), prompt, PolicyProfiles.CBT_BALANCE);
             if (out != null) {
                 String cleaned = out.strip().replaceAll("^[\"“「]|[\"”」]$", "").strip();
                 if (cleaned.length() >= 8 && cleaned.length() <= 80 && !cleaned.contains("资料不足")) {
@@ -458,7 +515,7 @@ public class CbtFlow {
                     行动：%s
                     """.formatted(safe(s.situation()), safe(s.automaticThought()),
                     safe(s.candidateThought()), safe(s.actionPlan()));
-            String out = chat.chat(SUMMARY_SYSTEM, prompt, PolicyProfiles.CBT_SUMMARY);
+            String out = chat.chat(system(SUMMARY_TASK), prompt, PolicyProfiles.CBT_SUMMARY);
             if (out != null && out.strip().length() >= 20 && !out.contains("资料不足")) {
                 return new Gen(out.strip(), CbtTurnEvent.MODEL, null);
             }

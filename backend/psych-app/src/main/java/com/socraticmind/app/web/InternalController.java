@@ -226,7 +226,11 @@ public class InternalController {
             String safetyReason,
             String targetProblem,
             int turns,
-            Instant updatedAt
+            Instant updatedAt,
+            String contactName,
+            String contactPhone,
+            Instant safetyAckAt,
+            Integer moodLast
     ) {
     }
 
@@ -235,13 +239,46 @@ public class InternalController {
         List<SafetyReviewRow> rows = new ArrayList<>();
         for (CbtSession s : store.findByUser(null)) {
             boolean review = "review".equals(s.safetyStatus());
+            boolean watch = "watch".equals(s.safetyStatus());
             boolean hold = s.stage() == CbtStage.SAFETY_HOLD;
-            if (!review && !hold) continue;
+            if (!review && !hold && !watch) continue;
+            Integer moodLast = s.moodPoints().isEmpty()
+                    ? null
+                    : s.moodPoints().get(s.moodPoints().size() - 1).score();
             rows.add(new SafetyReviewRow(s.id(), s.userId(), s.stage(), s.safetyStatus(),
-                    s.safetyReason(), s.targetProblem(), s.trace().size(), s.updatedAt()));
+                    s.safetyReason(), s.targetProblem(), s.trace().size(), s.updatedAt(),
+                    s.contactName(), s.contactPhone(), s.safetyAckAt(), moodLast));
         }
         rows.sort((a, b) -> b.updatedAt().compareTo(a.updatedAt()));
         return rows;
+    }
+
+    /**
+     * 标记"这条危机已经有人处理过"。
+     * 没有任何自动通知——这一步的意义是留痕：谁在什么时候看过，之后复查有据可依。
+     */
+    @PostMapping("/sessions/{id}/ack")
+    public Map<String, Object> ack(@PathVariable String id,
+                                   @RequestBody(required = false) Map<String, String> body) {
+        CbtSession s = flow.require(id);
+        String by = body == null ? null : body.get("by");
+        s.ackSafety(by == null || by.isBlank() ? "operator" : by);
+        store.save(s);
+        return Map.of("sessionId", s.id(), "ackedAt", s.safetyAckAt(), "by", s.safetyAckBy());
+    }
+
+    /** 词库只读视图：让运维能看见"到底拦了什么"，而不是只有一个命中计数。 */
+    @GetMapping("/lexicon")
+    public Map<String, Object> lexicon() {
+        var entries = com.socraticmind.common.guard.SensitiveLexicon.get().entries();
+        return Map.of(
+                "count", entries.size(),
+                "entries", entries.stream().map(e -> Map.of(
+                        "scope", e.scope().name(),
+                        "category", e.category(),
+                        "action", e.action().name(),
+                        "word", e.word()
+                )).toList());
     }
 
     public record DemoRequest(String kind) {
