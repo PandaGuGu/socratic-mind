@@ -8,6 +8,20 @@
 # 注意：知识库仍走内存（H2 没有 pgvector），这里只验证会话域。
 
 psych:
+  # 本地语音转写：给 Firefox 等没有 Web Speech 的浏览器用。路径相对 backend 目录。
+  # 换 Vosk/Whisper 只改这一条命令；留空则接口回 503，页面提示直接打字。
+  asr:
+    command: ${PSYCH_ASR_COMMAND:powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/asr_transcribe.ps1 -Path {file} -Result {result}}
+  # 模型：本地 Ollama（对话 qwen3-8b、向量 bge-m3）。没有 Ollama 时用 --spring.profiles.active=h2,stub
+  ai:
+    provider: http
+    base-url: ${PSYCH_AI_BASE_URL:http://localhost:11434/v1}
+    api-key: ${PSYCH_AI_API_KEY:ollama}
+    chat-model: ${PSYCH_AI_CHAT_MODEL:qwen3-8b}
+    embedding-model: ${PSYCH_AI_EMBEDDING_MODEL:bge-m3}
+    embedding-dimension: ${PSYCH_AI_EMBEDDING_DIMENSION:1024}
+    temperature: ${PSYCH_AI_TEMPERATURE:0.2}
+    no-think: true
   store: memory            # 知识库：内存
   db:
     enabled: true          # 打开数据源（会话域用）

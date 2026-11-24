@@ -21,21 +21,23 @@ import org.springframework.context.annotation.Configuration;
 public class AiConfig {
 
     @Bean
-    EmbeddingPort embeddingPort(AiProperties props) {
+    EmbeddingPort embeddingPort(AiProperties props, ModelCallLog callLog) {
         String provider = resolve(props.getEmbeddingProvider(), props.getProvider());
         if (!"http".equalsIgnoreCase(provider)) {
-            return new HashEmbeddingAdapter(props.getEmbeddingDimension());
+            return new MeteredEmbeddingPort(new HashEmbeddingAdapter(props.getEmbeddingDimension()), callLog);
         }
         String baseUrl = resolve(props.getEmbeddingBaseUrl(), props.getBaseUrl());
         String apiKey = resolve(props.getEmbeddingApiKey(), props.getApiKey());
         require(baseUrl, "psych.ai.embedding-base-url");
         require(apiKey, "psych.ai.embedding-api-key");
         require(props.getEmbeddingModel(), "psych.ai.embedding-model");
-        return new HttpEmbeddingAdapter(baseUrl, apiKey, props.getEmbeddingModel());
+        return new MeteredEmbeddingPort(
+                new HttpEmbeddingAdapter(baseUrl, apiKey, props.getEmbeddingModel()), callLog);
     }
 
     @Bean
-    ChatPort chatPort(AiProperties props, OutputPolicyStore policyStore, GuardAuditLog auditLog) {
+    ChatPort chatPort(AiProperties props, OutputPolicyStore policyStore, GuardAuditLog auditLog,
+                      ModelCallLog callLog) {
         String provider = resolve(props.getChatProvider(), props.getProvider());
         ChatPort delegate;
         if (!"http".equalsIgnoreCase(provider)) {
@@ -45,10 +47,11 @@ public class AiConfig {
             require(props.getApiKey(), "psych.ai.api-key");
             require(props.getChatModel(), "psych.ai.chat-model");
             delegate = new HttpChatAdapter(props.getBaseUrl(), props.getApiKey(), props.getChatModel(),
-                    props.getTemperature(), props.isThinkingDisabled());
+                    props.getTemperature(), props.isThinkingDisabled(), props.isNoThink(),
+                    props.getReadTimeoutSeconds());
         }
-        // 所有模型调用统一过输出守卫：规则由运维在 /internal/policy.html 维护，改完即时生效。
-        return new GuardedChatPort(delegate, policyStore, auditLog);
+        // 先计时（含守卫触发的重写），再进输出守卫：所有模型调用统一过同一道闸。
+        return new GuardedChatPort(new MeteredChatPort(delegate, callLog), policyStore, auditLog);
     }
 
     private static String resolve(String specific, String fallback) {

@@ -44,12 +44,18 @@ Windows 原生终端用 `powershell -ExecutionPolicy Bypass -File scripts\stack.
 `appconfig` 里是后台改过的规则、话术、流程参数：容器重建不丢，`reset` 才清。
 镜像里自带一份 `backend/config/*.json` 作为初始值，所以第一次启动就有可用配置。
 
-### 接真实对话模型
+### 模型：容器默认桩，本机 jar 默认 Ollama
 
-默认模型全是桩，零成本、不需要任何 key。要接 OpenAI 兼容的对话模型：
+容器档默认 `PSYCH_AI_PROVIDER=stub`，零成本、不需要任何 key——容器里不该因为"宿主机没装 Ollama"而起不来。
+要真实模型，用叠层：`bash scripts/stack.sh up --ai`。它会起容器内 Ollama，拉 `bge-m3`（1.2 GB）
+与 `qwen3-8b`（5 GB），并把对话与向量都接过去（1024 维）。
+
+本机 jar 档（`--spring.profiles.active=h2` 或 `pg`）默认接**宿主机** Ollama：
+`http://localhost:11434/v1`、`qwen3-8b`、`bge-m3`、`no-think=true`。没有 Ollama 时加 `stub` 档：`h2,stub`。
+
+接云端 OpenAI 兼容服务只需覆盖：
 
 ```bash
-# .env
 SPRING_PROFILES_ACTIVE=pg,http
 PSYCH_AI_CHAT_PROVIDER=http
 PSYCH_AI_BASE_URL=https://api.deepseek.com
@@ -57,14 +63,32 @@ PSYCH_AI_API_KEY=sk-...
 PSYCH_AI_CHAT_MODEL=deepseek-chat
 ```
 
-改完 `bash scripts/stack.sh up` 重建即可。`http` profile 下向量仍是桩（DeepSeek 没有 embeddings 端点），
-要真实向量就叠 `--ai`，或把 `PSYCH_AI_EMBEDDING_*` 指向你自己的服务。
-
-### 换向量模型要清库
+### 换向量模型：迁移而不是清库
 
 PG 的 `vector(n)` 维度在建表时定死：桩 256，BGE-M3 1024。
-应用启动时按 `psych.ai.embedding-dimension` 生成建表语句，但**已有表不会迁移**。
-从桩切到 `--ai`（或反向）时，先 `bash scripts/stack.sh reset` 清掉旧库，否则写入会因维度不符失败。
+v0.5.0 起，维度不一致时应用默认**拒绝改动**并打印当前/目标维度；显式打开：
+
+```bash
+# .env
+PSYCH_AI_VECTOR_MIGRATE=true
+```
+
+启动时会删掉 `kb_chunk.embedding` 与 HNSW 索引，按新维度重建，再把所有子块从 `content` 重嵌入。
+34 块在本机约 9 秒；大语料会慢，且迁移期间检索不可用。也可以继续用 `bash scripts/stack.sh reset` 清库重来。
+
+### 连接池与线程
+
+- `PSYCH_DB_POOL_MAX`（默认 20）、`PSYCH_DB_POOL_MIN_IDLE`（2）、`PSYCH_DB_POOL_TIMEOUT_MS`（5000）；
+- `SERVER_THREADS_MAX`（默认 100）、`SERVER_ACCEPT_COUNT`（100）。
+
+池与线程要一起调：线程再多，也只是在池上排队。本机 PG 17 实测 128 并发、1280 请求、0 错误，
+会话域 P95 77 ms、约 650 rps（客户端与 CPU 是瓶颈，不是应用）。
+
+### 语音转写
+
+容器里默认没有 Windows 语音包，`PSYCH_ASR_COMMAND` 留空，`/api/asr` 回 503，页面提示直接打字。
+本机 jar 档默认指向 `../scripts/asr_transcribe.ps1`（Windows System.Speech，zh-CN 已验证）。
+Linux 想支持 Firefox，把命令换成 Vosk/Whisper 的 CLI 即可，接口不变。
 
 ## 二、只起依赖（本机跑 jar）
 
@@ -100,8 +124,10 @@ minio（原始文档存储）与 redis（缓存/限流）都还没接，等真�
 | 内部接口鉴权 | 通过：无 `X-Internal-Token` → 401，带令牌 → 200 |
 | 会话持久化 | 通过：发消息后 `docker compose restart app`，会话、阶段与轨迹仍在 |
 | `down` 后再 `up` | 通过：命名卷保留，库内文档与轮次未丢 |
-| 1024 维建表（http 向量） | 通过：用本地假 embedding 服务替代 Ollama，建出 `vector(1024)`，17 次向量调用后灌语料、检索、问答均正常 |
-| Ollama 档（`--ai`） | **未验证**：本网拉 `ollama/ollama` 镜像约 8 MB/分钟，15 分钟下不完，已中止；镜像与模型都可达，属于带宽问题 |
+| 256→1024 迁移 | 通过：容器库 `vector(256)` + 34 块，设 `vector-migrate=true` 后重建列与 HNSW，17 个子块重嵌入，检索/问答正常 |
+| 真实模型（本机 Ollama） | 通过：qwen3-8b + bge-m3，正式集 34 条问答、引用校验、拒答后检均跑通；CPU 单轮 30–60 秒 |
+| 并发（本机 PG 17） | 通过：128 并发 / 1280 请求，0 错误，P95 77 ms，约 650 rps（会话域） |
+| Ollama 容器档（`--ai`） | 本机用宿主 Ollama 验证了同一套端点；容器内拉 5 GB 模型未在本轮重跑 |
 
 实跑中发现并修掉两个问题，都已入库：
 

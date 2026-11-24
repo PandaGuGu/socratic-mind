@@ -44,7 +44,7 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
     };
 
     private static final String UPDATE = """
-            UPDATE cbt_session SET thread_id = ?, user_id = ?, stage = ?, awaiting_user = ?,
+            UPDATE cbt_session SET thread_id = ?, user_id = ?, account_id = ?, stage = ?, awaiting_user = ?,
               safety_status = ?, safety_reason = ?, target_problem = ?, situation = ?, automatic_thought = ?,
               emotions = ?, evidence_for = ?, evidence_against = ?, candidate_thought = ?,
               user_confirmed_thought = ?, intervention_type = ?, action_plan = ?, action_result = ?,
@@ -56,13 +56,14 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
             """;
 
     private static final String INSERT = """
-            INSERT INTO cbt_session (thread_id, user_id, stage, awaiting_user, safety_status, safety_reason,
+            INSERT INTO cbt_session (thread_id, user_id, account_id, stage, awaiting_user,
+              safety_status, safety_reason,
               target_problem, situation, automatic_thought, emotions, evidence_for, evidence_against,
               candidate_thought, user_confirmed_thought, intervention_type, action_plan, action_result,
               summary, pending_question, mood_points, distortions,
               contact_name, contact_phone, contact_relation, safety_ack_at, safety_ack_by,
               created_at, updated_at, id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """;
 
     private final JdbcTemplate jdbc;
@@ -75,7 +76,7 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
     @Transactional
     public void save(CbtSession s) {
         Object[] args = new Object[]{
-                s.threadId(), s.userId(), s.stage().name(), s.awaitingUser(),
+                s.threadId(), s.userId(), s.accountId(), s.stage().name(), s.awaitingUser(),
                 s.safetyStatus(), s.safetyReason(), s.targetProblem(), s.situation(), s.automaticThought(),
                 json(s.emotions()), json(s.evidenceFor()), json(s.evidenceAgainst()), s.candidateThought(),
                 s.userConfirmedThought(), s.interventionType(), s.actionPlan(), s.actionResult(),
@@ -152,8 +153,77 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
         return out;
     }
 
+    @Override
+    public List<CbtSession> findVisible(String userId, String accountId) {
+        // 分支而不是 OR：账号令牌只看账号名下的，设备令牌只看设备名下的（见接口注释）
+        String sql = accountId != null
+                ? "SELECT id FROM cbt_session WHERE account_id = ? ORDER BY created_at DESC"
+                : "SELECT id FROM cbt_session WHERE user_id = ? ORDER BY created_at DESC";
+        List<String> ids = jdbc.query(sql, (rs, i) -> rs.getString("id"),
+                accountId != null ? accountId : userId);
+        List<CbtSession> out = new ArrayList<>(ids.size());
+        for (String id : ids) {
+            find(id).ifPresent(out::add);
+        }
+        return out;
+    }
+
+    @Override
+    public List<CbtSession> findVisiblePage(String userId, String accountId,
+                                            Instant beforeAt, String beforeId, int limit) {
+        // 与 findVisible 一样分支而不是 OR：账号令牌只看账号名下的。
+        String owner = accountId != null ? "account_id = ?" : "user_id = ?";
+        String key = accountId != null ? accountId : userId;
+        List<String> ids;
+        if (beforeAt == null) {
+            ids = jdbc.query("SELECT id FROM cbt_session WHERE " + owner
+                            + " ORDER BY created_at DESC, id DESC LIMIT ?",
+                    (rs, i) -> rs.getString("id"), key, limit);
+        } else {
+            Timestamp at = Timestamp.from(beforeAt);
+            ids = jdbc.query("SELECT id FROM cbt_session WHERE " + owner
+                            + " AND (created_at < ? OR (created_at = ? AND id < ?))"
+                            + " ORDER BY created_at DESC, id DESC LIMIT ?",
+                    (rs, i) -> rs.getString("id"), key, at, at, beforeId, limit);
+        }
+        List<CbtSession> out = new ArrayList<>(ids.size());
+        for (String id : ids) {
+            find(id).ifPresent(out::add);
+        }
+        return out;
+    }
+
+    /**
+     * 只认领 account_id 为空的会话：同一台设备换人登录时，
+     * 上一个人已经认领过的记录不会被第二个人接手。
+     */
+    @Override
+    public int countClaimable(String userId) {
+        if (userId == null) return 0;
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM cbt_session WHERE user_id = ? AND account_id IS NULL",
+                Integer.class, userId);
+        return count == null ? 0 : count;
+    }
+
+    @Override
+    public int claim(String userId, String accountId) {
+        if (userId == null || accountId == null) return 0;
+        return jdbc.update(
+                "UPDATE cbt_session SET account_id = ? WHERE user_id = ? AND account_id IS NULL",
+                accountId, userId);
+    }
+
+    /** 注销账号时把钥匙还回去：会话仍在库里，只是不再属于任何账号。 */
+    @Override
+    public int releaseAccount(String accountId) {
+        if (accountId == null) return 0;
+        return jdbc.update("UPDATE cbt_session SET account_id = NULL WHERE account_id = ?", accountId);
+    }
+
     private CbtSession readSession(ResultSet rs) throws java.sql.SQLException {
         CbtSession s = new CbtSession(rs.getString("id"), rs.getString("thread_id"), rs.getString("user_id"));
+        s.setAccountId(rs.getString("account_id"));
         s.setStage(CbtStage.valueOf(rs.getString("stage")));
         s.setAwaitingUser(rs.getBoolean("awaiting_user"));
         s.setSafetyStatus(rs.getString("safety_status"));

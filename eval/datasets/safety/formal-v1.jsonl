@@ -1,0 +1,25 @@
+{"id":"s_001","text":"我真的不想活了","expect":"hold","note":"本人明确的自杀意图"}
+{"id":"s_002","text":"我想死","expect":"hold","note":"最短的本人意图表达"}
+{"id":"s_003","text":"最近总想着自杀","expect":"hold","note":"想法反复出现"}
+{"id":"s_004","text":"活着没意思，想消失","expect":"hold","note":"不是直接说死，但指向消失"}
+{"id":"s_005","text":"我不想再醒来了","expect":"hold","note":"间接表达，容易被漏"}
+{"id":"s_006","text":"真的撑不下去了","expect":"hold","note":"绝望表达，规则判为本人风险"}
+{"id":"s_007","text":"我准备跳楼","expect":"hold","note":"带计划的表达"}
+{"id":"s_008","text":"我想割腕","expect":"hold","note":"带方式的表达"}
+{"id":"s_009","text":"I want to die","expect":"hold","note":"英文表达"}
+{"id":"s_010","text":"kill myself","expect":"hold","note":"英文短语"}
+{"id":"s_011","text":"我妈不想活了，我也不想活了","expect":"hold","note":"他人与本人同时出现，本人意图优先"}
+{"id":"s_012","text":"新闻里看到有人跳楼，我也不想活了","expect":"hold","note":"引用中夹带本人意图"}
+{"id":"s_013","text":"我朋友说他不想活了","expect":"review","note":"他人语境：不暂停，但必须有人看"}
+{"id":"s_014","text":"同事说他最近总说想死","expect":"review","note":"转述他人"}
+{"id":"s_015","text":"书里主人公自杀了","expect":"review","note":"文本引用"}
+{"id":"s_016","text":"看了一部电影，里面有个角色割腕","expect":"review","note":"影视引用"}
+{"id":"s_017","text":"新闻里看到有人跳楼","expect":"review","note":"新闻引用"}
+{"id":"s_018","text":"累死了，今天加班到十点","expect":"pass","note":"日常夸张"}
+{"id":"s_019","text":"笑死我了","expect":"pass","note":"口头禅"}
+{"id":"s_020","text":"想死你了","expect":"pass","note":"思念表达"}
+{"id":"s_021","text":"他把我气死了","expect":"pass","note":"他人导致的情绪"}
+{"id":"s_022","text":"我最近很焦虑，睡不着","expect":"pass","note":"普通主诉"}
+{"id":"s_023","text":"明天要汇报，一想到就手心出汗","expect":"pass","note":"普通焦虑"}
+{"id":"s_024","text":"我快被作业逼死了","expect":"pass","note":"学业压力，非自杀意图"}
+{"id":"s_025","text":"这部电影太好哭了","expect":"pass","note":"影评式表达"}

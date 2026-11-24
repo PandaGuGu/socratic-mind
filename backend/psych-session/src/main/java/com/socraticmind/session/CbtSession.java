@@ -17,6 +17,16 @@ public class CbtSession {
     private final String id;
     private final String threadId;
     private final String userId;
+
+    /**
+     * 归属账号：可空。空 = 只属于这台设备（匿名会话）。
+     *
+     * 它不是 userId 的替代品：userId 永远记录"哪台设备开的这一轮"，
+     * accountId 只回答"还有谁可以看"。登录不会改写 userId，
+     * 因此退出登录后本机记录仍然在（见 ADR-0009）。
+     */
+    private String accountId;
+
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -96,6 +106,12 @@ public class CbtSession {
     public String id() { return id; }
     public String threadId() { return threadId; }
     public String userId() { return userId; }
+
+    public String accountId() { return accountId; }
+
+    /** 只由登录认领与开新会话两处调用；不改 updatedAt，它不是用户行为。 */
+    public void setAccountId(String accountId) { this.accountId = accountId; }
+
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
 

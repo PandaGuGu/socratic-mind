@@ -29,6 +29,8 @@ x-app-env: &app-env
   PSYCH_AI_THINKING_DISABLED: ${PSYCH_AI_THINKING_DISABLED:-false}
   # 维度必须与 PG 的 vector 列一致，改了要清库重来（docker compose down -v）
   PSYCH_AI_EMBEDDING_DIMENSION: "256"
+  # 容器里没有 Windows 语音包；留空即关闭 Firefox 的转写退路（接口回 503）
+  PSYCH_ASR_COMMAND: ${PSYCH_ASR_COMMAND:-}
   TZ: ${TZ:-Asia/Shanghai}
 
 services:

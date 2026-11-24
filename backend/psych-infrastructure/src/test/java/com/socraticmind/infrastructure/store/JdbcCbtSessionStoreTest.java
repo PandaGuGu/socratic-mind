@@ -144,8 +144,7 @@ class JdbcCbtSessionStoreTest {
 
     /** v0.4.0 的新列：情绪序列带 Instant，必须能落库再读回来（曾因缺 JavaTimeModule 直接 503）。 */
     @Test
-    void moodContactAndDistortionsSurvive() {
-        JdbcTemplate jdbc = template();
+    void moodContactAndDistortionsSurvive() {        JdbcTemplate jdbc = template();
         CbtSession s = new CbtSession("cbt_mood", "t", "u-4");
         s.addMood(3, 1);
         s.addMood(7, 3);
@@ -164,5 +163,37 @@ class JdbcCbtSessionStoreTest {
         assertEquals("室友", loaded.contactRelation());
         assertEquals(List.of("灾难化", "以偏概全"), loaded.distortions());
         assertEquals("tester", loaded.safetyAckBy());
+    }
+
+    /** v0.5.0：账号归属落库；有账号时只看账号名下的，没有账号时才看设备名下的。 */
+    @Test
+    void accountIdDecidesVisibility() {
+        JdbcTemplate jdbc = template();
+        JdbcCbtSessionStore store = new JdbcCbtSessionStore(jdbc);
+
+        CbtSession claimed = new CbtSession("cbt_claimed", "t1", "u-5");
+        claimed.setAccountId("acc_1");
+        CbtSession plain = new CbtSession("cbt_plain", "t2", "u-6");
+        store.save(claimed);
+        store.save(plain);
+
+        assertEquals("acc_1", store.find("cbt_claimed").orElseThrow().accountId());
+        assertEquals(1, store.findVisible("u-5", null).size(), "设备令牌只看设备名下的");
+        assertEquals(1, store.findVisible("u-9", "acc_1").size(), "账号令牌看账号名下的");
+        assertEquals("cbt_claimed", store.findVisible("u-9", "acc_1").get(0).id());
+        assertTrue(store.findVisible("u-5", "acc_other").isEmpty(), "账号令牌不继承设备归属");
+        assertTrue(store.findVisible("u-9", "acc_missing").isEmpty());
+    }
+
+    @Test
+    void claimOnlyTouchesUnclaimedSessions() {
+        JdbcTemplate jdbc = template();
+        JdbcCbtSessionStore store = new JdbcCbtSessionStore(jdbc);
+        store.save(new CbtSession("cbt_x", "t", "u-7"));
+        store.save(new CbtSession("cbt_y", "t", "u-7"));
+
+        assertEquals(2, store.claim("u-7", "acc_2"));
+        assertEquals(0, store.claim("u-7", "acc_3"), "已认领的会话不会被第二个账号接手");
+        assertEquals("acc_2", store.find("cbt_x").orElseThrow().accountId());
     }
 }

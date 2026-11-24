@@ -114,9 +114,18 @@ public class CbtFlow {
     }
 
     public TurnResult start(String userId) {
+        return start(userId, null);
+    }
+
+    /**
+     * 登录状态下新开一轮：会话仍记在设备名下，同时挂到账号下。
+     * 两件事分开记，退出登录后这一轮不会从本机消失（ADR-0009）。
+     */
+    public TurnResult start(String userId, String accountId) {
         long t0 = System.nanoTime();
         String id = Ids.of("cbt");
         CbtSession session = new CbtSession(id, "thread_" + id, userId == null ? "anonymous" : userId);
+        session.setAccountId(accountId);
         String question = ask(CbtStage.PROBLEM_IDENTIFICATION, Map.of());
         session.setStage(CbtStage.PROBLEM_IDENTIFICATION);
         session.setPendingQuestion(question);

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 临床审核记录</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  .review-wrap { min-height: 0; overflow-y: auto; padding: 24px 28px 44px; }
+  .review-head h2 { font-size: 16px; font-weight: 600; }
+  .review-head p { margin-top: 5px; font-size: 11.5px; color: var(--muted); max-width: 62em; line-height: 1.8; }
+  .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0 26px; max-width: 900px; }
+  .card {
+    border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
+    padding: 16px 18px;
+  }
+  .card h3 { font-size: 13px; font-weight: 600; }
+  .card .num { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .card .state { display: inline-block; margin-top: 10px; padding: 2px 9px; border-radius: 10px; font-size: 10.5px; }
+  .state.unreviewed { background: var(--wait-soft); color: var(--wait); }
+  .state.stale { background: var(--refer-soft); color: var(--refer); }
+  .state.approved { background: var(--accent-soft); color: var(--accent-deep); }
+  .state.changes_requested { background: var(--refer-soft); color: var(--refer); }
+  .card .who { margin-top: 10px; font-size: 11.5px; color: var(--ink-soft); line-height: 1.8; }
+  .card .note { margin-top: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.8; white-space: pre-wrap; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 22px; max-width: 1120px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 18px 20px; }
+  .panel h3 { font-size: 12px; letter-spacing: .06em; color: var(--muted); margin-bottom: 12px; }
+  .panel ol { list-style: none; counter-reset: item; }
+  .panel ol li {
+    counter-increment: item; position: relative; padding: 7px 0 7px 26px;
+    border-bottom: 0.5px dashed var(--line-soft); font-size: 11.8px; line-height: 1.75; color: var(--ink-soft);
+  }
+  .panel ol li::before {
+    content: counter(item); position: absolute; left: 0; top: 8px;
+    width: 17px; height: 17px; border: 1px solid var(--line); border-radius: 50%;
+    font-family: var(--mono); font-size: 9px; color: var(--muted); text-align: center; line-height: 16px;
+  }
+  .panel ol li b { color: var(--ink); font-weight: 500; }
+  .form-grid { display: grid; gap: 12px; }
+  .form-grid label { display: grid; gap: 5px; }
+  .form-grid span { font-size: 11px; color: var(--ink-soft); }
+  .form-grid input, .form-grid select, .form-grid textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--surface-2); color: var(--ink); font: inherit; font-size: 12px;
+  }
+  .form-grid textarea { min-height: 84px; resize: vertical; }
+  .radios { display: flex; gap: 16px; font-size: 11.5px; color: var(--ink-soft); }
+  .radios label { display: flex; align-items: center; gap: 6px; }
+  .msg { margin-top: 10px; font-size: 11.5px; padding: 8px 12px; border-radius: var(--r-sm); display: none; }
+  .msg.on { display: block; }
+  .msg.ok { background: var(--accent-soft); color: var(--accent-deep); }
+  .msg.bad { background: var(--refer-soft); color: var(--refer); }
+  .foot { margin-top: 18px; font-size: 11.5px; color: var(--muted); line-height: 1.8; }
+  @media (max-width: 980px) {
+    .cards, .cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 3v18M3 12h18"></path>
+      </svg>
+      <div class="brand-text">
+        <h1>Socratic Mind <span>临床审核记录</span></h1>
+        <p>系统不替人签字 · 只记录谁看过哪一版</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a class="btn" href="./index.html">会话</a>
+      <a class="btn" href="./settings.html">规则与参数</a>
+      <a class="btn" href="./lexicon.html">词库</a>
+      <button class="btn" id="refreshBtn" type="button">刷新</button>
+    </div>
+  </header>
+
+  <main class="review-wrap">
+    <div class="review-head">
+      <h2>当前审核状态</h2>
+      <p>
+        这里记录的是"哪一版规则、被谁、在什么时候看过、结论是什么"。规则或词库改版后，
+        旧记录自动变成"版本已变，需重审"——不会拿旧的签字给新规则背书。
+        默认状态是<b>未审核</b>；本系统不能替代临床医生的签字。
+      </p>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="cols">
+      <section class="panel">
+        <h3>审核时要逐条确认的清单</h3>
+        <ol>
+          <li><b>自伤/伤人规则</b>：本人意图必须 HOLD，他人/引用进待复核；"我不想活了，他不知道"不能被放行。</li>
+          <li><b>转介信息</b>：12356 与 120 在最前面，不藏在折叠里；不承诺"会有人马上联系你"。</li>
+          <li><b>诊断边界</b>：任何话术都不下诊断、不判断病程、不推荐药物或剂量。</li>
+          <li><b>偏差标签</b>：只作为候选提示，不写成"你有 XX 思维"，不进总结。</li>
+          <li><b>情绪自评</b>：只由用户点击，低分只进"关注"，不触发安全暂停。</li>
+          <li><b>词库</b>：自伤表达不放进 block；不把"废物""没用""安眠药"等治疗性词汇当敏感词。</li>
+          <li><b>输出守卫</b>：禁句、长度、与输入重合度的阈值是否符合本机构话术规范。</li>
+          <li><b>联系人</b>：只展示、不自动外呼；拨号/短信入口必须由本人按下。</li>
+          <li><b>分享</b>：记录页一次性链接不得包含联系人电话；打印后不再受系统保护，页面须写明。</li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h3>登记一次审核</h3>
+        <form class="form-grid" id="reviewForm">
+          <label>
+            <span>对象</span>
+            <select id="kind">
+              <option value="safety">安全规则</option>
+              <option value="lexicon">敏感词库</option>
+            </select>
+          </label>
+          <label>
+            <span>结论</span>
+            <div class="radios">
+              <label><input type="radio" name="status" value="approved" checked> 通过</label>
+              <label><input type="radio" name="status" value="changes_requested"> 需修改</label>
+            </div>
+          </label>
+          <label>
+            <span>审核人（姓名 / 资质）</span>
+            <input id="reviewer" type="text" maxlength="32" placeholder="如：李医生 · 精神科主治" required>
+          </label>
+          <label>
+            <span>备注</span>
+            <textarea id="note" maxlength="1000" placeholder="改了哪几条、为什么；需修改时写清要改什么"></textarea>
+          </label>
+          <button class="btn btn-primary" type="submit" id="saveBtn">登记</button>
+        </form>
+        <div class="msg" id="msg" role="status"></div>
+        <p class="foot">
+          登记会把"当前生效版本"一起写进去。之后如果再改规则或词库，状态会变成"版本已变"，
+          需要重新审核。这是刻意的：审核针对版本，不针对模块。
+        </p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="./auth.js"></script>
+<script src="./review.js"></script>
+</body>
+</html>

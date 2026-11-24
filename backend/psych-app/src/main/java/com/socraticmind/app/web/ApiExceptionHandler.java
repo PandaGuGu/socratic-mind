@@ -54,6 +54,16 @@ public class ApiExceptionHandler {
                 .body(new ApiError("NOT_FOUND", e.getMessage()));
     }
 
+    /**
+     * 路径不存在。Spring 6.1 起静态资源找不到会抛这个异常，
+     * 落到下面的兜底 catch 会变成 500——"接口写错了"被报成"服务坏了"，排障时最误导人。
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiError> noResource(org.springframework.web.servlet.resource.NoResourceFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError("NOT_FOUND", "没有这个地址"));
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiError> conflict(ConflictException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

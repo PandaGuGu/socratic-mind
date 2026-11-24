@@ -134,6 +134,7 @@ function Show-Summary {
     $port = if ($envMap.APP_PORT) { $envMap.APP_PORT } else { '8099' }
     $dbPort = if ($envMap.POSTGRES_PORT) { $envMap.POSTGRES_PORT } else { '15432' }
     $model = if ($envMap.OLLAMA_EMBED_MODEL) { $envMap.OLLAMA_EMBED_MODEL } else { 'bge-m3' }
+    $chat = if ($envMap.OLLAMA_CHAT_MODEL) { $envMap.OLLAMA_CHAT_MODEL } else { 'qwen3-8b' }
     Write-Host ''
     Write-Host "  产品房间      http://localhost:$port/room/"
     Write-Host "  知识问答      http://localhost:$port/knowledge/"
@@ -141,9 +142,9 @@ function Show-Summary {
     Write-Host "  内部令牌      $($envMap.PSYCH_INTERNAL_TOKEN)"
     Write-Host "  数据库        localhost:$dbPort  ($($envMap.POSTGRES_USER)/$($envMap.POSTGRES_DB))"
     if ($Ai) {
-        Write-Host "  向量模型      $model（容器内 Ollama，1024 维）"
+        Write-Host "  模型          对话 $chat + 向量 $model（容器内 Ollama，1024 维）"
     } else {
-        Write-Host '  向量模型      桩（哈希 256 维，零成本）；要真向量加 -Ai'
+        Write-Host '  模型          桩（哈希 256 维，零成本）；要真模型加 -Ai'
     }
     Write-Host ''
     Write-Host '  跟日志：scripts\stack.ps1 logs      停止：scripts\stack.ps1 down'

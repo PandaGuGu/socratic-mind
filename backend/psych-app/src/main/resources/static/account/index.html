@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 账号</title>
+<link rel="stylesheet" href="../knowledge/knowledge.css">
+<link rel="stylesheet" href="./account.css">
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <a class="brand" href="/room/" aria-label="返回房间">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="7.5"></circle>
+        <path d="M10 2.5v15M2.5 10h15"></path>
+      </svg>
+      <span class="brand-name">Socratic Mind</span>
+      <span class="brand-sub">账号</span>
+    </a>
+    <nav class="nav" aria-label="主导航">
+      <a href="/room/">房间</a>
+      <a href="/knowledge/">知识</a>
+      <a class="active" href="/account/">账号</a>
+    </nav>
+    <div class="top-note">心理记录默认拿不走</div>
+  </header>
+
+  <main class="acct">
+    <div class="acct-card">
+
+      <p class="kicker">ACCOUNT · 不登录也能用</p>
+      <h1 id="title">把这几轮的记录，带在身上。</h1>
+      <p class="lede" id="lede">
+        不注册时，记录只属于这台设备的一枚匿名令牌；注册之后，换一台设备登录也能看到同一份记录。
+        两种方式都能走完整个流程，区别只在"能不能带走"。
+      </p>
+
+      <p class="claim-note" id="deletedNote" hidden></p>
+
+      <!-- 未登录 -->
+      <section id="signedOut" class="signed-out">
+        <div class="tabs" role="tablist">
+          <button class="tab on" id="tabLogin" role="tab" aria-selected="true">登录</button>
+          <button class="tab" id="tabRegister" role="tab" aria-selected="false">注册</button>
+          <button class="tab" id="tabRecover" role="tab" aria-selected="false">用恢复码</button>
+        </div>
+
+        <form class="form" id="loginForm" autocomplete="on">
+          <label>
+            <span>邮箱</span>
+            <input id="loginEmail" type="email" name="email" autocomplete="username"
+                   placeholder="you@example.com" maxlength="254" required>
+          </label>
+          <label>
+            <span>口令</span>
+            <input id="loginPassword" type="password" name="password" autocomplete="current-password"
+                   placeholder="至少 8 位" maxlength="128" required>
+          </label>
+          <button class="submit" type="submit">登录</button>
+        </form>
+
+        <form class="form" id="registerForm" autocomplete="on" hidden>
+          <label>
+            <span>邮箱</span>
+            <input id="regEmail" type="email" name="email" autocomplete="username"
+                   placeholder="you@example.com" maxlength="254" required>
+          </label>
+          <label>
+            <span>口令</span>
+            <input id="regPassword" type="password" name="password" autocomplete="new-password"
+                   placeholder="至少 8 位，别用别处的同一个" maxlength="128" required>
+          </label>
+          <label>
+            <span>怎么称呼你 <i>可不填</i></span>
+            <input id="regName" type="text" name="nickname" maxlength="32" placeholder="只用来在页面上叫你">
+          </label>
+          <button class="submit" type="submit">注册并登录</button>
+        </form>
+
+        <form class="form" id="recoverForm" autocomplete="off" hidden>
+          <p class="form-note">
+            没有发信通道，所以没有"发邮件重置"。注册时给过你一串<strong>恢复码</strong>，
+            用它换一个新口令；用一次即作废。
+          </p>
+          <label>
+            <span>邮箱</span>
+            <input id="recEmail" type="email" autocomplete="username" placeholder="you@example.com"
+                   maxlength="254" required>
+          </label>
+          <label>
+            <span>恢复码</span>
+            <input id="recCode" type="text" autocomplete="off" placeholder="XXXX-XXXX-XXXX"
+                   maxlength="64" required>
+          </label>
+          <label>
+            <span>新口令</span>
+            <input id="recPassword" type="password" autocomplete="new-password"
+                   placeholder="至少 8 位" maxlength="128" required>
+          </label>
+          <button class="submit" type="submit">重置口令并登录</button>
+        </form>
+
+        <p class="claim-note" id="claimNote" hidden>
+          这台设备上还有匿名记录。登录后它们不会自动归入账号，需要你点一下确认。
+        </p>
+        <p class="error" id="error" role="alert" hidden></p>
+      </section>
+
+      <!-- 已登录 -->
+      <section id="signedIn" class="signed-in" hidden>
+
+        <!-- 注册后只显示一次 -->
+        <div class="recovery-box" id="recoveryBox" hidden>
+          <p class="recovery-kicker">只显示这一次 · 抄下来</p>
+          <div class="recovery-code" id="recoveryCode">—</div>
+          <p class="recovery-note">
+            这是忘记口令时唯一的自救方式。系统不存明文，也不会再显示；
+            丢了只能注销账号重来。抄好之后点下面的按钮。
+          </p>
+          <div class="acts">
+            <button class="ghost" id="copyRecovery" type="button">复制</button>
+            <button class="submit" id="recoveryDone" type="button">我已抄下</button>
+          </div>
+        </div>
+
+        <!-- 登录后询问是否认领 -->
+        <div class="claim-box" id="claimBox" hidden>
+          <p class="claim-kicker">这台设备上的匿名记录</p>
+          <p class="claim-body">
+            还有 <b id="claimCount">0</b> 轮记录没有归属账号。要把它们归到这个账号吗？<br>
+            归了之后，换设备登录也能看到；不归，它们只留在这台设备上。
+          </p>
+          <div class="acts">
+            <button class="submit" id="claimYes" type="button">归到这个账号</button>
+            <button class="ghost" id="claimNo" type="button">先不归</button>
+          </div>
+        </div>
+
+        <dl class="facts">
+          <div><dt>邮箱</dt><dd id="factEmail">—</dd></div>
+          <div><dt>称呼</dt><dd id="factName">—</dd></div>
+          <div><dt>注册于</dt><dd id="factCreated">—</dd></div>
+          <div><dt>上次登录</dt><dd id="factLogin">—</dd></div>
+        </dl>
+        <p class="claimed" id="claimedNote" hidden></p>
+
+        <div class="acts">
+          <a class="submit as-link" href="/room/">回到房间</a>
+          <button class="ghost" id="logout" type="button">退出登录</button>
+        </div>
+        <p class="fine">
+          退出只丢掉这枚账号令牌，不会删掉任何记录：再登录还能看到，本机原来的匿名记录也仍在。
+        </p>
+
+        <div class="security">
+          <h2>安全</h2>
+
+          <form class="form" id="passwordForm" autocomplete="off">
+            <div class="sec-head">
+              <b>改口令</b>
+              <span>改完，其他设备上的登录立即失效。</span>
+            </div>
+            <label>
+              <span>当前口令</span>
+              <input id="curPassword" type="password" autocomplete="current-password" maxlength="128" required>
+            </label>
+            <label>
+              <span>新口令</span>
+              <input id="newPassword" type="password" autocomplete="new-password"
+                     placeholder="至少 8 位" maxlength="128" required>
+            </label>
+            <button class="submit" type="submit">改口令</button>
+          </form>
+
+          <div class="sec-row">
+            <div>
+              <b>退出其他设备</b>
+              <p>当前这台继续用；别的设备下一次请求就要重新登录。</p>
+            </div>
+            <button class="ghost" id="logoutAll" type="button">退出其他设备</button>
+          </div>
+
+          <div class="sec-row">
+            <div>
+              <b>重新生成恢复码</b>
+              <p>旧码立即作废，新码只显示一次。抄在纸上，不要只存在浏览器里。</p>
+            </div>
+            <button class="ghost" id="rotateRecovery" type="button">生成新码</button>
+          </div>
+          <p class="error" id="actionError" role="alert" hidden></p>
+        </div>
+
+        <details class="danger">
+          <summary>注销账号</summary>
+          <p class="danger-lede">
+            注销后：这个邮箱再也登录不上，手上所有账号令牌立即失效；
+            这些轮记录回到本机设备名下，本机仍然读得到，但换设备就带不走了。<b>不可撤销</b>。
+          </p>
+          <form class="form" id="deleteForm" autocomplete="off">
+            <label>
+              <span>输入口令确认</span>
+              <input id="deletePassword" type="password" autocomplete="current-password"
+                     placeholder="就是刚才登录用的那一个" maxlength="128" required>
+            </label>
+            <label class="check">
+              <input id="deleteAck" type="checkbox">
+              <span>我知道注销以后找不回来</span>
+            </label>
+            <button class="submit danger-btn" type="submit">注销账号</button>
+          </form>
+          <p class="error" id="dangerError" role="alert" hidden></p>
+        </details>
+      </section>
+
+      <section class="boundaries">
+        <h2>这一版没做的</h2>
+        <ul>
+          <li><b>没有邮箱验证</b>：没有发信通道，邮箱只是登录名；恢复靠注册时抄下的恢复码。</li>
+          <li><b>没有第三方登录</b>：少一个第三方，就少一份可以拿来关联你身份的数据。</li>
+          <li><b>没有"只踢掉某一台"</b>：只能"退出其他设备"（保留当前这台）。</li>
+        </ul>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="./account.js"></script>
+</body>
+</html>

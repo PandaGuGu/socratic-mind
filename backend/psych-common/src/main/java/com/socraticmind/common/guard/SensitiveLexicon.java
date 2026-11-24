@@ -39,13 +39,33 @@ public final class SensitiveLexicon {
     }
 
     public record Entry(Scope scope, String category, Action action, String word, String normalized) {
+
+        /**
+         * 后台录入时用这个：归一化只能由词条本身算出来，不能由调用方填。
+         * 否则页面上传一个"normalized 与 word 不一致"的词条，扫描结果就会和人对不上。
+         */
+        public static Entry of(Scope scope, String category, Action action, String word) {
+            String w = word == null ? "" : word.strip();
+            return new Entry(scope, category == null ? "" : category.strip(), action, w, normalize(w).value());
+        }
     }
 
     public record Hit(String category, String word, Action action) {
     }
 
     private static final String RESOURCE = "/lexicon/sensitive.txt";
-    private static final SensitiveLexicon DEFAULT = new SensitiveLexicon(load());
+
+    /** 随包分发的基线：后台没保存过词库时用它，也是"恢复默认"的来源。 */
+    private static final List<Entry> BUILT_IN = List.copyOf(load());
+
+    /**
+     * 当前生效的词库。
+     *
+     * 从 final 常量改成可替换的静态引用，是为了让后台改词不必发版（v0.6.0）。
+     * 扫描路径保持无锁：替换是一个 volatile 写，读到的要么是旧表、要么是新表，
+     * 不会出现"改到一半"的词库——保存失败时旧表继续生效。
+     */
+    private static volatile SensitiveLexicon current = new SensitiveLexicon(BUILT_IN);
 
     private final List<Entry> entries;
 
@@ -54,7 +74,26 @@ public final class SensitiveLexicon {
     }
 
     public static SensitiveLexicon get() {
-        return DEFAULT;
+        return current;
+    }
+
+    public static List<Entry> builtIn() {
+        return BUILT_IN;
+    }
+
+    /**
+     * 安装一份新词库。只由 {@code LexiconStore} 在"文件加载成功 / 保存校验通过"后调用。
+     * 词条在这里重新归一化：文件是手写或后台提交的，normalized 不可信。
+     */
+    public static void install(List<Entry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            throw new IllegalArgumentException("词库不能为空");
+        }
+        List<Entry> rebuilt = new ArrayList<>(entries.size());
+        for (Entry e : entries) {
+            rebuilt.add(Entry.of(e.scope(), e.category(), e.action(), e.word()));
+        }
+        current = new SensitiveLexicon(rebuilt);
     }
 
     /** 用户输入侧：只跑 in/both 的词。 */

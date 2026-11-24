@@ -113,8 +113,41 @@
   @keyframes float{0%,100%{transform:translate(-50%,-50%) translateY(0);} 50%{transform:translate(-50%,-50%) translateY(-7px);}}
 
   .backbtn{position:absolute; left:26px; top:24px; width:34px; height:34px; border-radius:50%; border:0.5px solid rgba(232,201,160,.20); background:rgba(12,11,16,.4); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:20; color:rgba(237,232,222,.6); font-size:13px; text-decoration:none; line-height:1;}
+  .reader-acts{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .linkbtn{padding:0; border:0; background:none; cursor:pointer; font-family:var(--sans);
+    font-size:11px; color:rgba(36,31,26,.42); text-decoration:underline; text-underline-offset:3px;}
+  .linkbtn:hover{color:rgba(36,31,26,.78);}
+  .linkbtn[hidden]{display:none;}
+  .shareurl{width:100%; margin-top:8px; padding:6px 8px; border:0.5px solid rgba(36,31,26,.16);
+    background:rgba(255,255,255,.5); font-family:var(--mono); font-size:10.5px; color:rgba(36,31,26,.7);}
   .backbtn:hover{border-color:rgba(232,201,160,.5); color:var(--mist);}
   .backbtn svg{width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.4; stroke-linecap:round; stroke-linejoin:round;}
+
+  /* 窗外：翻页与跨会话趋势。都不抢泡泡的注意力，只在底部各占一小块。 */
+  .morebtn{position:absolute; right:7%; bottom:9%; z-index:5; padding:7px 13px; cursor:pointer;
+    border:0.5px solid rgba(232,201,160,.22); border-radius:16px; background:rgba(12,11,16,.45);
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; color:rgba(237,232,222,.55);}
+  .morebtn:hover{border-color:rgba(232,201,160,.55); color:rgba(237,232,222,.86);}
+  .morebtn[hidden]{display:none;}
+
+  .trend{position:absolute; left:8%; bottom:8%; z-index:5; width:min(300px,58vw);
+    opacity:0; transition:opacity .7s ease; pointer-events:none;}
+  .trend.on{opacity:1;}
+  .trend .cap{display:flex; justify-content:space-between; gap:12px;
+    font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; color:rgba(237,232,222,.34);}
+  .trend svg{display:block; width:100%; height:54px; margin-top:9px; overflow:visible;}
+  .trend svg .base{stroke:rgba(232,201,160,.12); stroke-width:1;}
+  .trend svg .line{fill:none; stroke:rgba(232,201,160,.55); stroke-width:1.2;}
+  .trend svg .dot{fill:#E8C9A0; opacity:.8;}
+
+  /* 账号入口：房间不贴标签，只用一个小点表示"这枚令牌已经是账号" */
+  .acctbtn{position:absolute; right:26px; top:24px; z-index:20; display:flex; align-items:center; gap:6px;
+    padding:0 11px; height:28px; border-radius:14px; border:0.5px solid rgba(232,201,160,.18);
+    background:rgba(12,11,16,.4); color:rgba(237,232,222,.50); font-family:var(--mono);
+    font-size:9.5px; letter-spacing:.08em; text-decoration:none;}
+  .acctbtn:hover{border-color:rgba(232,201,160,.5); color:var(--mist);}
+  .acctbtn.on{color:rgba(237,232,222,.74);}
+  .acctbtn.on::before{content:""; width:4px; height:4px; border-radius:50%; background:#E8C9A0; box-shadow:0 0 8px rgba(232,201,160,.7);}
 
   .reader{position:absolute; inset:0; background:rgba(8,7,11,.72); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .4s ease; z-index:30;}
   .reader.open{opacity:1; pointer-events:auto;}
@@ -180,6 +213,9 @@
   .crisis h4{font-family:var(--serif); font-size:13.5px; font-weight:400; color:var(--ink); margin-bottom:8px;}
   .crisis .num{font-family:var(--mono); font-size:11.5px; line-height:1.9; color:rgba(36,31,26,.78); white-space:pre-wrap;}
   .crisis .who{margin-top:9px; font-family:var(--sans); font-size:11.5px; color:rgba(36,31,26,.62); line-height:1.8;}
+  .crisis .who-acts{display:flex; gap:12px; align-items:center; margin-top:5px; font-size:11px;}
+  .crisis .who-acts a{color:rgba(150,70,55,.9); text-decoration:underline; text-underline-offset:3px;}
+  .crisis .who-acts span{color:rgba(36,31,26,.4); font-size:10.5px;}
   .crisis .notice{
     width:100%; height:76px; margin-top:9px; padding:8px; resize:none; display:none;
     border:0.5px solid rgba(36,31,26,.18); background:rgba(255,255,255,.45);
@@ -212,6 +248,7 @@
         <path d="M12 4.5 6.5 10 12 15.5"></path>
       </svg>
     </a>
+    <a class="acctbtn" id="acctBtn" href="/account/" title="账号：登录后换设备也能看到记录">账号</a>
     <div class="skywall"></div>
     <div class="wall left"></div>
     <div class="wall back"></div>
@@ -265,7 +302,7 @@
         <button data-answer="就是睡不着，脑子停不下来">睡不着</button>
       </div>
       <div class="line" id="inputLine">
-        <button class="mic" id="mic" title="用说的（只在浏览器里转文字，不留录音）" aria-label="语音输入">说</button>
+        <button class="mic" id="mic" title="用说的（Chrome 浏览器内转写；Firefox 走本机转写，不保存音频）" aria-label="语音输入">说</button>
         <input id="field" type="text" placeholder="或者，自己说" autocomplete="off">
         <button class="send" id="send">说给它听</button>
       </div>
@@ -304,11 +341,24 @@
   </div>
   <div class="backbtn" id="back">←</div>
 
+  <div class="trend" id="trend" aria-hidden="true">
+    <div class="cap"><span>最近 30 天 · 你点过的分</span><span id="trendNote"></span></div>
+    <svg id="trendCurve" viewBox="0 0 300 54" preserveAspectRatio="none"></svg>
+  </div>
+  <button class="morebtn" id="more" type="button" hidden>更早的</button>
+
   <div class="reader" id="reader">
     <div class="reader-slip">
       <div class="when" id="readerWhen"></div>
       <div id="readerBody"></div>
       <div class="cite" id="readerCite"></div>
+      <div class="reader-acts">
+        <button class="linkbtn" id="readerShare" type="button">生成一次性链接</button>
+        <button class="linkbtn" id="readerRevoke" type="button" hidden>撤回链接</button>
+        <button class="linkbtn" id="readerCopy" type="button" hidden>复制链接</button>
+      </div>
+      <input class="shareurl" id="shareUrl" readonly hidden aria-label="一次性链接">
+      <div class="cite" id="shareNote" hidden></div>
       <button class="close" id="readerClose">合上</button>
     </div>
   </div>
@@ -333,7 +383,10 @@ const S = {
   safety: false,
   turns: 0,
   busy: false,
-  visibleIndex: 0
+  visibleIndex: 0,
+  rows: [],
+  cursor: null,
+  hasMore: false
 };
 
 const room = $("room"), outside = $("outside");
@@ -534,10 +587,17 @@ function renderCrisis(t) {
   const card = $("crisisCard");
   const c = t.crisis;
   if (!c) { card.classList.remove("on"); card.innerHTML = ""; return; }
+  const phone = c.contactPhone || "";
+  const whoActions = phone
+    ? '<div class="who-acts">'
+      + '<a href="tel:' + encodeURIComponent(phone) + '">拨号</a>'
+      + '<a href="sms:' + encodeURIComponent(phone) + '?body=' + encodeURIComponent(c.notice || "") + '">发短信</a>'
+      + "<span>由你按下发送，系统不代发</span></div>"
+    : "";
   const who = c.contactName
     ? '<div class="who">可以联系的人：' + esc(c.contactName)
       + (c.contactRelation ? "（" + esc(c.contactRelation) + "）" : "")
-      + " · " + esc(maskPhone(c.contactPhone)) + "</div>"
+      + " · " + esc(maskPhone(c.contactPhone)) + "</div>" + whoActions
     : '<div class="who">还没留联系人。留一个，下次这种时候卡片里就会有他。</div>';
 
   card.innerHTML =
@@ -602,7 +662,7 @@ let listening = false;
 
 function toggleVoice() {
   if (S.safety || field.disabled) return;
-  if (!SR) { say("这个浏览器不支持语音，先用文字吧"); return; }
+  if (!SR) { toggleRecordedVoice(); return; }
   if (listening) { recog.stop(); return; }
   recog = new SR();
   recog.lang = "zh-CN";
@@ -627,6 +687,116 @@ function toggleVoice() {
   } catch (e) {
     say("语音起不来：" + e.message, 3000);
   }
+}
+
+/* ---------- Firefox 退路：录音 → 本机转写，不保存音频 ---------- */
+
+let recorder = null;
+
+async function toggleRecordedVoice() {
+  if (recorder) { stopRecordedVoice(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = ctx.createMediaStreamSource(stream);
+    const processor = ctx.createScriptProcessor(4096, 1, 1);
+    const chunks = [];
+    processor.onaudioprocess = (e) => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    source.connect(processor);
+    processor.connect(ctx.destination);
+    recorder = { stream, ctx, source, processor, chunks };
+    $("mic").classList.add("on");
+    say("在录…说完点一下。音频只发到本机转写，不保存。");
+  } catch (e) {
+    say("没拿到麦克风权限，先用文字吧");
+  }
+}
+
+async function stopRecordedVoice() {
+  const r = recorder;
+  recorder = null;
+  $("mic").classList.remove("on");
+  if (!r) return;
+  r.stream.getTracks().forEach((t) => t.stop());
+  r.processor.disconnect();
+  r.source.disconnect();
+  const rate = r.ctx.sampleRate;
+  r.ctx.close();
+
+  const merged = mergeChunks(r.chunks);
+  if (!merged.length) { say("没录到声音"); return; }
+  const pcm = resample(merged, rate, 16000);
+  const wav = encodeWav(pcm, 16000);
+  say("正在本机转写…");
+  try {
+    const res = await fetch("/api/asr/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: wav
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || "转写失败");
+    if (data.text) {
+      field.value = (field.value ? field.value + " " : "") + data.text;
+      say("听写好了，看看有没有错字。");
+    } else {
+      say("没听清，再说一次？");
+    }
+  } catch (e) {
+    say(e.message, 3200);
+  }
+}
+
+function mergeChunks(chunks) {
+  let length = 0;
+  chunks.forEach((c) => { length += c.length; });
+  const out = new Float32Array(length);
+  let at = 0;
+  chunks.forEach((c) => { out.set(c, at); at += c.length; });
+  return out;
+}
+
+/** 线性重采样；语音只要 16k，够用且不引第三方库。 */
+function resample(input, from, to) {
+  if (from === to) return input;
+  const ratio = from / to;
+  const out = new Float32Array(Math.round(input.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const at = i * ratio;
+    const left = Math.floor(at);
+    const right = Math.min(input.length - 1, left + 1);
+    const weight = at - left;
+    out[i] = input[left] * (1 - weight) + input[right] * weight;
+  }
+  return out;
+}
+
+function encodeWav(samples, rate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const write = (offset, text) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  write(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  write(8, "WAVE");
+  write(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  write(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+  let at = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const v = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(at, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+    at += 2;
+  }
+  return new Blob([view], { type: "audio/wav" });
 }
 
 /* ---------- 发送 ---------- */
@@ -801,17 +971,35 @@ function hash(text) {
 }
 
 async function renderOutside() {
+  S.rows = [];
+  try {
+    const page = await pageOf(null);
+    S.rows = page.items || [];
+    S.cursor = page.nextCursor;
+    S.hasMore = Boolean(page.hasMore);
+    setConn("连着 · 窗外 " + S.rows.length + (S.hasMore ? "+" : "") + " 个泡泡");
+  } catch (e) {
+    // 还没有令牌 = 还没有开过口，这不是错误；把 401 当成"空"处理。
+    if (S.token) setConn("读不到记录：" + e.message, true);
+    else setConn("窗外还没有东西");
+  }
+  paintBubbles();
+  renderTrend();
+}
+
+/**
+ * 翻页用游标，不用 offset：一边翻一边新开一轮时，offset 会把同一条记录显示两次。
+ * 游标是服务端给的一串东西，客户端只管原样带回去。
+ */
+function pageOf(cursor) {
+  return api("/page?limit=40" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""));
+}
+
+function paintBubbles() {
   const box = document.getElementById("bubbles");
   box.innerHTML = "";
-  let rows = [];
-  try {
-    rows = await api("");
-    setConn("连着 · 窗外 " + rows.length + " 个泡泡");
-  } catch (e) {
-    setConn("读不到记录：" + e.message, true);
-  }
 
-  const cards = rows.map((r) => {
+  const cards = S.rows.map((r) => {
     const h = hash(r.sessionId);
     return {
       id: r.sessionId,
@@ -850,7 +1038,86 @@ async function renderOutside() {
   });
 
   document.getElementById("outCount").textContent =
-    cards.length ? "窗外有 " + cards.length + " 次对话" : "还没有说出口的话";
+    cards.length
+      ? "窗外有 " + cards.length + " 次对话" + (S.hasMore ? "（还有更早的）" : "")
+      : "还没有说出口的话";
+  const more = document.getElementById("more");
+  more.hidden = !S.hasMore;
+  more.textContent = "更早的";
+}
+
+document.getElementById("more").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  btn.textContent = "取更早的…";
+  try {
+    const page = await pageOf(S.cursor);
+    const known = new Set(S.rows.map((r) => r.sessionId));
+    (page.items || []).forEach((r) => { if (!known.has(r.sessionId)) S.rows.push(r); });
+    S.cursor = page.nextCursor;
+    S.hasMore = Boolean(page.hasMore);
+    paintBubbles();
+  } catch (err) {
+    btn.textContent = "没取到，再试一次";
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+});
+
+/**
+ * 跨会话趋势：只画用户自己点过的分，按天取平均。
+ * 不做插值、不预测——两天之间没有点，就空着；线断着比补一条假线诚实。
+ */
+async function renderTrend() {
+  const panel = document.getElementById("trend");
+  const svg = document.getElementById("trendCurve");
+  try {
+    const headers = {};
+    if (S.token) headers["X-User-Token"] = S.token;
+    const res = await fetch("/api/cbt/mood/trend?days=30", { headers });
+    if (!res.ok) throw new Error("trend " + res.status);
+    const data = await res.json();
+    if (!data.points || !data.daily || !data.daily.length) {
+      panel.classList.remove("on");
+      return;
+    }
+    panel.classList.add("on");
+    document.getElementById("trendNote").textContent =
+      data.points + " 次 · " + data.sessions + " 轮";
+
+    const W = 300, H = 54, pad = 5;
+    const day = (s) => new Date(s + "T00:00:00").getTime();
+    const from = day(data.from), to = day(data.to);
+    const span = Math.max(1, to - from);
+    const px = (d) => pad + (day(d) - from) / span * (W - pad * 2);
+    const py = (v) => H - pad - (v / 10) * (H - pad * 2);
+
+    let out = "";
+    [0, 5, 10].forEach((v) => {
+      out += '<line class="base" x1="' + pad + '" y1="' + py(v) + '" x2="' + (W - pad) + '" y2="' + py(v) + '"/>';
+    });
+    // 只连相邻的日子：中间空了几天就断开，不画一条穿过空白的长线。
+    // 断开本身是信息——"这几天没点"和"这几天分数平稳"不是一回事。
+    let segment = [];
+    const flush = () => {
+      if (segment.length > 1) {
+        out += '<polyline class="line" points="' + segment.join(" ") + '"/>';
+      }
+      segment = [];
+    };
+    let prev = null;
+    data.daily.forEach((d) => {
+      if (prev && (day(d.date) - day(prev)) / 86400000 > 1.5) flush();
+      segment.push(px(d.date) + "," + py(d.average));
+      prev = d.date;
+      out += '<circle class="dot" cx="' + px(d.date) + '" cy="' + py(d.average) + '" r="1.8"/>';
+    });
+    flush();
+    svg.innerHTML = out;
+  } catch (e) {
+    panel.classList.remove("on");
+  }
 }
 
 function escapeHtml(v) {
@@ -859,7 +1126,15 @@ function escapeHtml(v) {
 }
 
 const reader = document.getElementById("reader");
+let readerSession = null;
+
 async function openReader(b) {
+  readerSession = b.id;
+  $("shareUrl").hidden = true;
+  $("shareNote").hidden = true;
+  $("readerCopy").hidden = true;
+  $("readerRevoke").hidden = true;
+  $("readerShare").hidden = false;
   document.getElementById("readerWhen").textContent = b.when + " · " + b.label;
   document.getElementById("readerBody").innerHTML = '<div class="line-row">正在取记录…</div>';
   reader.classList.add("open");
@@ -877,6 +1152,68 @@ async function openReader(b) {
       '<div class="line-row">读不到这条记录：' + escapeHtml(e.message) + "</div>";
   }
 }
+/**
+ * 一次性链接：把这一轮交给某一个人看，而不是公开。链接只能打开一次，24 小时后过期。
+ * 生成后不再显示明文 token 以外的任何信息；撤回只影响还没被打开的链接。
+ */
+$("readerShare").addEventListener("click", async () => {
+  if (!readerSession) return;
+  const btn = $("readerShare");
+  btn.disabled = true;
+  try {
+    const data = await api("/" + readerSession + "/share", jsonBody({ ttlHours: 24 }));
+    const url = location.origin + data.path;
+    const input = $("shareUrl");
+    input.hidden = false;
+    input.value = url;
+    $("readerCopy").hidden = false;
+    $("readerRevoke").hidden = false;
+    const note = $("shareNote");
+    note.hidden = false;
+    note.textContent = "链接只能打开一次，24 小时后过期。对方打开后刷新即失效。";
+    showSceneNote("已生成，复制后发给对方。");
+    try {
+      await navigator.clipboard.writeText(url);
+      showSceneNote("已复制。链接只能打开一次。");
+    } catch (e) {
+      input.select();
+    }
+  } catch (e) {
+    showSceneNote("没生成：" + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("readerCopy").addEventListener("click", async () => {
+  const input = $("shareUrl");
+  try {
+    await navigator.clipboard.writeText(input.value);
+    showSceneNote("已复制。");
+  } catch (e) {
+    input.select();
+  }
+});
+
+$("readerRevoke").addEventListener("click", async () => {
+  if (!readerSession || !window.confirm("撤回这条会话还没被打开的链接？已经打开过的无法收回。")) return;
+  try {
+    const data = await api("/" + readerSession + "/shares", { method: "DELETE" });
+    $("readerRevoke").hidden = true;
+    $("readerCopy").hidden = true;
+    $("shareUrl").hidden = true;
+    const note = $("shareNote");
+    note.hidden = false;
+    note.textContent = "已撤回 " + (data.revoked || 0) + " 条未打开的链接。";
+  } catch (e) {
+    showSceneNote("没撤回：" + e.message);
+  }
+});
+
+function showSceneNote(text) {
+  say(text, 2600);
+}
+
 document.getElementById("readerClose").addEventListener("click", () => reader.classList.remove("open"));
 reader.addEventListener("click", (e) => { if (e.target === reader) reader.classList.remove("open"); });
 
@@ -1004,6 +1341,22 @@ const DEMO_LINES = {
     "上次其实只是被提醒了一句"
   ]
 };
+
+/* 账号入口：房间里不写邮箱、不写"已登录"，只用一个小点说明这枚令牌是账号级别的。
+   接口不通时不提示任何东西——房间该安静。 */
+(async function accountBadge() {
+  const btn = $("acctBtn");
+  if (!btn || !S.token) return;
+  try {
+    const res = await fetch("/api/auth/me", { headers: { "X-User-Token": S.token } });
+    if (!res.ok) return;
+    const me = await res.json();
+    if (me.signedIn && me.account) {
+      btn.classList.add("on");
+      btn.title = (me.account.displayName || me.account.email) + " · 账号与退出";
+    }
+  } catch (e) { /* 忽略 */ }
+})();
 
 if (DEMO) {
   (async () => {

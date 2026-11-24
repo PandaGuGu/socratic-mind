@@ -1,7 +1,7 @@
 ---
 title: 数据模型与 DDL
-status: 草案
-updated: 2026-11-17
+status: 已实现（会话域 + 账号域）
+updated: 2026-11-24
 ---
 
 # 数据模型与 DDL
@@ -126,6 +126,7 @@ CREATE TABLE kb_review_record (
 | `cbt_session` | 一次会话的当前状态：停在哪一步、确认过什么、安全状态 | 流程续跑、会话列表、字段快照 |
 | `cbt_message` | 一句对话（role / stage / content / at） | 记录页、窗外回看、咨询师导出 |
 | `cbt_turn` | 一轮的决策依据（动作、阶段迁移、安全规则、模型来源、拦截规则、耗时） | 内部控制台、审计 |
+| `app_account` | 一个账号：邮箱、口令摘要、称呼、时间（v0.5.0） | 登录、`/api/auth/me` |
 
 三张表分开的理由与 cbt-agent 的 checkpoint / 业务表分离同源：只存 checkpoint 会出现"能续跑但查不到当时说了什么"。
 
@@ -161,6 +162,35 @@ CREATE TABLE IF NOT EXISTS cbt_turn (
 
 1. **列表字段用 TEXT 存 JSON**（`emotions` / `evidence_for` / `evidence_against`）。它们是"一次会话内的短列表"，拆表只会增加 join；等到需要按证据检索时再拆。
 2. **整轮覆盖写**：每次 `save` 先删该会话的消息与轨迹再重建。会话是几十条量级，简单换来"内存与库永远一致"；要追加式写入时换实现即可，接口不变。
+
+### 2.2 账号与会话归属（v0.5.0，已实现）
+
+```sql
+CREATE TABLE IF NOT EXISTS app_account (
+  id             VARCHAR(64)  PRIMARY KEY,
+  email          VARCHAR(254) NOT NULL,
+  password_hash  VARCHAR(255) NOT NULL,   -- pbkdf2-sha256$iterations$salt$hash
+  display_name   VARCHAR(64),
+  created_at     TIMESTAMP WITH TIME ZONE NOT NULL,
+  last_login_at  TIMESTAMP WITH TIME ZONE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_app_account_email ON app_account (email);
+
+ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS account_id VARCHAR(64);
+CREATE INDEX IF NOT EXISTS idx_cbt_session_account ON cbt_session (account_id, created_at DESC);
+```
+
+- `cbt_session.user_id` 仍是**设备**归属，登录不改写它；`account_id` 是"还能看它的账号"，可空。
+  两者关系与理由见 [ADR-0009](../03-adr/ADR-0009-账号作为叠加层.md)；
+- 邮箱按小写存，唯一索引是并发注册的最后一道闸（应用层先查一次只为给出人话错误）；
+- 账号表不含任何心理字段：注销账号不必连带处理会话，会话也可以完全不属任何账号；
+- v0.6.0 的注销是两步：先把该账号下的 `cbt_session.account_id` 置空，再删 `app_account` 行；
+  两步在同一事务里（`AuthService.deleteAccount`），否则会出现"账号没了、会话还挂着一个不存在的 id"；
+- v0.7.0 的账号表增加 `token_epoch`（默认 0）、`recovery_hash`、`recovery_used_at`：
+  令牌里签 epoch，改口令/退出其他设备/重置口令时 +1；恢复码只存 PBKDF2 摘要，用一次记 `recovery_used_at`；
+- v0.7.0 新增 `share_link`：`token_hash` 主键（只存 SHA-256，不存明文）、`session_id`、`owner_user_id`、
+  `created_at`、`expires_at`、`used_at`、`revoked_at`；已用/过期/撤回都表现为不可用；
+- 老库靠 `ADD COLUMN IF NOT EXISTS` 升级，H2 与 PostgreSQL 同一份脚本。
 
 ## 3. 待定项（写 DDL 约束前必须定）
 

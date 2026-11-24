@@ -1,0 +1,10 @@
+# 离线档：不连任何模型，进程内桩。CI、没有 Ollama 的机器、只想看流程时用。
+#
+#   java -jar psych-app-0.5.0.jar --spring.profiles.active=h2,stub
+#
+# 它会把"没有真实数据"这件事显式写在 /internal/ai 上，而不是悄悄降级。
+psych:
+  ai:
+    # 只切 provider，不改维度：维度要跟库里的 vector(n) 一致，
+    # 由 h2/pg 档（1024）或基础档（256）决定。否则 pg,stub 会写不进 1024 的列。
+    provider: stub

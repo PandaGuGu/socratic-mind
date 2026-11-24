@@ -418,7 +418,8 @@ function renderDetail() {
   }
 
   const { session } = S.detail;
-  meta.innerHTML = `<span>${esc(session.sessionId)}</span><span>· ${esc(session.stage)}</span>`;
+  meta.innerHTML = `<span>${esc(session.sessionId)}</span><span>· ${esc(session.stage)}</span>`
+    + `<a href="./record.html?id=${encodeURIComponent(session.sessionId)}" target="_blank" rel="noopener">记录页 ↗</a>`;
 
   const banner = renderSafetyBanner(session);
 

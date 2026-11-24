@@ -32,11 +32,20 @@ public class AiProperties {
     /** 桩向量的维度；真实模型由接口返回决定，此项仅对 stub 生效 */
     private int embeddingDimension = 256;
 
+    /** 读取超时：CPU 推理一秒钟几个 token，30 秒会把正常回答误判成故障。 */
+    private int readTimeoutSeconds = 120;
+
     /** 采样温度。部分模型只接受固定值（例如 kimi-k2.6 关闭思考时只允许 0.6）。 */
     private double temperature = 0.2;
 
     /** 是否在请求体里显式关闭思考（Kimi K2.6 支持 thinking.type=disabled）。 */
     private boolean thinkingDisabled = false;
+
+    /**
+     * Qwen3 系列：在用户消息末尾追加 {@code /no_think} 关闭思考。
+     * 与上面的 thinkingDisabled 是两种模型的两种开关，不能互相替代。
+     */
+    private boolean noThink = false;
 
     public String getProvider() { return provider; }
     public void setProvider(String provider) { this.provider = provider; }
@@ -58,8 +67,12 @@ public class AiProperties {
     public void setEmbeddingModel(String embeddingModel) { this.embeddingModel = embeddingModel; }
     public int getEmbeddingDimension() { return embeddingDimension; }
     public void setEmbeddingDimension(int embeddingDimension) { this.embeddingDimension = embeddingDimension; }
+    public int getReadTimeoutSeconds() { return readTimeoutSeconds; }
+    public void setReadTimeoutSeconds(int readTimeoutSeconds) { this.readTimeoutSeconds = readTimeoutSeconds; }
     public double getTemperature() { return temperature; }
     public void setTemperature(double temperature) { this.temperature = temperature; }
     public boolean isThinkingDisabled() { return thinkingDisabled; }
     public void setThinkingDisabled(boolean thinkingDisabled) { this.thinkingDisabled = thinkingDisabled; }
+    public boolean isNoThink() { return noThink; }
+    public void setNoThink(boolean noThink) { this.noThink = noThink; }
 }

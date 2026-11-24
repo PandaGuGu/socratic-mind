@@ -35,7 +35,30 @@ python eval/runners/run_eval.py --mode search --dataset eval/datasets/knowledge/
 - `dev-v1.jsonl` 基于仓库内示例语料，只验证脚本与口径，不是临床评估结果；
 - `who-v1.jsonl` 基于 WHO 中文实况报道的 20 条真实语料题（15 可答 + 5 应拒答），用于对比哈希向量与真实 embedding；依赖 `eval/datasets/private/corpus/` 下的本地语料（不入库）。
 
-safety / cbt 两个 suite 的脚本仍未实现。
+安全与 CBT 流程也有脚本：
+
+```bash
+python eval/runners/run_safety.py --base-url http://localhost:8099
+python eval/runners/run_cbt.py --base-url http://localhost:8099
+```
+
+三组对照（A 直答 / B 通用 RAG / C 本方案）：
+
+```bash
+python eval/runners/run_compare.py --limit 10 --model qwen3-8b
+```
+
+正式测试集（v0.5.0）：
+
+| 文件 | 条数 | 说明 |
+|-|-|-|
+| `datasets/knowledge/formal-v1.jsonl` | 34 | 26 可答 + 8 应拒答，基于仓库内三份示例资料 |
+| `datasets/safety/formal-v1.jsonl` | 25 | 12 HOLD + 5 REVIEW + 8 日常表达 |
+| `datasets/cbt/formal-v1.jsonl` | 8 | 五阶段、确认中断、改说法、敏感词、安全暂停、低自评、超长、提前结束 |
+| `datasets/knowledge/who-v1.jsonl` | 20 | WHO 中文语料，需本地私有语料 |
+
+`safety` 与 `cbt` 在 stub 档就能跑：它们验证的是确定性流程，不需要模型。
+`knowledge` 的 chat 模式在真实模型上很慢（CPU 单轮约 30–60 秒），正式集一轮 15–20 分钟。
 
 ## 语料入库
 
@@ -58,6 +81,26 @@ python eval/runners/run_eval.py --dataset eval/datasets/knowledge/who-v1.jsonl -
 ```
 
 `--approve` 只为复现基线跳过人工审核；正常流程应在 `/internal/knowledge.html` 里逐篇审核。
+
+## 正式集结果（2026-11-24，本机 Ollama）
+
+`knowledge/formal-v1.jsonl` 34 条（26 可答 + 8 应拒答），`bge-m3` + `qwen3-8b`：
+
+| 指标 | 结果 |
+|-|-|
+| 回答率 | 1.0（26/26） |
+| 拒答准确率 | 1.0（8/8） |
+| 关键词命中 | 1.0（26/26） |
+| 引用有效率 | 1.0；平均覆盖率 0.847 |
+| 生成延迟 | P50 22.2 s / P95 30.0 s（35 次） |
+| 向量延迟 | P50 112 ms / P95 195 ms（44 次） |
+
+`safety/formal-v1.jsonl` 25 条：HOLD 召回 1.0（12/12）、REVIEW 准确 1.0（5/5）、日常 PASS 1.0（8/8）。
+`cbt/formal-v1.jsonl` 8 条：8/8。
+
+三组对照（4 条小样本）：A 直答拒答准确率 0.0、关键词 0.5；B 通用 RAG 拒答 1.0、关键词 1.0、平均 6.4 s；
+C 本方案拒答 1.0、关键词 1.0、平均 14.0 s。
+B 用检索 preview 拼上下文，不是通用 RAG 的上限；样本小，只证明口径可用。
 
 ## 真实语料基线（2026-11-20）
 

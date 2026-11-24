@@ -1,5 +1,10 @@
 server:
   port: 8080
+  tomcat:
+    # 数据库池 20 条连接时，再多的线程也只是在池上排队；两者要一起调，见 deploy/README。
+    threads:
+      max: ${SERVER_THREADS_MAX:100}
+    accept-count: ${SERVER_ACCEPT_COUNT:100}
 
 spring:
   application:
@@ -33,6 +38,17 @@ psych:
   # 不存在时用内置默认值；建议纳入 git，便于 review 与回滚。
   guard:
     policy-file: config/output-policy.json
+  # 敏感词库：后台改完保存到这里，保存即生效；不存在时用随包基线（classpath:/lexicon/sensitive.txt）。
+  lexicon:
+    file: config/lexicon.txt
+  # 临床审核记录：谁看过哪一版规则/词库。不存在时全部按"未审核"处理。
+  review:
+    file: config/reviews.json
+  # 本地语音转写：只给没有 Web Speech 的浏览器用（当前是 Windows 的 System.Speech）。
+  # 留空 = 明确回 503，页面提示直接打字；不会偷偷把音频发到云端。
+  asr:
+    command: ${PSYCH_ASR_COMMAND:}
+    timeout-seconds: ${PSYCH_ASR_TIMEOUT:30}
 
 management:
   endpoints:

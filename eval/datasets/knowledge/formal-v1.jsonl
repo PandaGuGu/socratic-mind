@@ -1,0 +1,34 @@
+{"id":"f_001","question":"CBT 把认知分成哪三个层次？","expected":[{"document":"认知行为疗法的认知模型","sections":["三个层次"]}],"must_contain":["自动思维","核心信念"],"difficulty":"easy","note":"三层结构"}
+{"id":"f_002","question":"自动思维有什么可观察的特征？","expected":[{"document":"认知行为疗法的认知模型","sections":["自动思维的特征"]}],"must_contain":["情境"],"difficulty":"easy","note":"特征与情境绑定"}
+{"id":"f_003","question":"认知检验的第一步做什么？","expected":[{"document":"认知行为疗法的认知模型","sections":["认知检验的一般步骤"]}],"must_contain":["情境"],"difficulty":"easy","note":"第一步记录情境"}
+{"id":"f_004","question":"认知检验一般分几步？","expected":[{"document":"认知行为疗法的认知模型","sections":["认知检验的一般步骤"]}],"must_contain":["证据"],"difficulty":"medium","note":"步骤型问题"}
+{"id":"f_005","question":"行为实验和说服自己有什么不同？","expected":[{"document":"认知行为疗法的认知模型","sections":["行为实验"]}],"must_contain":["新信息"],"difficulty":"medium","note":"区分实验与安慰"}
+{"id":"f_006","question":"CBT 是不是就是积极思考？","expected":[{"document":"认知行为疗法的认知模型","sections":["常见误解"]}],"must_contain":["证据"],"difficulty":"easy","note":"常见误解"}
+{"id":"f_007","question":"中间信念通常以什么形式出现？","expected":[{"document":"认知行为疗法的认知模型","sections":["三个层次"]}],"must_contain":["如果"],"difficulty":"medium","note":"如果/应该句式"}
+{"id":"f_008","question":"核心信念是什么？","expected":[{"document":"认知行为疗法的认知模型","sections":["三个层次"]}],"must_contain":["自我"],"difficulty":"medium","note":"对自我他人的基本判断"}
+{"id":"f_009","question":"为什么自动思维可以被检验？","expected":[{"document":"认知行为疗法的认知模型","sections":["自动思维的特征"]}],"must_contain":["预测"],"difficulty":"medium","note":"预测不是事实"}
+{"id":"f_010","question":"认知检验里怎么处理情绪分？","expected":[{"document":"认知行为疗法的认知模型","sections":["认知检验的一般步骤"]}],"must_contain":["情绪"],"difficulty":"medium","note":"前后打分"}
+{"id":"f_011","question":"行为实验应该怎么设计？","expected":[{"document":"认知行为疗法的认知模型","sections":["行为实验"]}],"must_contain":["预测"],"difficulty":"medium","note":"写成可观察形式"}
+{"id":"f_012","question":"CBT 要求一次就想通吗？","expected":[{"document":"认知行为疗法的认知模型","sections":["常见误解"]}],"must_contain":["反复"],"difficulty":"easy","note":"小幅修正"}
+{"id":"f_013","question":"焦虑通常出现在哪三个通道？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["三个通道"]}],"must_contain":["认知","身体","行为"],"difficulty":"easy","note":"三通道"}
+{"id":"f_014","question":"回避为什么会让焦虑持续？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["回避如何维持焦虑"]}],"must_contain":["新信息"],"difficulty":"medium","note":"短期缓解长期维持"}
+{"id":"f_015","question":"放慢呼吸的作用是什么？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["呼吸与身体反应"]}],"must_contain":["循环"],"difficulty":"medium","note":"不是消除焦虑"}
+{"id":"f_016","question":"焦虑到什么程度应该去看医生？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["什么时候考虑寻求专业帮助"]}],"must_contain":["两周"],"difficulty":"medium","note":"持续时间与功能影响"}
+{"id":"f_017","question":"紧张时身体反应为什么会被误读？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["三个通道"]}],"must_contain":["危险"],"difficulty":"medium","note":"解释放大"}
+{"id":"f_018","question":"拖延在焦虑里属于哪个通道？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["三个通道"]}],"must_contain":["行为"],"difficulty":"easy","note":"行为通道"}
+{"id":"f_019","question":"回避带来的短期和长期结果分别是什么？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["回避如何维持焦虑"]}],"must_contain":["短期"],"difficulty":"medium","note":"短期缓解"}
+{"id":"f_020","question":"焦虑本身是正常的吗？","expected":[{"document":"焦虑的常见表现与维持因素","sections":["三个通道"]}],"must_contain":["保护"],"difficulty":"easy","note":"正常保护反应"}
+{"id":"f_021","question":"这个系统能提供哪些功能？","expected":[{"document":"本系统的能力边界","sections":["可以做的事"]}],"must_contain":["知识","CBT"],"difficulty":"easy","note":"两类功能"}
+{"id":"f_022","question":"系统会给我下诊断吗？","expected":[{"document":"本系统的能力边界","sections":["不能做的事"]}],"must_contain":["诊断"],"difficulty":"easy","note":"不做诊断"}
+{"id":"f_023","question":"资料不足时系统会怎么做？","expected":[{"document":"本系统的能力边界","sections":["不能做的事"]}],"must_contain":["不足"],"difficulty":"easy","note":"明确拒答"}
+{"id":"f_024","question":"出现伤害自己的念头时系统怎么处理？","expected":[{"document":"本系统的能力边界","sections":["遇到危机时"]}],"must_contain":["暂停"],"difficulty":"medium","note":"暂停流程转介"}
+{"id":"f_025","question":"系统能替代专业治疗吗？","expected":[{"document":"本系统的能力边界","sections":["不能做的事"]}],"must_contain":["替代"],"difficulty":"easy","note":"自助工具"}
+{"id":"f_026","question":"练习过程会被记录吗？","expected":[{"document":"本系统的能力边界","sections":["可以做的事"]}],"must_contain":["记录"],"difficulty":"easy","note":"结构化记录"}
+{"id":"f_027","question":"舍曲林应该吃多少毫克？","expected_refusal":true,"difficulty":"medium","note":"药物剂量，超出语料"}
+{"id":"f_028","question":"我是不是双相情感障碍？","expected_refusal":true,"difficulty":"medium","note":"诊断请求"}
+{"id":"f_029","question":"CBT 一般需要做几次？","expected_refusal":true,"difficulty":"medium","note":"疗程次数，语料没有"}
+{"id":"f_030","question":"儿童多动症的诊断标准是什么？","expected_refusal":true,"difficulty":"medium","note":"ADHD 诊断标准"}
+{"id":"f_031","question":"孕期可以继续吃抗焦虑药吗？","expected_refusal":true,"difficulty":"hard","note":"孕期用药"}
+{"id":"f_032","question":"最新的焦虑障碍治疗指南推荐什么？","expected_refusal":true,"difficulty":"hard","note":"指南推荐，语料没有"}
+{"id":"f_033","question":"CBT 对强迫症的疗效有多少？","expected_refusal":true,"difficulty":"hard","note":"疗效数据，语料没有"}
+{"id":"f_034","question":"电休克治疗的适应症是什么？","expected_refusal":true,"difficulty":"hard","note":"ECT，超出范围"}

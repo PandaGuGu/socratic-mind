@@ -72,6 +72,15 @@ public class KnowledgeFlow {
         String answer = rag.generate(question, pack);
         trace.add("generate_answer → " + answer.length() + " chars, by " + rag.modelId());
 
+        // 模型自己说"资料不足"时，状态必须跟着变：不能一边说没资料，一边把状态记成 answered。
+        // 这是确定性后检，不依赖模型遵守提示词；真实模型在正式集上确实出现过这种情况。
+        if (selfRefused(answer)) {
+            trace.add("branch → model_self_refusal");
+            trace.add("format_response");
+            return new RagAnswer(question, RagAnswer.INSUFFICIENT, answer, List.of(),
+                    evidenceOf(pack), Verification.empty(), rag.modelId(), trace);
+        }
+
         Verification verification = rag.verify(answer, pack);
         trace.add("verify_citations → valid=" + verification.allCitationsValid()
                 + " coverage=" + verification.citationCoverage());
@@ -104,6 +113,21 @@ public class KnowledgeFlow {
                     h.via(), TextUtils.truncate(h.chunk().content(), 60)));
         }
         return new SearchResult(question, type, rewritten, out);
+    }
+
+    /**
+     * 只看**开头**：模型常在末尾补一句"以上仅供参考"，那不算拒答。
+     * 也不能全文搜"资料不足"——可答题里可能正好在描述"系统在资料不足时会拒答"，
+     * 全文匹配会把这种正常回答误判成拒答（正式集上实际发生过）。
+     */
+    static boolean selfRefused(String answer) {
+        if (answer == null) return false;
+        String head = answer.strip().replaceFirst("^[\\s\\p{Punct}\u201c\u201d\u2018\u2019]+", "");
+        for (String marker : List.of("现有资料不足", "资料不足", "不足以回答", "无法回答",
+                "提供的证据未提及", "未提及", "没有相关信息")) {
+            if (head.startsWith(marker)) return true;
+        }
+        return false;
     }
 
     private String insufficientAnswer(EvidencePack pack) {

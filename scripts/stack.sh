@@ -153,9 +153,9 @@ summary() {
   echo "  内部令牌      ${PSYCH_INTERNAL_TOKEN}"
   echo "  数据库        localhost:${POSTGRES_PORT}  (${POSTGRES_USER}/${POSTGRES_DB})"
   if [ "$AI" -eq 1 ]; then
-    echo "  向量模型      ${OLLAMA_EMBED_MODEL:-bge-m3}（容器内 Ollama，1024 维）"
+    echo "  模型          对话 ${OLLAMA_CHAT_MODEL:-qwen3-8b} + 向量 ${OLLAMA_EMBED_MODEL:-bge-m3}（容器内 Ollama，1024 维）"
   else
-    echo "  向量模型      桩（哈希 256 维，零成本）；要真向量加 --ai"
+    echo "  模型          桩（哈希 256 维，零成本）；要真模型加 --ai"
   fi
   echo
   echo "  跟日志：bash scripts/stack.sh logs      停止：bash scripts/stack.sh down"

@@ -16,12 +16,19 @@ import com.socraticmind.agent.cbt.safety.SafetyScreener;
 import com.socraticmind.agent.config.ConfigVersion;
 import com.socraticmind.agent.config.RuntimeLimits;
 import com.socraticmind.agent.config.RuntimeLimitsStore;
+import com.socraticmind.app.lexicon.LexiconStore;
+import com.socraticmind.app.review.ReviewStore;
+import com.socraticmind.common.account.Account;
 import com.socraticmind.common.guard.GuardRules;
 import com.socraticmind.common.guard.GuardViolation;
 import com.socraticmind.common.guard.OutputPolicy;
 import com.socraticmind.common.guard.ProfileRule;
+import com.socraticmind.common.port.AccountStore;
+import com.socraticmind.common.port.EmbeddingPort;
 import com.socraticmind.infrastructure.guard.GuardAuditEntry;
 import com.socraticmind.infrastructure.guard.GuardAuditLog;
+import com.socraticmind.infrastructure.ai.AiProperties;
+import com.socraticmind.infrastructure.ai.ModelCallLog;
 import com.socraticmind.infrastructure.guard.OutputPolicyStore;
 import com.socraticmind.session.CbtMessage;
 import com.socraticmind.session.CbtSession;
@@ -69,6 +76,12 @@ public class InternalController {
     private final SafetyRulesStore safetyRules;
     private final RuntimeLimitsStore limits;
     private final GuardAuditLog guardAudit;
+    private final LexiconStore lexiconStore;
+    private final AccountStore accounts;
+    private final ReviewStore reviews;
+    private final ModelCallLog modelLog;
+    private final EmbeddingPort embeddingPort;
+    private final AiProperties aiProperties;
     private final String aiProvider;
     private final String chatModel;
     private final boolean authEnabled;
@@ -80,6 +93,12 @@ public class InternalController {
                               SafetyRulesStore safetyRules,
                               RuntimeLimitsStore limits,
                               GuardAuditLog guardAudit,
+                              LexiconStore lexiconStore,
+                              AccountStore accounts,
+                              ReviewStore reviews,
+                              ModelCallLog modelLog,
+                              EmbeddingPort embeddingPort,
+                              AiProperties aiProperties,
                               @Value("${psych.ai.provider:stub}") String aiProvider,
                               @Value("${psych.ai.chat-model:}") String chatModel,
                               @Value("${psych.internal.token:}") String internalToken) {
@@ -90,6 +109,12 @@ public class InternalController {
         this.safetyRules = safetyRules;
         this.limits = limits;
         this.guardAudit = guardAudit;
+        this.lexiconStore = lexiconStore;
+        this.accounts = accounts;
+        this.reviews = reviews;
+        this.modelLog = modelLog;
+        this.embeddingPort = embeddingPort;
+        this.aiProperties = aiProperties;
         this.aiProvider = aiProvider;
         this.chatModel = chatModel;
         // 开启内部接口时令牌是必填的（见 InternalAuthInterceptor），这里如实反映"有没有钥匙"
@@ -267,18 +292,205 @@ public class InternalController {
         return Map.of("sessionId", s.id(), "ackedAt", s.safetyAckAt(), "by", s.safetyAckBy());
     }
 
-    /** 词库只读视图：让运维能看见"到底拦了什么"，而不是只有一个命中计数。 */
+    /* ---------------- 模型：延迟、估算 token、失败 ---------------- */
+
+    public record AiCallView(String kind, String model, long ms, int estTokens,
+                             String outcome, Instant at) {
+    }
+
+    public record AiSummaryView(int calls, int errors, long p50ms, long p95ms, long avgMs, long estTokens) {
+    }
+
+    public record AiView(String provider, String chatModel, String embeddingModel, int dimension,
+                         boolean stub, AiSummaryView summary, java.util.List<AiCallView> recent,
+                         String costNote) {
+    }
+
+    /**
+     * 模型层仪表盘。延迟是实测；token 是估算（字符数 / 1.7），成本只在本地模型意义下为 0。
+     *
+     * 为什么不做"精确计费"：适配器拿到的是文本，不是上游账单；硬凑一个数会比"估算"更误导。
+     * 接真实 API 时应当读响应里的 usage，或直接对接上游账单。
+     */
+    @GetMapping("/ai")
+    public AiView ai() {
+        ModelCallLog.Summary s = modelLog.summary();
+        java.util.List<AiCallView> recent = modelLog.recent(80).stream()
+                .map(c -> new AiCallView(c.kind(), c.model(), c.ms(), c.estTokens(), c.outcome(), c.at()))
+                .toList();
+        int dimension = embeddingPort.dimension();
+        if (dimension <= 0) dimension = aiProperties.getEmbeddingDimension();
+        String costNote = "本地 Ollama 按 0 元计；token 为估算（字符数 / 1.7），不是上游账单。";
+        return new AiView(aiProvider, chatModel,
+                aiProperties.getEmbeddingModel() == null || aiProperties.getEmbeddingModel().isBlank()
+                        ? "hash-stub" : aiProperties.getEmbeddingModel(),
+                dimension, "stub".equalsIgnoreCase(aiProvider), new AiSummaryView(
+                s.calls(), s.errors(), s.p50ms(), s.p95ms(), s.avgMs(), s.estTokens()), recent, costNote);
+    }
+
+    /* ---------------- 临床审核记录：谁看过哪一版 ---------------- */
+
+    public record ReviewRow(String kind, String label, int currentVersion, int items,
+                            String state, ReviewStore.Review review) {
+    }
+
+    public record ReviewsView(String path, java.util.List<ReviewRow> rows) {
+    }
+
+    public record ReviewSaveRequest(String kind, String status, String reviewer, String note) {
+    }
+
+    /**
+     * 审核状态。注意它记录的是"这一版被谁看过"，不是"这个模块被审核过"：
+     * 规则或词库改版后，旧记录自动变成 stale，页面会要求重审。
+     * 系统不能替临床医生签字，但可以保证没签过这件事始终显式。
+     */
+    @GetMapping("/reviews")
+    public ReviewsView reviews() {
+        var safety = safetyRules.get();
+        var lexicon = lexiconStore.view();
+        java.util.List<ReviewRow> rows = new ArrayList<>();
+        rows.add(reviewRow("safety", "安全规则", safety.version(), safety.rules().size() + safety.cases().size()));
+        rows.add(reviewRow("lexicon", "敏感词库", lexicon.version(), lexicon.count()));
+        return new ReviewsView(reviews.path().toString(), rows);
+    }
+
+    private ReviewRow reviewRow(String kind, String label, int version, int items) {
+        ReviewStore.Review review = reviews.find(kind);
+        String state;
+        if (review == null) {
+            state = "unreviewed";
+        } else if (review.version() != version) {
+            state = "stale";
+        } else {
+            state = review.status();
+        }
+        return new ReviewRow(kind, label, version, items, state, review);
+    }
+
+    /** 保存一次审核。版本号由服务端取当前生效版本，不接受客户端指定。 */
+    @PutMapping("/reviews")
+    public ReviewsView saveReview(@RequestBody ReviewSaveRequest request,
+                                  @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        if (request == null) throw new IllegalArgumentException("审核内容不能为空");
+        int version = switch (request.kind() == null ? "" : request.kind()) {
+            case "safety" -> safetyRules.get().version();
+            case "lexicon" -> lexiconStore.view().version();
+            default -> throw new IllegalArgumentException("kind 只能是 safety / lexicon");
+        };
+        // 版本 0 表示"随包基线、尚未落盘"，也是可以审核的对象；审核记录会跟着版本一起走。
+        reviews.save(request.kind(), version, request.status(),
+                firstNonBlank(request.reviewer(), actor), request.note());
+        return reviews();
+    }
+
+    /* ---------------- 账号视图：只读，不代客注销 ---------------- */
+
+    public record AccountRow(String id, String email, String displayName,
+                             Instant createdAt, Instant lastLoginAt,
+                             int sessions, Instant lastSessionAt, int attention) {
+    }
+
+    public record AccountsView(int total, int active7d, int withoutSessions, List<AccountRow> rows) {
+    }
+
+    /**
+     * 账号进入运营视图，但仍然只读。
+     *
+     * 为什么不提供"后台注销某个账号"：注销需要本人口令，代客注销等于把"删除别人账号"的能力
+     * 交给任何一个拿到内部令牌的人。运营需要的是"看见谁在用、哪一轮需要人看"，
+     * 不是替用户做不可逆决定。确实要删，走用户自己的 /account/。
+     *
+     * attention 统计的是"这一账号名下需要人看一眼的会话"（安全暂停、关注、待复核），
+     * 不是风险评级——数量多不等于这个人更危险。
+     */
+    @GetMapping("/accounts")
+    public AccountsView accounts() {
+        List<Account> all = accounts.findAll();
+        Instant weekAgo = Instant.now().minus(java.time.Duration.ofDays(7));
+        List<AccountRow> rows = new ArrayList<>();
+        int active = 0;
+        int empty = 0;
+        for (Account a : all) {
+            List<CbtSession> owned = store.findVisible(null, a.id());
+            Instant lastSession = owned.stream()
+                    .map(CbtSession::updatedAt)
+                    .max(Instant::compareTo)
+                    .orElse(null);
+            int attention = (int) owned.stream()
+                    .filter(s -> s.stage() == CbtStage.SAFETY_HOLD
+                            || "hold".equals(s.safetyStatus())
+                            || "watch".equals(s.safetyStatus())
+                            || "review".equals(s.safetyStatus()))
+                    .count();
+            if ((a.lastLoginAt() != null && a.lastLoginAt().isAfter(weekAgo))
+                    || (lastSession != null && lastSession.isAfter(weekAgo))) {
+                active++;
+            }
+            if (owned.isEmpty()) empty++;
+            rows.add(new AccountRow(a.id(), a.email(), a.displayName(),
+                    a.createdAt(), a.lastLoginAt(), owned.size(), lastSession, attention));
+        }
+        return new AccountsView(all.size(), active, empty, rows);
+    }
+
+    /** 词库：看全表、改、试跑。v0.6.0 起可写——此前只能看，改词要发版。
+     *
+     * 保存的门槛在 {@link LexiconStore#save}：结构校验 + "至少一条 block、至少一条输入侧"，
+     * 不通过就拒绝，旧词库继续生效。这是"运维能改，但改不坏"的同一套做法。
+     */
+    public record LexiconSaveRequest(List<LexiconStore.Row> entries, String updatedBy) {
+    }
+
+    public record LexiconTestRequest(String text, String side) {
+    }
+
     @GetMapping("/lexicon")
-    public Map<String, Object> lexicon() {
-        var entries = com.socraticmind.common.guard.SensitiveLexicon.get().entries();
-        return Map.of(
-                "count", entries.size(),
-                "entries", entries.stream().map(e -> Map.of(
-                        "scope", e.scope().name(),
-                        "category", e.category(),
-                        "action", e.action().name(),
-                        "word", e.word()
-                )).toList());
+    public LexiconStore.View lexicon() {
+        return lexiconStore.view();
+    }
+
+    @PostMapping("/lexicon/validate")
+    public Map<String, Object> validateLexicon(@RequestBody LexiconSaveRequest request) {
+        List<String> errors = lexiconStore.validate(request == null ? null : request.entries());
+        return Map.of("ok", errors.isEmpty(), "errors", errors);
+    }
+
+    @PutMapping("/lexicon")
+    public LexiconStore.View saveLexicon(@RequestBody LexiconSaveRequest request,
+                                         @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        if (request == null) throw new IllegalArgumentException("词库不能为空");
+        return lexiconStore.save(request.entries(), firstNonBlank(request.updatedBy(), actor));
+    }
+
+    public record LexiconRollbackRequest(Integer version, String updatedBy) {
+    }
+
+    @PostMapping("/lexicon/rollback")
+    public LexiconStore.View rollbackLexicon(@RequestBody LexiconRollbackRequest request,
+                                             @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        if (request == null || request.version() == null) {
+            throw new IllegalArgumentException("需要 version");
+        }
+        return lexiconStore.rollback(request.version(), firstNonBlank(request.updatedBy(), actor));
+    }
+
+    @PostMapping("/lexicon/reset")
+    public LexiconStore.View resetLexicon(@RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+        return lexiconStore.reset(firstNonBlank(actor, "ops"));
+    }
+
+    /** 用**当前生效**的词库跑一次：输入侧与输出侧分开，因为两边的词本来就不该混。 */
+    @PostMapping("/lexicon/test")
+    public Map<String, Object> testLexicon(@RequestBody(required = false) LexiconTestRequest request) {
+        String text = request == null || request.text() == null ? "" : request.text();
+        boolean output = request != null && "out".equalsIgnoreCase(request.side());
+        var hits = output
+                ? com.socraticmind.common.guard.SensitiveLexicon.get().scanOutput(text)
+                : com.socraticmind.common.guard.SensitiveLexicon.get().scanInput(text);
+        boolean blocked = hits.stream()
+                .anyMatch(h -> h.action() == com.socraticmind.common.guard.SensitiveLexicon.Action.BLOCK);
+        return Map.of("side", output ? "out" : "in", "blocked", blocked, "hits", hits);
     }
 
     public record DemoRequest(String kind) {

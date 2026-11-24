@@ -17,7 +17,6 @@ public class HttpChatAdapter implements ChatPort {
 
     /** 连接与读取都必须有上限：上游卡住时，不能把 Tomcat 的请求线程一起拖住。 */
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
 
     /** CBT 的两次生成都很短（一句改写 / 一段总结），限住上限既省钱也防跑飞。 */
     private static final int MAX_TOKENS = 400;
@@ -26,19 +25,22 @@ public class HttpChatAdapter implements ChatPort {
     private final String model;
     private final double temperature;
     private final boolean thinkingDisabled;
+    private final boolean noThink;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public HttpChatAdapter(String baseUrl, String apiKey, String model,
-                           double temperature, boolean thinkingDisabled) {
+                           double temperature, boolean thinkingDisabled, boolean noThink,
+                           int readTimeoutSeconds) {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalStateException("psych.ai.base-url 未配置：无法调用真实模型");
         }
         this.model = model;
         this.temperature = temperature;
         this.thinkingDisabled = thinkingDisabled;
+        this.noThink = noThink;
         HttpClient http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
-        factory.setReadTimeout(READ_TIMEOUT);
+        factory.setReadTimeout(Duration.ofSeconds(Math.max(10, readTimeoutSeconds)));
 
         this.client = RestClient.builder()
                 .requestFactory(factory)
@@ -54,9 +56,11 @@ public class HttpChatAdapter implements ChatPort {
         body.put("model", model);
         body.put("temperature", temperature);
         body.put("max_tokens", MAX_TOKENS);
+        // Qwen3 的思考链会吃掉 max_tokens，最后只回一段空内容；/no_think 是它认的开关。
+        String user = noThink ? userPrompt + "\n/no_think" : userPrompt;
         body.put("messages", List.of(
                 Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userPrompt)
+                Map.of("role", "user", "content", user)
         ));
         // Kimi K2.6 默认开启思考；显式关闭后才是"直接回答"，也才允许 0.6 的温度。
         if (thinkingDisabled) {

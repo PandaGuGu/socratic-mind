@@ -18,14 +18,16 @@ psych:
   ai:
     provider: http
     chat-provider: ${PSYCH_AI_CHAT_PROVIDER:http}
-    embedding-provider: ${PSYCH_AI_EMBEDDING_PROVIDER:stub}
-    embedding-dimension: ${PSYCH_AI_EMBEDDING_DIMENSION:256}
-    base-url: ${PSYCH_AI_BASE_URL:}
-    api-key: ${PSYCH_AI_API_KEY:}
-    chat-model: ${PSYCH_AI_CHAT_MODEL:}
-    embedding-base-url: ${PSYCH_AI_EMBEDDING_BASE_URL:}
-    embedding-api-key: ${PSYCH_AI_EMBEDDING_API_KEY:}
-    embedding-model: ${PSYCH_AI_EMBEDDING_MODEL:}
+    embedding-provider: ${PSYCH_AI_EMBEDDING_PROVIDER:http}
+    embedding-dimension: ${PSYCH_AI_EMBEDDING_DIMENSION:1024}
+    # 默认指向本机 Ollama；接云端时用环境变量覆盖 base-url / api-key / model
+    base-url: ${PSYCH_AI_BASE_URL:http://localhost:11434/v1}
+    api-key: ${PSYCH_AI_API_KEY:ollama}
+    chat-model: ${PSYCH_AI_CHAT_MODEL:qwen3-8b}
+    embedding-base-url: ${PSYCH_AI_EMBEDDING_BASE_URL:http://localhost:11434/v1}
+    embedding-api-key: ${PSYCH_AI_EMBEDDING_API_KEY:ollama}
+    embedding-model: ${PSYCH_AI_EMBEDDING_MODEL:bge-m3}
+    no-think: ${PSYCH_AI_NO_THINK:true}
     temperature: ${PSYCH_AI_TEMPERATURE:0.2}
     thinking-disabled: ${PSYCH_AI_THINKING_DISABLED:false}
   # 联调档也打开控制台，方便看轨迹与拦截记录
