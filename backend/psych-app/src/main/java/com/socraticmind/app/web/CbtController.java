@@ -9,7 +9,7 @@ import com.socraticmind.app.security.UserTokenService;
 import com.socraticmind.app.web.support.ConflictException;
 import com.socraticmind.app.web.support.IdempotencyCache;
 import com.socraticmind.app.web.support.NotFoundException;
-import com.socraticmind.app.web.support.RateLimiter;
+import com.socraticmind.app.web.support.RateLimitPort;
 import com.socraticmind.app.web.support.TooManyRequestsException;
 import com.socraticmind.app.web.support.UnauthorizedException;
 import com.socraticmind.common.port.AccountStore;
@@ -70,16 +70,18 @@ public class CbtController {
     private final AccountStore accounts;
     private final ShareService shares;
     private final IdempotencyCache<TurnResult> idempotent = new IdempotencyCache<>(10_000);
-    private final RateLimiter limiter = new RateLimiter();
+    private final RateLimitPort limiter;
 
     public CbtController(CbtFlow flow, CbtSessionStore store, UserTokenService tokens,
-                         RuntimeLimitsStore limits, AccountStore accounts, ShareService shares) {
+                         RuntimeLimitsStore limits, AccountStore accounts, ShareService shares,
+                         RateLimitPort limiter) {
         this.flow = flow;
         this.store = store;
         this.tokens = tokens;
         this.limits = limits;
         this.accounts = accounts;
         this.shares = shares;
+        this.limiter = limiter;
     }
 
     /** userId 字段保留只为兼容旧客户端；服务端一律忽略，身份由令牌决定。 */

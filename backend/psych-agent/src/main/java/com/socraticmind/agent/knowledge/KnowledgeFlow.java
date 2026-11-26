@@ -5,6 +5,7 @@ import com.socraticmind.agent.dto.SearchResult;
 import com.socraticmind.common.model.Citation;
 import com.socraticmind.common.model.EvidenceItem;
 import com.socraticmind.common.model.KnowledgeDocument;
+import com.socraticmind.common.model.QueryOutcome;
 import com.socraticmind.common.model.RagAnswer;
 import com.socraticmind.common.model.Verification;
 import com.socraticmind.common.port.KnowledgeStore;
@@ -17,9 +18,11 @@ import com.socraticmind.rag.query.QueryRewriter;
 import com.socraticmind.rag.service.RagService;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * KnowledgeGraph 的流程实现（7 个节点，顺序固定）：
@@ -37,16 +40,26 @@ public class KnowledgeFlow {
     private final QueryRewriter rewriter;
     private final RagService rag;
     private final KnowledgeStore store;
+    private final OnlineEvalService onlineEval;
 
     public KnowledgeFlow(QueryClassifier classifier, QueryRewriter rewriter,
-                         RagService rag, KnowledgeStore store) {
+                         RagService rag, KnowledgeStore store, OnlineEvalService onlineEval) {
         this.classifier = classifier;
         this.rewriter = rewriter;
         this.rag = rag;
         this.store = store;
+        this.onlineEval = onlineEval;
     }
 
     public RagAnswer run(String question) {
+        return run(question, null);
+    }
+
+    /**
+     * @param scopes 调用方可见的语料范围；null = 不限制，空集合 = 没有任何可见语料（必然拒答）
+     */
+    public RagAnswer run(String question, Set<String> scopes) {
+        long start = System.nanoTime();
         List<String> trace = new ArrayList<>();
 
         String type = classifier.classify(question);
@@ -55,8 +68,9 @@ public class KnowledgeFlow {
         String rewritten = rewriter.rewrite(question);
         trace.add("rewrite_query → " + TextUtils.truncate(rewritten, 40));
 
-        List<Hit> hits = rag.retrieve(rewritten, TOP_K);
+        List<Hit> hits = rag.retrieve(rewritten, TOP_K, scopes);
         trace.add("retrieve_evidence → " + hits.size() + " hits");
+        trace.add("rerank → " + rag.rerankModelId());
 
         EvidencePack pack = rag.assemble(rewritten, hits);
         trace.add("evaluate_evidence → sufficient=" + pack.evidenceSufficient() + " (" + pack.reason() + ")");
@@ -65,8 +79,8 @@ public class KnowledgeFlow {
             trace.add("branch → insufficient");
             String answer = insufficientAnswer(pack);
             trace.add("format_response");
-            return new RagAnswer(question, RagAnswer.INSUFFICIENT, answer, List.of(),
-                    evidenceOf(pack), Verification.empty(), rag.modelId(), trace);
+            return record(new RagAnswer(question, RagAnswer.INSUFFICIENT, answer, List.of(),
+                    evidenceOf(pack), Verification.empty(), rag.modelId(), trace), start, question, pack, answer);
         }
 
         String answer = rag.generate(question, pack);
@@ -77,8 +91,8 @@ public class KnowledgeFlow {
         if (selfRefused(answer)) {
             trace.add("branch → model_self_refusal");
             trace.add("format_response");
-            return new RagAnswer(question, RagAnswer.INSUFFICIENT, answer, List.of(),
-                    evidenceOf(pack), Verification.empty(), rag.modelId(), trace);
+            return record(new RagAnswer(question, RagAnswer.INSUFFICIENT, answer, List.of(),
+                    evidenceOf(pack), Verification.empty(), rag.modelId(), trace), start, question, pack, answer);
         }
 
         Verification verification = rag.verify(answer, pack);
@@ -93,14 +107,38 @@ public class KnowledgeFlow {
                     .filter(item -> used.contains(item.citation().number()))
                     .map(PackItem::citation)
                     .toList();
-        return new RagAnswer(question, RagAnswer.ANSWERED, answer, citations,
-                evidenceOf(pack), verification, rag.modelId(), trace);
+        return record(new RagAnswer(question, RagAnswer.ANSWERED, answer, citations,
+                evidenceOf(pack), verification, rag.modelId(), trace), start, question, pack, answer);
+    }
+
+    /**
+     * 留痕是旁路，不是主链路：写入失败必须吞掉。
+     * 让"存评测数据失败"把一次可用的回答变成 500，是这类改造里最常见的自伤。
+     */
+    private RagAnswer record(RagAnswer answer, long startNanos, String question, EvidencePack pack,
+                            String answerText) {
+        long ms = (System.nanoTime() - startNanos) / 1_000_000;
+        boolean answered = RagAnswer.ANSWERED.equals(answer.status());
+        try {
+            onlineEval.record(new QueryOutcome(question, answer.status(),
+                    pack != null && pack.evidenceSufficient(),
+                    answered && answer.verification().allCitationsValid(),
+                    answer.verification().citationCoverage(),
+                    pack == null ? 0 : pack.items().size(), ms, Instant.now()), answerText);
+        } catch (RuntimeException ignored) {
+            // 旁路失败不改变本轮结果
+        }
+        return answer;
     }
 
     public SearchResult search(String question, int topK) {
+        return search(question, topK, null);
+    }
+
+    public SearchResult search(String question, int topK, Set<String> scopes) {
         String type = classifier.classify(question);
         String rewritten = rewriter.rewrite(question);
-        List<Hit> hits = rag.retrieve(rewritten, Math.max(1, Math.min(topK, 20)));
+        List<Hit> hits = rag.retrieve(rewritten, Math.max(1, Math.min(topK, 20)), scopes);
 
         List<SearchHit> out = new ArrayList<>();
         for (Hit h : hits) {

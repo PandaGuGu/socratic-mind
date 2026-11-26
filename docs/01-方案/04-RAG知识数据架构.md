@@ -149,3 +149,63 @@ Spring AI 已经提供 `VectorStore`、`QuestionAnswerAdvisor` 和 `RetrievalAug
 
 参考：
 - [Spring AI RAG 文档](https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html)
+
+## 4.7 已落地：重排、生命周期、语料权限与在线评测
+
+§4.5 里留了三个"以后再说"（重排、版本与来源检查、引用之外的治理），这一节把它们收掉。
+四件事共同的主题是：**检索质量的上限由语料治理决定，不由模型决定。**
+
+### 重排：先放大候选池，再截断
+
+| 档 | 开关 | 行为 |
+|-|-|-|
+| `none` | `psych.ai.rerank.provider=none` | 显式声明"没装重排"。出问题先怀疑排序，而不是先怀疑重排 |
+| `lexical`（默认） | 同上 = `lexical` | 不调模型：查询词覆盖率 0.7 + 相邻短语 0.3，再与召回分 6:4 混合 |
+| `fixture` | 同上 = `fixture` | 读离线判好的分，按**内容键**（检索文本短 SHA）索引 |
+| `http` | 同上 = `http` 并配 `psych.ai.rerank.url` | `/rerank` 协议，8 秒超时，失败退回召回顺序，不重试 |
+
+三处容易写错的顺序：
+1. 候选池必须放大（`pool-factor`，默认 3）。只取 topK 再重排，等于在截断后的名单里换座位；
+2. 截断必须发生在重排**之后**；
+3. 未判分的条目是 `-1` 而不是 `0`。当成 0 分会把它们排到所有低分命中之后，而"没判"只该保持原相对顺序。
+
+实测（5 个查询，示例语料，样本小，只证明管道可用）：重排改变了 4/5 个查询的 top-1；
+两位独立标注者 top-1 一致率 1.0、top-3 重合 0.87、逐条平均绝对差 0.045。
+
+> **边界**：`rerank/agent-v1.json` 里的分是**子代理扮演 cross-encoder** 逐条判出来的，
+> 不是 bge-reranker 的真实输出。真模型接上后换 `http` 档，这份文件退化为回归基准。
+> 它的键是内容寻址的，重建语料后仍然对得上——用 chunk id 做键的标注文件，第二天就静默失效。
+
+### 文档生命周期：内容哈希决定要不要重做
+
+- `external_key` 唯一：同一篇资料只有一条记录，改标题不会变成新文档；
+- `content_hash` 决定是否重切分与重向量化：没变就一个字节都不写；
+- 内容变了 → 清旧块 → 写新版本 → 状态回到 `REVIEWING`。**审核签字是对那一版文本签的**，
+  自动继承等于让一次未审的改动借用上一次的签字；
+- `deleted_at` 软删除（检索立刻不可见，行保留），物理清理另给一条命令（默认保留 7 天）。
+
+实现：`DocumentSyncService`、`IngestionService.ingestAs`；接口 `POST /api/knowledge/documents/sync`、
+`DELETE /api/knowledge/documents/{id}`。
+
+### 语料权限：在检索之前过滤
+
+`kb_document.acl_scope` 存逗号分隔的范围（如 `team:cbt,role:clinician`），空表示公开。
+`KnowledgeFlow` 接 `scopes`，先解析成"可见文档 id 集合"再进检索。
+
+放在检索前而不是生成后，是因为两件事不一样：先取回来再删引用，越权内容已经进了模型上下文，
+答案里可能已经泄露了它的意思。语义上也有区别——越权问题应当表现成"没有资料"，
+而不是"有资料但不能说"，后者本身就泄露了存在性。
+
+实现：`DocumentVisibility`（内存档与 PG 档共用同一份判定，避免两边慢慢分叉）、
+`PUT /api/knowledge/documents/{id}/acl`。
+
+### 在线评测：留痕、自动挑样本、按窗口看指标
+
+- 每轮问答留痕：状态、证据是否充分、引用是否有效、命中数、延迟（`eval_query_log`）；
+- 可疑样本自动进池：拒答、引用无效、管道异常（`eval_badcase`）。拒答不等于错误，
+  但它永远值得看一眼——要么语料缺了，要么改写没覆盖这种问法，要么门槛太紧，三种修法完全不同；
+- 摘要不合成总分：回答率、拒答率、引用有效率分开报，另给 P50/P95 与 top 拒答问题；
+- 抽样是确定性的（固定步长），随机会让今天和昨天看的不是同一批。
+
+实现：`OnlineEvalService`；接口 `/api/internal/eval/summary|badcases|sample`。
+评测写入是旁路，失败只吞掉——不能让"存评测数据失败"把一次可用的回答变成 500。

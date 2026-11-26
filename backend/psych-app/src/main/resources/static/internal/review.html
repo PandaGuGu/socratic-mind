@@ -37,6 +37,11 @@
     font-family: var(--mono); font-size: 9px; color: var(--muted); text-align: center; line-height: 16px;
   }
   .panel ol li b { color: var(--ink); font-weight: 500; }
+  table.kb-rev { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.kb-rev th { text-align: left; font-weight: 400; color: var(--muted);
+    font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.kb-rev td { padding: 8px; border-bottom: 1px solid var(--line); line-height: 1.6; }
+  .unsigned { color: #b4453a; }
   .form-grid { display: grid; gap: 12px; }
   .form-grid label { display: grid; gap: 5px; }
   .form-grid span { font-size: 11px; color: var(--ink-soft); }
@@ -76,6 +81,7 @@
       <a class="btn" href="./index.html">会话</a>
       <a class="btn" href="./settings.html">规则与参数</a>
       <a class="btn" href="./lexicon.html">词库</a>
+      <a class="btn" href="./eval.html">评测</a>
       <button class="btn" id="refreshBtn" type="button">刷新</button>
     </div>
   </header>
@@ -142,6 +148,15 @@
         </p>
       </section>
     </div>
+
+    <section class="panel" style="margin-top: 18px">
+      <h3>知识库文档审核记录</h3>
+      <p class="foot" style="margin-bottom: 10px">
+        签字针对<b>版本</b>：通过 v2 不等于 v3 也被审过。可见范围是签字那一刻的<b>快照</b>——
+        之后改了权限不会回写到这里，这正是"当时签的是什么"需要的证据。
+      </p>
+      <div id="kbReviews"><p class="foot">读取中…</p></div>
+    </section>
   </main>
 </div>
 

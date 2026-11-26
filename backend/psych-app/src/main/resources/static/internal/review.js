@@ -94,4 +94,45 @@
 
   $("refreshBtn").onclick = load;
   load();
+  loadKnowledge();
+
+  var DECISION = { approve: "通过", reject: "退回", review: "转待审" };
+
+  /**
+   * 知识库文档的审核记录。
+   *
+   * 与上面两张卡片分开渲染：规则/词库只有"当前结论"，文档是"一版一条历史"。
+   * 把两种读法塞进同一个卡片列表，会让人以为文档审核也只有一条。
+   */
+  function loadKnowledge() {
+    fetch("/api/internal/knowledge-reviews", { headers: { Accept: "application/json" } })
+      .then(function (res) {
+        if (!res.ok) throw new Error("读取失败（" + res.status + "）");
+        return res.json();
+      })
+      .then(function (rows) {
+        if (!rows.length) {
+          $("kbReviews").innerHTML = '<p class="foot">还没有任何文档审核记录。发布前应当有人签过这一版。</p>';
+          return;
+        }
+        var body = rows.map(function (r) {
+          return "<tr>"
+            + "<td>" + esc(r.title || r.documentId) + "<div class=\"foot\" style=\"margin:0\">"
+              + esc(r.version) + " · " + esc(r.documentId) + "</div></td>"
+            + "<td>" + esc(DECISION[r.decision] || r.decision) + "</td>"
+            + "<td" + (r.reviewer ? "" : ' class="unsigned"') + ">"
+              + esc(r.reviewer || "未署名") + "</td>"
+            + "<td>" + esc(date(r.reviewedAt)) + "</td>"
+            + "<td>" + esc(r.aclScope || "所有人可见") + "</td>"
+            + "<td>" + esc(r.note || "—") + "</td>"
+            + "</tr>";
+        }).join("");
+        $("kbReviews").innerHTML = "<table class=\"kb-rev\"><thead><tr>"
+          + "<th>文档</th><th>结论</th><th>审核人</th><th>时间</th><th>签字时可见范围</th><th>备注</th>"
+          + "</tr></thead><tbody>" + body + "</tbody></table>";
+      })
+      .catch(function (err) {
+        $("kbReviews").innerHTML = '<p class="foot">' + esc(err.message) + "</p>";
+      });
+  }
 })();

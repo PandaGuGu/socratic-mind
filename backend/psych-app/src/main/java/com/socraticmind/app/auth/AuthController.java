@@ -1,7 +1,7 @@
 package com.socraticmind.app.auth;
 
 import com.socraticmind.app.security.UserTokenService;
-import com.socraticmind.app.web.support.RateLimiter;
+import com.socraticmind.app.web.support.RateLimitPort;
 import com.socraticmind.app.web.support.UnauthorizedException;
 import com.socraticmind.app.web.support.TooManyRequestsException;
 import com.socraticmind.common.account.Account;
@@ -42,11 +42,12 @@ public class AuthController {
 
     private final AuthService auth;
     private final UserTokenService tokens;
-    private final RateLimiter limiter = new RateLimiter();
+    private final RateLimitPort limiter;
 
-    public AuthController(AuthService auth, UserTokenService tokens) {
+    public AuthController(AuthService auth, UserTokenService tokens, RateLimitPort limiter) {
         this.auth = auth;
         this.tokens = tokens;
+        this.limiter = limiter;
     }
 
     public record RegisterRequest(

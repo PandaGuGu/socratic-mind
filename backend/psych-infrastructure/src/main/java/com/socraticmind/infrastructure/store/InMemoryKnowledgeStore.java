@@ -33,7 +33,12 @@ public class InMemoryKnowledgeStore implements KnowledgeStore {
 
     @Override
     public void save(KnowledgeDocument document, List<Chunk> newChunks, List<EvidenceItem> newEvidence) {
-        documents.put(document.id(), document);
+        // 与 PG 档同一条规则：重新入库不覆盖已有 ACL（acl 为空表示"沿用"）。
+        KnowledgeDocument previous = documents.get(document.id());
+        KnowledgeDocument toStore = document.aclScope() == null && previous != null
+                ? document.withAcl(previous.aclScope())
+                : document;
+        documents.put(toStore.id(), toStore);
         newChunks.forEach(c -> chunks.put(c.id(), c));
         newEvidence.forEach(e -> evidence.put(e.id(), e));
     }
@@ -43,7 +48,60 @@ public class InMemoryKnowledgeStore implements KnowledgeStore {
         KnowledgeDocument d = documents.get(documentId);
         if (d == null) return;
         documents.put(documentId, new KnowledgeDocument(d.id(), d.collection(), d.title(), d.source(),
-                d.sourceUrl(), d.version(), d.language(), status, d.createdAt()));
+                d.sourceUrl(), d.version(), d.language(), status, d.createdAt(),
+                d.aclScope(), d.contentHash(), d.externalKey(), d.deletedAt()));
+    }
+
+    @Override
+    public Optional<KnowledgeDocument> findByExternalKey(String externalKey) {
+        if (externalKey == null || externalKey.isBlank()) return Optional.empty();
+        return documents.values().stream()
+                .filter(d -> externalKey.equals(d.externalKey()))
+                .findFirst();
+    }
+
+    @Override
+    public List<String> findVisibleDocumentIds(Set<String> scopes) {
+        return com.socraticmind.common.support.DocumentVisibility.visibleIds(new ArrayList<>(documents.values()), scopes);
+    }
+
+    @Override
+    public void deleteChunksOf(String documentId) {
+        chunks.values().removeIf(c -> c.documentId().equals(documentId));
+        evidence.values().removeIf(e -> !chunks.containsKey(e.chunkId()));
+    }
+
+    @Override
+    public void markDeleted(String documentId, java.time.Instant at) {
+        KnowledgeDocument d = documents.get(documentId);
+        if (d == null) return;
+        documents.put(documentId, new KnowledgeDocument(d.id(), d.collection(), d.title(), d.source(),
+                d.sourceUrl(), d.version(), d.language(), KnowledgeDocument.ARCHIVED, d.createdAt(),
+                d.aclScope(), d.contentHash(), d.externalKey(),
+                at == null ? java.time.Instant.now() : at));
+    }
+
+    @Override
+    public void updateAcl(String documentId, String aclScope) {
+        KnowledgeDocument d = documents.get(documentId);
+        if (d == null) return;
+        documents.put(documentId, d.withAcl(aclScope));
+    }
+
+    @Override
+    public int purgeDeletedBefore(java.time.Instant cutoff) {
+        java.time.Instant at = cutoff == null ? java.time.Instant.now() : cutoff;
+        // 边界用"不晚于"，不用"早于"：purge(0) 的语义是"清掉现在为止所有已删除的"，
+        // 而 markDeleted 与 purge 可能落在同一毫秒里，用 isBefore 会把它们漏掉。
+        List<String> doomed = documents.values().stream()
+                .filter(d -> d.deleted() && !d.deletedAt().isAfter(at))
+                .map(KnowledgeDocument::id)
+                .toList();
+        for (String id : doomed) {
+            deleteChunksOf(id);
+            documents.remove(id);
+        }
+        return doomed.size();
     }
 
     @Override

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 在线评测</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  .eval-wrap { padding: 24px 28px 48px; max-width: 1280px; overflow: auto; min-height: 0; }
+  .eval-head h2 { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .eval-head p { font-size: 13px; line-height: 1.7; color: var(--muted); max-width: 72ch; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+  .stat { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 14px 16px; }
+  .stat dt { font-size: 12px; letter-spacing: .04em; color: var(--muted); }
+  .stat dd { font-size: 24px; font-weight: 500; margin-top: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+  .panel2 { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); padding: 16px 18px; }
+  .panel2 h3 { font-size: 12px; letter-spacing: .06em; color: var(--muted); margin-bottom: 10px; }
+  table.ev { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.ev th { text-align: left; font-weight: 400; color: var(--muted); font-size: 12px;
+    padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.ev td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.6; }
+  table.ev tr:last-child td { border-bottom: none; }
+  .q { max-width: 34ch; }
+  .why { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .sample { font-size: 13px; line-height: 1.6; }
+  .sample li { list-style: none; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .sample li:last-child { border-bottom: none; }
+  .sample .meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11px;
+    border: 1px solid var(--line); }
+  .pill.ok { color: #0d7a63; border-color: #0d7a63; }
+  .pill.bad { color: #b4453a; border-color: #b4453a; }
+  .empty2 { color: var(--muted); font-size: 13px; padding: 10px 0; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar .grow { flex: 1; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 3v18M3 12h18"></path>
+      </svg>
+      <div class="brand-text">
+        <h1>Socratic Mind <span>在线评测</span></h1>
+        <p>只看这一周发生了什么 · 不合成总分</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a class="btn" href="./index.html">会话</a>
+      <a class="btn" href="./knowledge.html">知识库</a>
+      <a class="btn" href="./review.html">审核</a>
+      <select class="btn" id="days">
+        <option value="1">近 1 天</option>
+        <option value="7" selected>近 7 天</option>
+        <option value="30">近 30 天</option>
+      </select>
+      <button class="btn" id="refreshBtn" type="button">刷新</button>
+    </div>
+  </header>
+
+  <main class="eval-wrap">
+    <div class="eval-head">
+      <h2>回答率、拒答率、引用有效率分开看</h2>
+      <p>
+        合成一个总分只会让人以为系统在变好，看不出是哪一段在变差。
+        下面四格分别对应：能不能答、该不该拒、引用站不站得住、还有多少样本没人看。
+        拒答不等于错误——它进待复核池，是因为要么语料缺了，要么改写没覆盖这种问法，要么门槛太紧。
+      </p>
+    </div>
+
+    <dl class="stats" id="stats"></dl>
+
+    <div class="cols2">
+      <section class="panel2">
+        <div class="toolbar">
+          <h3 style="margin:0">待复核样本</h3>
+          <span class="grow"></span>
+          <label class="why" style="display:flex;gap:6px;align-items:center">
+            <input type="checkbox" id="showResolved"> 含已处理
+          </label>
+        </div>
+        <div id="badcases"></div>
+      </section>
+
+      <section class="panel2">
+        <h3>确定性抽样（按步长取，不是随机）</h3>
+        <ol class="sample" id="sample"></ol>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="./auth.js"></script>
+<script src="./eval.js"></script>
+</body>
+</html>

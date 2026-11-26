@@ -22,7 +22,18 @@ psych:
     embedding-dimension: ${PSYCH_AI_EMBEDDING_DIMENSION:1024}
     temperature: ${PSYCH_AI_TEMPERATURE:0.2}
     no-think: true
+  # 组织模式：本机也走库，才能验证多实例那套（令牌、签字、ACL 校验）
+  org:
+    enabled: true
+    store: jdbc
+  review:
+    store: jdbc
+  rate-limit:
+    store: jdbc
   store: memory            # 知识库：内存
+  # 评测留痕：H2 上可落库，重启后指标还在（知识库仍是内存，两者独立）
+  eval:
+    store: jdbc
   db:
     enabled: true          # 打开数据源（会话域用）
     driver: org.h2.Driver

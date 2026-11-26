@@ -39,12 +39,25 @@ public class PgKnowledgeStore implements KnowledgeStore {
 
     @Override
     public void save(KnowledgeDocument d, List<Chunk> chunks, List<EvidenceItem> evidence) {
+        // acl_scope 用 COALESCE 保旧值：重新入库（内容变更）不该顺手把权限改成"公开"。
+        // 权限只能由 updateAcl 这一条显式路径改，避免"同步一次就泄露一次"。
         jdbc.update("""
-                INSERT INTO kb_document (id, collection, title, source, source_url, version, language, status, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?)
-                ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, status = EXCLUDED.status
+                INSERT INTO kb_document
+                    (id, collection, title, source, source_url, version, language, status, created_at,
+                     acl_scope, content_hash, external_key, deleted_at, updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL,now())
+                ON CONFLICT (id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    version = EXCLUDED.version,
+                    status = EXCLUDED.status,
+                    content_hash = EXCLUDED.content_hash,
+                    external_key = EXCLUDED.external_key,
+                    acl_scope = COALESCE(EXCLUDED.acl_scope, kb_document.acl_scope),
+                    deleted_at = NULL,
+                    updated_at = now()
                 """, d.id(), d.collection(), d.title(), d.source(), d.sourceUrl(), d.version(),
-                d.language(), d.status(), Timestamp.from(d.createdAt() == null ? Instant.now() : d.createdAt()));
+                d.language(), d.status(), Timestamp.from(d.createdAt() == null ? Instant.now() : d.createdAt()),
+                d.aclScope(), d.contentHash(), d.externalKey());
 
         for (Chunk c : chunks) {
             jdbc.update("""
@@ -71,7 +84,58 @@ public class PgKnowledgeStore implements KnowledgeStore {
 
     @Override
     public void updateDocumentStatus(String documentId, String status) {
-        jdbc.update("UPDATE kb_document SET status = ? WHERE id = ?", status, documentId);
+        jdbc.update("UPDATE kb_document SET status = ?, updated_at = now() WHERE id = ?", status, documentId);
+    }
+
+    @Override
+    public Optional<KnowledgeDocument> findByExternalKey(String externalKey) {
+        if (externalKey == null || externalKey.isBlank()) return Optional.empty();
+        return jdbc.query("SELECT * FROM kb_document WHERE external_key = ?", DOC_MAPPER, externalKey)
+                .stream().findFirst();
+    }
+
+    /**
+     * 可见文档的 id 集合。
+     *
+     * 这里刻意把 ACL 过滤放在应用侧而不是拼进检索 SQL：范围表达式一旦进了 SQL，
+     * 内存档与 PG 档就会各写一遍，然后慢慢分叉——而这个分叉只会表现为"某些人看到了不该看的"，
+     * 不会报错。文档数量级在几千以内时，一次轻量查询加内存过滤是更安全的选择。
+     */
+    @Override
+    public List<String> findVisibleDocumentIds(Set<String> scopes) {
+        List<KnowledgeDocument> docs = jdbc.query(
+                "SELECT * FROM kb_document WHERE status = 'published' AND deleted_at IS NULL", DOC_MAPPER);
+        return com.socraticmind.common.support.DocumentVisibility.visibleIds(docs, scopes);
+    }
+
+    @Override
+    public void deleteChunksOf(String documentId) {
+        jdbc.update("DELETE FROM kb_evidence WHERE chunk_id IN (SELECT id FROM kb_chunk WHERE document_id = ?)",
+                documentId);
+        jdbc.update("DELETE FROM kb_chunk WHERE document_id = ?", documentId);
+    }
+
+    @Override
+    public void markDeleted(String documentId, Instant at) {
+        jdbc.update("UPDATE kb_document SET status = 'archived', deleted_at = ?, updated_at = now() WHERE id = ?",
+                Timestamp.from(at == null ? Instant.now() : at), documentId);
+    }
+
+    @Override
+    public void updateAcl(String documentId, String aclScope) {
+        jdbc.update("UPDATE kb_document SET acl_scope = ?, updated_at = now() WHERE id = ?",
+                aclScope, documentId);
+    }
+
+    @Override
+    public int purgeDeletedBefore(Instant cutoff) {
+        Timestamp at = Timestamp.from(cutoff == null ? Instant.now() : cutoff);
+        // <= 而不是 <：purge(0) 表示"清掉此刻为止已删除的"，边界要包含同一毫秒内标删的行。
+        String doomed = "SELECT id FROM kb_document WHERE deleted_at IS NOT NULL AND deleted_at <= ?";
+        jdbc.update("DELETE FROM kb_evidence WHERE chunk_id IN (SELECT id FROM kb_chunk WHERE document_id IN ("
+                + doomed + "))", at);
+        jdbc.update("DELETE FROM kb_chunk WHERE document_id IN (" + doomed + ")", at);
+        return jdbc.update("DELETE FROM kb_document WHERE deleted_at IS NOT NULL AND deleted_at <= ?", at);
     }
 
     @Override
@@ -188,7 +252,9 @@ public class PgKnowledgeStore implements KnowledgeStore {
             rs.getString("id"), rs.getString("collection"), rs.getString("title"),
             rs.getString("source"), rs.getString("source_url"), rs.getString("version"),
             rs.getString("language"), rs.getString("status"),
-            rs.getTimestamp("created_at") == null ? Instant.now() : rs.getTimestamp("created_at").toInstant());
+            rs.getTimestamp("created_at") == null ? Instant.now() : rs.getTimestamp("created_at").toInstant(),
+            rs.getString("acl_scope"), rs.getString("content_hash"), rs.getString("external_key"),
+            rs.getTimestamp("deleted_at") == null ? null : rs.getTimestamp("deleted_at").toInstant());
 
     private static final RowMapper<Chunk> CHUNK_MAPPER = (rs, i) -> new Chunk(
             rs.getString("id"), rs.getString("document_id"), rs.getString("document_version_id"),

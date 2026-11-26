@@ -67,7 +67,9 @@ button {
 
 .app {
   display: grid;
-  grid-template-rows: 56px minmax(0, 1fr);
+  /* auto 而不是 56px：顶栏按钮多的时候会折成两行，
+     写死行高会把第二行裁掉——用户只能缩小页面才看得全，那不是他要改浏览器，是布局错了。 */
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
 }
@@ -75,8 +77,12 @@ button {
 .topbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 18px;
-  padding: 0 20px;
+  row-gap: 6px;
+  min-height: 56px;
+  padding: 8px 20px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
   flex-wrap: wrap;
@@ -167,6 +173,7 @@ button {
 
 .top-actions {
   margin-left: auto;
+  max-width: 100%;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;

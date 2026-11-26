@@ -62,6 +62,20 @@ async function postJson(url, body) {
   return res.json();
 }
 
+async function putJson(url, body) {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = await res.text(); } catch (e) { /* 忽略读取失败 */ }
+    throw new Error(`${res.status} ${res.statusText}${detail ? " · " + detail.slice(0, 140) : ""}`);
+  }
+  return res.json();
+}
+
 function toast(message, isError) {
   const el = $("toast");
   el.textContent = message;
@@ -324,23 +338,115 @@ function detailView() {
     return `<div class="empty"><h3>还没有选资料</h3><p>从左侧选一份，查看它的状态、切分与审核动作。</p></div>`;
   }
   const s = statusOf(d.status);
+  // "归档"与"上游删除"在数据上都是 archived，但对运营是两件事：
+  // 前者是我们撤的，后者是同步任务发现源文档没了。混在一起会让人去点错按钮。
+  const statusLabel = d.deletedAt ? "已删除（上游）" : s.label;
+  const acl = d.aclScope ? d.aclScope : "所有人可见";
   const loaded = S.chunksFor === d.id ? S.chunks : null;
   return `
     <div class="doc-meta">
-      <div class="meta-cell"><dt>状态</dt><dd>${esc(s.label)}</dd></div>
+      <div class="meta-cell"><dt>状态</dt><dd>${esc(statusLabel)}</dd></div>
       <div class="meta-cell"><dt>集合</dt><dd>${esc(d.collection || "—")}</dd></div>
       <div class="meta-cell"><dt>来源</dt><dd>${esc(d.source || "—")}</dd></div>
       <div class="meta-cell"><dt>版本</dt><dd>${esc(d.version || "—")}</dd></div>
-      <div class="meta-cell"><dt>语言</dt><dd>${esc(d.language || "—")}</dd></div>
+      <div class="meta-cell"><dt>可见范围</dt><dd>${esc(acl)}</dd></div>
       <div class="meta-cell"><dt>入库时间</dt><dd>${dateOf(d.createdAt)}</dd></div>
+      <div class="meta-cell"><dt>外部键</dt><dd>${esc(d.externalKey || "—")}</dd></div>
+      <div class="meta-cell"><dt>内容指纹</dt><dd>${d.contentHash ? esc(d.contentHash.slice(0, 12)) + "…" : "—"}</dd></div>
+      ${d.deletedAt ? `<div class="meta-cell"><dt>删除时间</dt><dd>${dateOf(d.deletedAt)}</dd></div>` : ""}
       <div class="meta-cell" style="grid-column:1 / -1"><dt>文档 ID</dt><dd>${esc(d.id)}</dd></div>
       ${d.sourceUrl ? `<div class="meta-cell" style="grid-column:1 / -1"><dt>来源链接</dt><dd>${esc(d.sourceUrl)}</dd></div>` : ""}
     </div>
     ${reviewActions(d)}
+    ${reviewPanel(d)}
     <p class="section-label" style="margin-top:16px">切分预览 · ${loaded ? loaded.length + " 块" : "读取中"}</p>
     ${loaded ? (loaded.length ? loaded.map(chunkCard).join("") : `<div class="notice">这份资料没有可展示的块。</div>`)
       : `<p class="kb-hint">读取切分…</p>`}`;
 }
+
+/**
+ * 审核与可见范围。
+ *
+ * 三个字段都是"签字时必须看见"的东西：谁签、签的哪一版、当时给谁看。
+ * 可见范围做成可编辑而不是只读，是因为它低频但必须能改；做成输入框而不是下拉，
+ * 是因为这里没有组织架构数据，编一套假的角色列表比留空更糟。
+ */
+function reviewPanel(d) {
+  const acl = d.aclScope ? d.aclScope : "";
+  return `<div class="kb-panel" style="margin-top:14px">
+    <h3>审核与可见范围</h3>
+    <p class="kb-hint">签字针对版本：当前 ${esc(d.version || "—")}。内容一变，旧签字不再生效，需要重新审。</p>
+    <div class="kb-grid" style="margin-top:10px">
+      <div class="kb-field"><label>签字人（来自登录身份，不可编辑）</label>
+        <input class="kb-input" id="kbReviewer" readonly value="读取中…"></div>
+      <div class="kb-field"><label>可见范围（逗号分隔，空 = 公开）</label>
+        <input class="kb-input" id="kbAcl" value="${esc(acl)}" placeholder="team:cbt, role:clinician"></div>
+    </div>
+    <div class="kb-actions">
+      <button class="btn" id="kbSaveAcl" type="button">保存可见范围</button>
+      <span class="kb-hint" id="kbAclHint">当前：${esc(d.aclScope || "所有人可见")}</span>
+    </div>
+    <p class="section-label" style="margin-top:14px">审核记录</p>
+    <div id="kbReviewHistory"><p class="kb-hint">读取中…</p></div>
+  </div>`;
+}
+
+/**
+ * 显示当前登录身份。
+ *
+ * 这个名字不能让人手填：审核记录里的署名来自会话/令牌，
+ * 让界面再给一个输入框，只会造成"我填了李医生、系统记的是张医生"。
+ */
+async function loadIdentity() {
+  const el = $("kbReviewer");
+  if (!el) return;
+  try {
+    const me = await getJson("/api/operator/me");
+    const u = me.user || {};
+    el.value = `${u.name || "未知"}（${u.role || "-"}）`;
+  } catch (err) {
+    el.value = "未登录：只能查看，不能签字";
+  }
+}
+
+async function saveAcl() {
+  const d = currentDoc();
+  if (!d) return;
+  const raw = $("kbAcl").value || "";
+  const scopes = raw.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+  const hint = $("kbAclHint");
+  try {
+    const out = await putJson(`${API}/documents/${encodeURIComponent(d.id)}/acl`, { scopes });
+    hint.textContent = "当前：" + (out.aclScope || "所有人可见");
+    toast(out.aclScope ? `可见范围已改为 ${out.aclScope}` : "已改为所有人可见");
+    await refresh(false);
+  } catch (err) {
+    hint.textContent = "保存失败：" + err.message;
+  }
+}
+
+async function loadReviewHistory(docId) {
+  const box = $("kbReviewHistory");
+  if (!box) return;
+  try {
+    const rows = await getJson(`/api/internal/knowledge-reviews?documentId=${encodeURIComponent(docId)}`);
+    if (!rows.length) {
+      box.innerHTML = `<p class="kb-hint">还没有登记过审核。发布前应当有人签过这一版。</p>`;
+      return;
+    }
+    box.innerHTML = rows.map((r) => `
+      <div class="notice" style="margin-top:6px">
+        <b>${esc(r.version)}</b> · ${esc(REVIEW_LABEL[r.decision] || r.decision)}
+        · ${esc(r.reviewer || "未署名")} · ${esc(dateOf(r.reviewedAt))}
+        · 签字时可见范围：${esc(r.aclScope || "所有人可见")}
+        ${r.note ? `<div class="kb-hint" style="margin-top:4px">${esc(r.note)}</div>` : ""}
+      </div>`).join("");
+  } catch (err) {
+    box.innerHTML = `<p class="kb-hint">审核记录读取失败：${esc(err.message)}</p>`;
+  }
+}
+
+const REVIEW_LABEL = { approve: "通过", reject: "退回", review: "转待审" };
 
 function reviewActions(d) {
   const buttons = [];
@@ -499,13 +605,18 @@ function bindBody() {
   document.querySelectorAll("[data-review]").forEach((btn) => {
     btn.addEventListener("click", () => review(btn.dataset.review));
   });
+
+  const aclBtn = $("kbSaveAcl");
+  if (aclBtn) aclBtn.addEventListener("click", saveAcl);
+  if (S.tab === "detail" && currentDoc()) { loadReviewHistory(currentDoc().id); loadIdentity(); }
 }
 
 async function review(decision) {
   const d = currentDoc();
   if (!d) return;
   const label = { approve: "通过并发布", reject: "退回归档", review: "标为待审核" }[decision] || decision;
-  if (!window.confirm(`确定对「${d.title}」执行：${label}？`)) return;
+  // 不再传 reviewer：组织模式下署名只认会话/令牌，传了也会被后端忽略。
+  if (!window.confirm(`确定对「${d.title}」v${d.version || "?"} 执行：${label}？署名取当前登录身份。`)) return;
   try {
     await postJson(`${API}/documents/${encodeURIComponent(d.id)}/review`, { decision });
     toast(`已${label}`);

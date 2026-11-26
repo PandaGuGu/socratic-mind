@@ -26,6 +26,25 @@ psych:
   ai:
     provider: stub
     embedding-dimension: 256
+    # 重排层：none | lexical | fixture | http
+    #
+    # 默认 lexical（不调模型）。理由是数据：34 条正式集上 Recall@5 已经饱和（连哈希桩都是 1.0），
+    # 召回这一层没什么可再涨的，能改的只剩排序。词法重排 zero-latency、可回归，先装它。
+    #
+    # fixture 档读离线判好的分，不调模型——仓库里那份是"子代理扮演 cross-encoder"判的，
+    # 用来在没有算力时把重排管道验证完；等真模型上了换 http 档，那份文件退化成回归基准。
+    rerank:
+      provider: ${PSYCH_RERANK_PROVIDER:lexical}
+      # 候选池倍数：召回放大 3 倍再重排，否则重排只能在截断后的名单里换位置，救不回被截掉的正确段落。
+      pool-factor: ${PSYCH_RERANK_POOL:3}
+      fixture: ${PSYCH_RERANK_FIXTURE:classpath:rerank/agent-v1.json}
+      url: ${PSYCH_RERANK_URL:}
+      api-key: ${PSYCH_RERANK_API_KEY:}
+      model: ${PSYCH_RERANK_MODEL:bge-reranker-v2-m3}
+      timeout-seconds: ${PSYCH_RERANK_TIMEOUT:8}
+  # 在线评测留痕：memory 重启即丢（开发/测试用）；jdbc 与 H2/PG 共用一份 DDL。
+  eval:
+    store: ${PSYCH_EVAL_STORE:memory}
   # 内部控制台（/internal 与 /api/internal）。**默认关闭**。
   # 打开时必须同时给出令牌，否则启动失败；浏览器端第一次访问会提示输入。
   # 开发档（h2 / pg / http）已代为打开并给了默认令牌，只适合本机。
@@ -44,6 +63,19 @@ psych:
   # 临床审核记录：谁看过哪一版规则/词库。不存在时全部按"未审核"处理。
   review:
     file: config/reviews.json
+    # 知识库文档的审核记录：memory 重启即丢（开发/测试）；jdbc 落库，多实例共享。
+    store: ${PSYCH_REVIEW_STORE:memory}
+  # 知识库文档的审核记录（历史）：与上面共用 store 开关，这里不再单独配置。
+  # 组织域：租户 → 团队 → 成员。
+  # 打开后：写操作要求操作者令牌（X-Operator-Token），审核署名来自令牌而不是输入框，
+  # ACL 只能写本租户的团队 id。默认关闭以兼容单机开发；上线必须打开。
+  org:
+    enabled: ${PSYCH_ORG_ENABLED:false}
+    store: ${PSYCH_ORG_STORE:memory}
+  # 限流：memory 单机（默认，够开发）；jdbc 计数落库，多实例共享同一份配额。
+  # 固定窗口，每请求一次 upsert；真正的生产方案通常是网关或 Redis，这里是没有中间件时的退路。
+  rate-limit:
+    store: ${PSYCH_RATE_LIMIT_STORE:memory}
   # 本地语音转写：只给没有 Web Speech 的浏览器用（当前是 Windows 的 System.Speech）。
   # 留空 = 明确回 503，页面提示直接打字；不会偷偷把音频发到云端。
   asr:

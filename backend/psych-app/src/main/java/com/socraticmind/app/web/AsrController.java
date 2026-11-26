@@ -1,7 +1,7 @@
 package com.socraticmind.app.web;
 
 import com.socraticmind.app.asr.AsrService;
-import com.socraticmind.app.web.support.RateLimiter;
+import com.socraticmind.app.web.support.RateLimitPort;
 import com.socraticmind.app.web.support.TooManyRequestsException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -27,10 +27,11 @@ public class AsrController {
     private static final int MAX_BYTES = 8 * 1024 * 1024;
 
     private final AsrService asr;
-    private final RateLimiter limiter = new RateLimiter();
+    private final RateLimitPort limiter;
 
-    public AsrController(AsrService asr) {
+    public AsrController(AsrService asr, RateLimitPort limiter) {
         this.asr = asr;
+        this.limiter = limiter;
     }
 
     public record Status(boolean available) {

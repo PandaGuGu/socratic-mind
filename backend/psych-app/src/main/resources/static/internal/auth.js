@@ -9,6 +9,7 @@
  */
 (function () {
   var KEY = "sm-internal-token";
+  var KEY_OP = "sm-operator-token";
   var raws = window.fetch;
   var hint = null;
   var hintPromise = null;
@@ -18,6 +19,11 @@
     return url.indexOf("/api/internal/") === 0 ||
       url.indexOf("/api/knowledge/documents") === 0 ||
       url.indexOf("/api/knowledge/stats") === 0;
+  }
+
+  function csrfToken() {
+    var m = document.cookie.match(/(?:^|;\s*)sm_csrf=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
   }
 
   function banner(text) {
@@ -49,6 +55,7 @@
         if (data && data.token) {
           hint = data;
           localStorage.setItem(KEY, data.token);
+          if (data.operatorToken) localStorage.setItem(KEY_OP, data.operatorToken);
           banner("本机开发档：已自动填入内部令牌 " + data.token + "（正式环境请关闭 psych.internal.dev-hint）");
           return data.token;
         }
@@ -57,6 +64,14 @@
       .catch(function () { return null; });
 
     return hintPromise;
+  }
+
+  function requireLogin() {
+    // 组织模式关闭时没有登录页，仍走"问一次内部令牌"的老路。
+    if (document.body && document.body.dataset.login === "off") { askOnce(); return; }
+    if (location.pathname.indexOf("login.html") >= 0) return;
+    var next = location.pathname + location.search;
+    location.href = "./login.html?next=" + encodeURIComponent(next);
   }
 
   function askOnce() {
@@ -81,9 +96,16 @@
       init = init || {};
       init.headers = Object.assign({}, init.headers || {});
       if (token) init.headers["X-Internal-Token"] = token;
+      var op = localStorage.getItem(KEY_OP);
+      if (op) init.headers["X-Operator-Token"] = op;
+      var method = (init.method || "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD") {
+        var csrf = csrfToken();
+        if (csrf) init.headers["X-CSRF-Token"] = csrf;
+      }
       return raws.call(window, input, init);
     }).then(function (res) {
-      if (res.status === 401) askOnce();
+      if (res.status === 401) requireLogin();
       return res;
     });
   };

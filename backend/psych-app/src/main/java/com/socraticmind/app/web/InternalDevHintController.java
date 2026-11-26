@@ -31,9 +31,12 @@ public class InternalDevHintController {
     private static final String DEV_DEFAULT = "dev-internal-token";
 
     private final String token;
+    private final com.socraticmind.app.security.DevOperatorToken operatorToken;
 
-    public InternalDevHintController(@Value("${psych.internal.token:}") String token) {
+    public InternalDevHintController(@Value("${psych.internal.token:}") String token,
+                                     com.socraticmind.app.security.DevOperatorToken operatorToken) {
         this.token = token == null ? "" : token.trim();
+        this.operatorToken = operatorToken;
         if (DEV_DEFAULT.equals(this.token)) {
             log.info("本机开发档：内部令牌为「{}」，/internal 会自动填入。正式环境请关闭 psych.internal.dev-hint。",
                     DEV_DEFAULT);
@@ -45,8 +48,13 @@ public class InternalDevHintController {
     @GetMapping("/api/internal-hint")
     public Map<String, String> hint() {
         if (!DEV_DEFAULT.equals(token)) return Map.of();
-        return Map.of(
-                "token", token,
-                "note", "本机开发档默认令牌，已自动填入；正式环境请关闭 psych.internal.dev-hint");
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        out.put("token", token);
+        out.put("note", "本机开发档默认令牌，已自动填入；正式环境请关闭 psych.internal.dev-hint");
+        // 组织模式下写操作还需要操作者令牌；开发档一并给出，否则每个页面第一次操作都是 401。
+        if (operatorToken.get() != null) {
+            out.put("operatorToken", operatorToken.get());
+        }
+        return out;
     }
 }

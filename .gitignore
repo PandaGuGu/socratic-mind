@@ -92,6 +92,11 @@ eval/datasets/private/
 # ---- 后台配置的运行期快照 ----
 # 每次保存生成 v<n>.json，属于本机运行状态；配置本身（config/*.json）要进库。
 backend/config/history/
+# 文档审核记录是运行期数据（谁签了哪一版），各部署独立，不进库。
+# 与 config/reviews.json 不同：那份是"规则/词库当前结论"，属于配置；这份是可累积的审计历史。
+backend/config/knowledge-reviews.json
+# 测试在模块目录下跑时会按默认路径写一份（工作目录是 psych-app），同样是运行期产物。
+backend/psych-app/config/
 
 # ---- 系统 ----
 .DS_Store

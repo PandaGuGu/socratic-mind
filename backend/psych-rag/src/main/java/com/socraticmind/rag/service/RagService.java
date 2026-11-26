@@ -9,6 +9,7 @@ import com.socraticmind.rag.dto.Hit;
 import com.socraticmind.rag.dto.PackItem;
 import com.socraticmind.rag.evidence.EvidenceAssembler;
 import com.socraticmind.rag.retrieval.HybridRetriever;
+import com.socraticmind.rag.retrieval.RerankingRetriever;
 import com.socraticmind.rag.validation.CitationVerifier;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -25,13 +26,13 @@ import java.util.List;
 @Service
 public class RagService {
 
-    private final HybridRetriever retriever;
+    private final RerankingRetriever retriever;
     private final EvidenceAssembler assembler;
     private final CitationVerifier verifier;
     private final ChatPort chat;
     private final String systemPrompt;
 
-    public RagService(HybridRetriever retriever, EvidenceAssembler assembler,
+    public RagService(RerankingRetriever retriever, EvidenceAssembler assembler,
                       CitationVerifier verifier, ChatPort chat, KnowledgeStore store) {
         this.retriever = retriever;
         this.assembler = assembler;
@@ -42,6 +43,15 @@ public class RagService {
 
     public List<Hit> retrieve(String query, int topK) {
         return retriever.retrieve(query, topK);
+    }
+
+    /** 带语料范围的检索：null = 不限制，空集合 = 无可见文档（必然检索不到）。 */
+    public List<Hit> retrieve(String query, int topK, java.util.Set<String> scopes) {
+        return retriever.retrieve(query, topK, scopes);
+    }
+
+    public String rerankModelId() {
+        return retriever.modelId();
     }
 
     public EvidencePack assemble(String query, List<Hit> hits) {

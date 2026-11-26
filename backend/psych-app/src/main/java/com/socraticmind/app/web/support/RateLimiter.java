@@ -1,5 +1,8 @@
 package com.socraticmind.app.web.support;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -14,7 +17,9 @@ import java.util.Map;
  * 真正的分布式限流要落到网关——这里先保证单机不会被打穿。
  * 键的数量有上限（LRU），避免限流器自己变成内存泄漏。
  */
-public class RateLimiter {
+@Component
+@ConditionalOnProperty(name = "psych.rate-limit.store", havingValue = "memory", matchIfMissing = true)
+public class RateLimiter implements RateLimitPort {
 
     private static final int MAX_KEYS = 20_000;
 
@@ -25,6 +30,7 @@ public class RateLimiter {
         }
     };
 
+    @Override
     public boolean allow(String key, int limit, Duration window) {
         if (key == null) return false;
         Instant now = Instant.now();

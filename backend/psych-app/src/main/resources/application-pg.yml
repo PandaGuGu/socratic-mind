@@ -15,7 +15,18 @@ psych:
     embedding-dimension: ${PSYCH_AI_EMBEDDING_DIMENSION:1024}
     temperature: ${PSYCH_AI_TEMPERATURE:0.2}
     no-think: true
+  # 组织模式与审核留痕落库：多实例共享
+  org:
+    enabled: ${PSYCH_ORG_ENABLED:true}
+    store: jdbc
+  review:
+    store: jdbc
+  rate-limit:
+    store: jdbc
   store: postgres
+  # 评测留痕落库：线上要看 7 天窗口，内存档撑不住重启
+  eval:
+    store: jdbc
   db:
     enabled: true
     url: ${PSYCH_DB_URL:jdbc:postgresql://localhost:5432/psych}
