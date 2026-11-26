@@ -72,7 +72,7 @@
 ### 方式一：Docker（全部服务，推荐）
 
 Windows 上**双击根目录的 `start.cmd`** 就行：生成 `.env`（随机密钥）→ 构建镜像 → 起 PostgreSQL/pgvector → 等健康检查 → 打开房间。
-要停就双击 `stop.cmd`；其余动作走参数：`start.cmd status`、`start.cmd logs`、`start.cmd edge`。
+要停就双击 `stop.cmd`（连 Docker 的 WSL 虚拟机一起关闭，任务管理器里的 vmmem 内存会释放）；其余动作走参数：`start.cmd status`、`start.cmd logs`、`start.cmd edge`。
 
 命令行等价写法：
 

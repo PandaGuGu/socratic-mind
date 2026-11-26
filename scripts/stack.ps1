@@ -148,6 +148,34 @@ function Invoke-Compose {
     if ($LASTEXITCODE -ne 0) { Stop-With "docker compose 执行失败（exit $LASTEXITCODE）" }
 }
 
+function Test-DockerReady {
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { return $false }
+    if ((Invoke-Quiet { docker compose version }) -ne 0) { return $false }
+    return ((Invoke-Quiet { docker info }) -eq 0)
+}
+
+# 停容器 ≠ 关虚拟机。Docker Desktop 跑在 WSL2 里，compose down 只删容器，
+# vmmem 仍会占着 1–2 GB，直到 WSL 虚拟机整体关闭——任务管理器里看到的就是它。
+# 先让 Docker Desktop 自己停引擎（新版 CLI 有 stop）；再用 wsl --shutdown 释放 vmmem。
+# 如果还有别的发行版在跑（比如开着 Ubuntu 终端），就不关整个 WSL，避免打断用户。
+function Release-WslMemory {
+    if ((Get-Command docker -ErrorAction SilentlyContinue) -and ((Invoke-Quiet { docker desktop stop }) -eq 0)) {
+        Write-Info '已停止 Docker Desktop'
+    }
+    if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return }
+    $running = @(& wsl.exe --list --running --quiet 2>$null |
+        ForEach-Object { ($_ -replace "`0", '').Trim() } |
+        Where-Object { $_ })
+    $others = @($running | Where-Object { $_ -notmatch '^docker-desktop' })
+    if ($others.Count -gt 0) {
+        Write-Info "WSL 中还有别的发行版在运行（$($others -join ', ')），未执行 wsl --shutdown"
+        return
+    }
+    if ((Invoke-Quiet { wsl.exe --shutdown }) -eq 0) {
+        Write-Info '已关闭 WSL 虚拟机，vmmem 内存已释放'
+    }
+}
+
 # Docker Hub 在部分网络下拉不动。配了 DOCKER_MIRROR 就先经镜像源拉取再打回标准标签，
 # 仓库里的镜像名保持不变；没配就交给 compose 自己拉。
 function Ensure-Images {
@@ -243,8 +271,12 @@ switch ($Command) {
         Show-Summary
     }
     'down' {
-        Assert-Docker
-        Invoke-Compose down
+        if (Test-DockerReady) {
+            Invoke-Compose down
+        } else {
+            Write-Info 'Docker 守护进程未运行，容器已经不在，直接释放虚拟机内存'
+        }
+        Release-WslMemory
         Write-Host '✓ 已停止（数据卷保留；要清空用 reset）' -ForegroundColor Green
     }
     'reset' {
@@ -255,6 +287,7 @@ switch ($Command) {
             if ($answer -ne 'yes') { Stop-With '已取消' }
         }
         Invoke-Compose down -v
+        Release-WslMemory
         Write-Host '✓ 已停止并删除数据卷' -ForegroundColor Green
     }
     'status' {

@@ -4,7 +4,7 @@ setlocal EnableExtensions
 rem ============================================================================
 rem  Double-click to stop everything. Data volumes are kept.
 rem
-rem    stop.cmd            stop containers (containers removed, data kept)
+rem    stop.cmd            stop containers, release the Docker/WSL VM
 rem    stop.cmd purge      also delete data volumes -- sessions, knowledge,
 rem                        console config all gone, cannot be undone
 rem
@@ -32,7 +32,7 @@ goto :help
 echo.
 echo   Usage: stop.cmd [down ^| purge]
 echo.
-echo     down    stop containers, keep data (default)
+echo     down    stop containers + WSL VM, keep data (default)
 echo     purge   stop and delete data volumes (asks first)
 echo.
 pause

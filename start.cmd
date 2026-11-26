@@ -7,7 +7,7 @@ rem
 rem    start.cmd            up: app + PostgreSQL (stub model, works offline)
 rem    start.cmd ai         add in-container Ollama (~6 GB first pull)
 rem    start.cmd edge       add Caddy in front: https + gzip + security headers
-rem    start.cmd down       stop containers, keep data volumes
+rem    start.cmd down       stop containers + WSL VM, keep data volumes
 rem    start.cmd status     show containers + health
 rem    start.cmd logs       follow logs (Ctrl+C to quit)
 rem    start.cmd psql       open psql inside the database container
@@ -46,7 +46,7 @@ echo.
 echo     up      start app + PostgreSQL (default)
 echo     ai      also start Ollama in a container (big download)
 echo     edge    add Caddy reverse proxy: https, gzip, security headers
-echo     down    stop containers, keep data
+echo     down    stop containers + WSL VM, keep data
 echo     status  show container state
 echo     logs    follow logs
 echo     psql    open a database shell
