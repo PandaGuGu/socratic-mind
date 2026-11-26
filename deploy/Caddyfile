@@ -1,0 +1,33 @@
+# Caddy 只做三件事：终止 TLS、压一遍响应、补几个安全头。
+# 应用自己不设 HSTS / Referrer-Policy —— 本地 http 下这些头会有副作用，
+# 放到边缘层才成立。
+#
+# SITE_ADDRESS 由 docker-compose.edge.yml 传入：
+#   localhost    → 自签内部证书（浏览器会提示一次不安全，仅本机/内网用）
+#   demo.example.com → 自动申请 Let's Encrypt（需要 80/443 可被外网访问）
+#   :80          → 只跑明文，不终止 TLS
+
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	reverse_proxy app:8080 {
+		# 后台的对话流是长请求，别让代理提前收尾
+		flush_interval -1
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# 日志留在卷里，按天切；排查"谁在打接口"时先看这里
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		format console
+	}
+}

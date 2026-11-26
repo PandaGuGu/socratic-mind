@@ -4,6 +4,7 @@
 #
 #   bash scripts/stack.sh up            # 起：生成 .env → 构建镜像 → 等健康 → 打印地址
 #   bash scripts/stack.sh up --ai       # 再加本地向量模型 BGE-M3（首次约 1.2 GB）
+#   bash scripts/stack.sh up --edge     # 再加 Caddy：TLS + 压缩 + 安全头（对外 http:// 不够时用）
 #   bash scripts/stack.sh status        # 看容器与健康状态
 #   bash scripts/stack.sh logs          # 跟日志
 #   bash scripts/stack.sh psql          # 进数据库
@@ -20,12 +21,14 @@ CMD="${1:-up}"
 shift || true
 
 AI=0
+EDGE=0
 ASSUME_YES=0
 for arg in "$@"; do
   case "$arg" in
     --ai) AI=1 ;;
+    --edge) EDGE=1 ;;
     -y|--yes) ASSUME_YES=1 ;;
-    *) echo "未知参数：$arg（可用：--ai、--yes）" >&2; exit 2 ;;
+    *) echo "未知参数：$arg（可用：--ai、--edge、--yes）" >&2; exit 2 ;;
   esac
 done
 
@@ -50,20 +53,37 @@ gen_secret() {
   fi
 }
 
+# 给人抄的口令：去掉 0/O、1/l/I，避免"看错一位就登不进去"。
+# 其余密钥仍走 gen_secret——机器读的，长度比可读性值钱。
+gen_password() {
+  local alphabet='abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXY23456789'
+  if command -v python >/dev/null 2>&1; then
+    python -c "import secrets; a='$alphabet'; print(''.join(secrets.choice(a) for _ in range(12)))"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "import secrets; a='$alphabet'; print(''.join(secrets.choice(a) for _ in range(12)))"
+  else
+    # tr 拿到 12 个字符后 head 关管道会给 SIGPIPE，pipefail 下必须吞掉
+    LC_ALL=C tr -dc "$alphabet" < /dev/urandom 2>/dev/null | head -c 12 || true
+    echo
+  fi
+}
+
 ensure_env() {
   if [ -f .env ]; then
     return
   fi
   info "首次运行：从 .env.example 生成 .env，并写入随机密钥"
   cp .env.example .env
-  local db_pass user_secret internal_token
+  local db_pass user_secret internal_token op_pass
   db_pass="$(gen_secret)"
   user_secret="$(gen_secret)"
   internal_token="$(gen_secret | cut -c1-24)"
+  # 后台登录页的初始口令：容器档 dev-hint 关着，没有它没人能登进去
+  op_pass="$(gen_password)"
   # 就地替换空值；只替换模板里留空的那三行
-  python - "$db_pass" "$user_secret" "$internal_token" <<'PY'
+  python - "$db_pass" "$user_secret" "$internal_token" "$op_pass" <<'PY'
 import sys, io
-db_pass, user_secret, internal_token = sys.argv[1:4]
+db_pass, user_secret, internal_token, op_pass = sys.argv[1:5]
 path = ".env"
 lines = io.open(path, encoding="utf-8").read().splitlines()
 out = []
@@ -74,10 +94,41 @@ for line in lines:
         line = "PSYCH_USER_SECRET=" + user_secret
     elif line.startswith("PSYCH_INTERNAL_TOKEN=") and not line.split("=", 1)[1].strip():
         line = "PSYCH_INTERNAL_TOKEN=" + internal_token
+    elif line.startswith("PSYCH_OPERATOR_PASSWORD=") and not line.split("=", 1)[1].strip():
+        line = "PSYCH_OPERATOR_PASSWORD=" + op_pass
     out.append(line)
 io.open(path, "w", encoding="utf-8", newline="\n").write("\n".join(out) + "\n")
 PY
   chmod 600 .env 2>/dev/null || true
+}
+
+# 已有 .env 但没有后台口令时补一条：只在缺的时候写，改过的口令不会被覆盖。
+ensure_operator_credential() {
+  [ -f .env ] || return 0
+  local current
+  current="$(grep -E '^PSYCH_OPERATOR_PASSWORD=' .env | head -1 | cut -d= -f2- || true)"
+  if [ -n "$current" ]; then
+    return 0
+  fi
+  local op_pass
+  op_pass="$(gen_password)"
+  info "生成后台初始账号口令并写入 .env（首次启动时写进数据库）"
+  if grep -qE '^PSYCH_OPERATOR_PASSWORD=' .env; then
+    python - "$op_pass" <<'PY'
+import sys, io
+op_pass = sys.argv[1]
+path = ".env"
+lines = list(io.open(path, encoding="utf-8").read().splitlines())
+out = []
+for line in lines:
+    if line.startswith("PSYCH_OPERATOR_PASSWORD="):
+        line = "PSYCH_OPERATOR_PASSWORD=" + op_pass
+    out.append(line)
+io.open(path, "w", encoding="utf-8", newline="\n").write("\n".join(out) + "\n")
+PY
+  else
+    printf '\nPSYCH_OPERATOR_PASSWORD=%s\n' "$op_pass" >> .env
+  fi
 }
 
 load_env() {
@@ -90,11 +141,10 @@ load_env() {
 }
 
 compose() {
-  if [ "$AI" -eq 1 ]; then
-    docker compose -f docker-compose.yml -f docker-compose.ai.yml "$@"
-  else
-    docker compose -f docker-compose.yml "$@"
-  fi
+  local files=(-f docker-compose.yml)
+  if [ "$AI" -eq 1 ]; then files+=(-f docker-compose.ai.yml); fi
+  if [ "$EDGE" -eq 1 ]; then files+=(-f docker-compose.edge.yml); fi
+  docker compose "${files[@]}" "$@"
 }
 
 # Docker Hub 在部分网络下拉不动。配了 DOCKER_MIRROR 就先经镜像源拉取再打回标准标签，
@@ -152,6 +202,13 @@ summary() {
   echo "  内部后台      http://localhost:${APP_PORT}/internal"
   echo "  内部令牌      ${PSYCH_INTERNAL_TOKEN}"
   echo "  数据库        localhost:${POSTGRES_PORT}  (${POSTGRES_USER}/${POSTGRES_DB})"
+  if [ -n "${PSYCH_OPERATOR_PASSWORD:-}" ]; then
+    echo "  后台登录      ${PSYCH_OPERATOR_USER:-admin} / ${PSYCH_OPERATOR_PASSWORD}"
+    echo "                （/internal/login；口令只在首次启动写入，后台改过就不再是这一行）"
+  fi
+  if [ "$EDGE" -eq 1 ]; then
+    echo "  边缘层        https://${SITE_ADDRESS:-localhost}/  （Caddy：自签证书时浏览器会提示一次）"
+  fi
   if [ "$AI" -eq 1 ]; then
     echo "  模型          对话 ${OLLAMA_CHAT_MODEL:-qwen3-8b} + 向量 ${OLLAMA_EMBED_MODEL:-bge-m3}（容器内 Ollama，1024 维）"
   else
@@ -165,6 +222,7 @@ case "$CMD" in
   up)
     require_docker
     ensure_env
+    ensure_operator_credential
     load_env
     ensure_images
     info "构建并启动容器（首次较慢：要编译并下 PG 镜像）"

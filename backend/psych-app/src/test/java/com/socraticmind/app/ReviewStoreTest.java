@@ -32,6 +32,17 @@ class ReviewStoreTest {
     }
 
     @Test
+    void keepsHistoryInsteadOfOverwriting() {
+        ReviewStore store = new ReviewStore(dir.resolve("history.json").toString(), new ObjectMapper());
+        store.save("safety", 7, "approved", "李医生", "第一版");
+        store.save("safety", 8, "changes_requested", "李医生", "第二版");
+
+        assertEquals(8, store.find("safety").version());
+        assertEquals(2, store.count("safety", ""));
+        assertEquals(7, store.history("safety", "").get(1).version());
+    }
+
+    @Test
     void rejectsIncompleteSignOff() {
         ReviewStore store = new ReviewStore(dir.resolve("r.json").toString(), new ObjectMapper());
         assertThrows(IllegalArgumentException.class,

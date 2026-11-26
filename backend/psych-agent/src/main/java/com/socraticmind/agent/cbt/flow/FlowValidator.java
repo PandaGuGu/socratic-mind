@@ -1,7 +1,5 @@
 package com.socraticmind.agent.cbt.flow;
 
-import com.socraticmind.session.CbtStage;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -90,6 +88,15 @@ public final class FlowValidator {
     /** 终态里只有总结不需要"提问话术"；判断节点不提问。 */
     public static final Set<String> NO_ASK_TEXT = Set.of("SESSION_SUMMARY", "CONDITION");
 
+    /**
+     * 可以当起点的节点：必须有提问话术，并且执行器知道收到第一条回答后该写哪个字段。
+     * 判断/总结/安全暂停不提问，确认节点则只接受 /confirm，不适合作为第一问。
+     */
+    public static final Set<String> STARTABLE = Set.of(
+            "PROBLEM_IDENTIFICATION", "COGNITIVE_EXTRACTION", "COGNITIVE_REVIEW",
+            "INTERVENTION_DECISION", "ACTION_REVIEW",
+            "BEHAVIORAL_EXPERIMENT", "PRACTICAL_PROBLEM_SOLVING");
+
     private FlowValidator() {
     }
 
@@ -108,6 +115,7 @@ public final class FlowValidator {
         }
         if (!errors.isEmpty()) return errors;
 
+        errors.addAll(checkStart(def));
         for (Map.Entry<String, StageSpec> entry : def.stages().entrySet()) {
             String id = entry.getKey();
             StageSpec spec = entry.getValue();
@@ -249,10 +257,22 @@ public final class FlowValidator {
         return List.of();
     }
 
+    /** 起点必须在节点集合里，且不能是终态——否则一轮对话刚开始就结束了。 */
+    private static List<String> checkStart(FlowDefinition def) {
+        String start = def.start();
+        if (!def.stages().containsKey(start)) {
+            return List.of("起点指向不存在的节点 " + start);
+        }
+        if (!STARTABLE.contains(start)) {
+            return List.of("「" + start + "」不适合当起点：它不提问，或第一轮回答没有对应的字段处理");
+        }
+        return List.of();
+    }
+
     private static List<String> checkReachability(FlowDefinition def) {
         Set<String> seen = new LinkedHashSet<>();
         Deque<String> queue = new ArrayDeque<>();
-        queue.add("PROBLEM_IDENTIFICATION");
+        queue.add(def.start());
         while (!queue.isEmpty()) {
             String id = queue.poll();
             if (!seen.add(id)) continue;
@@ -264,7 +284,7 @@ public final class FlowValidator {
             if (spec.next() != null && !spec.next().isBlank()) queue.add(spec.next());
         }
         if (!seen.contains("SESSION_SUMMARY")) {
-            return List.of("从「情境」出发走不到「总结」：检查某一步的下一条或分支是否形成了环");
+            return List.of("从起点「" + def.start() + "」出发走不到「总结」：检查某一步的下一条或分支是否形成了环");
         }
         return List.of();
     }

@@ -47,6 +47,14 @@ class FlowValidatorTest {
     }
 
     @Test
+    void onlyAskableNodesCanBeStart() {
+        FlowDefinition base = defaults();
+        FlowDefinition bad = new FlowDefinition(base.version(), base.updatedAt(), base.updatedBy(),
+                base.stages(), base.intervention(), base.messages(), "CONDITION");
+        assertTrue(FlowValidator.validate(bad).stream().anyMatch(e -> e.contains("不适合当起点")));
+    }
+
+    @Test
     void confirmationCannotBeBypassed() {
         FlowDefinition bad = withNext(defaults(), "INTERVENTION_DECISION", "ACTION_REVIEW");
         List<String> errors = FlowValidator.validate(bad);

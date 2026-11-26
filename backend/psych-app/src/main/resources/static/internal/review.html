@@ -57,43 +57,173 @@
   .msg.ok { background: var(--accent-soft); color: var(--accent-deep); }
   .msg.bad { background: var(--refer-soft); color: var(--refer); }
   .foot { margin-top: 18px; font-size: 11.5px; color: var(--muted); line-height: 1.8; }
+  .review-head { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+  .review-head > div:first-child { min-width: 0; }
+  .review-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pending-pill {
+    padding: 4px 10px; border-radius: 999px; font-size: 11px;
+    background: var(--wait-soft); color: var(--wait); border: 1px solid var(--wait-line);
+  }
+  .pending-pill.is-clear { background: var(--accent-soft); color: var(--accent-deep); border-color: var(--accent-line); }
+  .card .ops { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 9px; font-size: 11px; }
+  .card .ops button {
+    border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0;
+  }
+  .card .ops button:hover { text-decoration: underline; }
+  .changes { margin-top: 9px; font-size: 11.5px; color: var(--ink-soft); }
+  .changes summary { cursor: pointer; color: var(--refer); }
+  .changes ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.75; }
+  .checks { display: grid; gap: 6px; }
+  .checks label {
+    display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: start;
+    font-size: 11.5px; line-height: 1.7; color: var(--ink-soft); cursor: pointer;
+  }
+  .checks input { margin-top: 3px; accent-color: var(--accent); }
+  .checks .hint { grid-column: 2; }
+  .check-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 11px; color: var(--muted); }
+  .check-bar button { border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
+  .session-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .session-table th {
+    text-align: left; font-weight: 400; color: var(--muted); font-size: 11px;
+    padding: 0 8px 7px 0; border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  .session-table td { padding: 8px 8px 8px 0; border-bottom: 0.5px dashed var(--line-soft); vertical-align: top; }
+  .session-table tr.is-on td { background: #fbfaf7; }
+  .session-table .mono { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .session-table button.link { border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
+  .tag-pill { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10.5px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); }
+  .tag-pill.hold, .tag-pill.urgent, .tag-pill.stale, .tag-pill.changes_requested { background: var(--refer-soft); color: var(--refer); border-color: var(--refer-line); }
+  .tag-pill.review, .tag-pill.watch, .tag-pill.refer, .tag-pill.unreviewed { background: var(--wait-soft); color: var(--wait); border-color: var(--wait-line); }
+  .tag-pill.ok, .tag-pill.approved { background: var(--accent-soft); color: var(--accent-deep); border-color: var(--accent-line); }
+  .session-detail { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; }
+  .session-detail h4 { font-size: 13px; margin-bottom: 10px; }
+  .transcript { max-height: 360px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px; background: var(--surface-2); }
+  .msg-row { margin-bottom: 12px; }
+  .msg-row .who { font-size: 10.5px; color: var(--muted); margin-bottom: 3px; }
+  .msg-row .bubble { white-space: pre-wrap; font-size: 12px; line-height: 1.75; color: var(--ink-soft); }
+  .msg-row.user .bubble { padding: 8px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+  .session-form { display: grid; gap: 10px; margin-top: 14px; max-width: 640px; }
+  .session-form label { display: grid; gap: 4px; font-size: 11px; color: var(--muted); }
+  .session-form select, .session-form textarea {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--surface-2); font: inherit; font-size: 12px; color: var(--ink);
+  }
+  .session-form textarea { min-height: 72px; resize: vertical; }
+  .review-modal { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 24px; background: rgba(27,30,28,.34); }
+  .review-modal[hidden] { display: none; }
+  .review-modal-card {
+    width: min(720px, 94vw); max-height: 80vh; display: flex; flex-direction: column;
+    border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface);
+    box-shadow: 0 24px 60px -20px rgba(27,30,28,.35); overflow: hidden;
+  }
+  .review-modal-head { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line-soft); }
+  .review-modal-head h3 { font-size: 14px; font-weight: 600; }
+  .review-modal-head button { margin-left: auto; border: none; background: none; font-size: 18px; color: var(--muted); cursor: pointer; }
+  .review-modal-body { padding: 14px 16px; overflow-y: auto; }
+  .hist-entry { padding: 8px 0; border-bottom: 0.5px dashed var(--line-soft); font-size: 11.5px; line-height: 1.7; color: var(--ink-soft); }
+  .hist-entry:last-child { border-bottom: 0; }
+  .hist-entry .meta { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
   @media (max-width: 980px) {
     .cards, .cols { grid-template-columns: 1fr; }
+    .review-actions { margin-left: 0; }
   }
 </style>
 </head>
 <body>
 
-<div class="app">
+<div class="app is-shell">
+
+    <aside class="sb">
+    <div class="sb-brand">
+      <span class="sb-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"></circle><path d="M12 3.4v17.2M3.4 12h17.2"></path></svg>
+      </span>
+      <span class="sb-name">
+        <b>Socratic Mind</b>
+        <small>内部后台</small>
+      </span>
+    </div>
+
+    <nav class="sb-nav">
+      <p class="sb-label">运营</p>
+      <a class="sb-item" href="./index.html">
+        <svg viewBox="0 0 16 16"><path d="M3 3.6h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7.2L4.4 13.6v-2H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"></path></svg>
+        会话
+      </a>
+      <a class="sb-item is-on" href="./review.html">
+        <svg viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"></path></svg>
+        审核
+      </a>
+      <a class="sb-item" href="./accounts.html">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="5.7" r="2.4"></circle><path d="M3.4 13.2c.6-2.5 2.4-3.7 4.6-3.7s4 1.2 4.6 3.7"></path></svg>
+        账号
+      </a>
+      <a class="sb-item" href="./login.html">
+        <svg viewBox="0 0 16 16"><path d="M9.2 3.6H4.6a1 1 0 0 0-1 1v6.8a1 1 0 0 0 1 1h4.6"></path><path d="M11 5.9 13 8l-2 2.1M6.4 8h6.4"></path></svg>
+        登录
+      </a>
+
+      <p class="sb-label">配置</p>
+      <a class="sb-item" href="./flow.html">
+        <svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="6.2" r="1.6"></circle><circle cx="7" cy="12" r="1.6"></circle><path d="M5.5 4.4 10.5 5.6M4.6 5.5l1.9 5"></path></svg>
+        流程画布
+      </a>
+      <a class="sb-item" href="./policy.html">
+        <svg viewBox="0 0 16 16"><path d="M8 2.5 12.8 4.4v3.9c0 3-1.9 4.6-4.8 5.4-2.9-.8-4.8-2.4-4.8-5.4V4.4Z"></path></svg>
+        输出策略
+      </a>
+      <a class="sb-item" href="./settings.html">
+        <svg viewBox="0 0 16 16"><path d="M2.6 5.2h2.2M8.2 5.2h5.2M2.6 10.8h5.2M11.2 10.8h2.2"></path><circle cx="6.6" cy="5.2" r="1.5"></circle><circle cx="9.6" cy="10.8" r="1.5"></circle></svg>
+        规则与参数
+      </a>
+      <a class="sb-item" href="./lexicon.html">
+        <svg viewBox="0 0 16 16"><path d="M3.2 3.6h3.9a1 1 0 0 1 1 1v8H4.2a1 1 0 0 1-1-1Z"></path><path d="M12.8 3.6H8.9a1 1 0 0 0-1 1v8h3.9a1 1 0 0 0 1-1Z"></path></svg>
+        词库
+      </a>
+      <a class="sb-item" href="./ai.html">
+        <svg viewBox="0 0 16 16"><rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.2"></rect><path d="M6.6 2.4v2.2M9.4 2.4v2.2M6.6 11.4v2.2M9.4 11.4v2.2M2.4 6.6h2.2M2.4 9.4h2.2M11.4 6.6h2.2M11.4 9.4h2.2"></path></svg>
+        模型
+      </a>
+      <a class="sb-item" href="./knowledge.html">
+        <svg viewBox="0 0 16 16"><path d="M8 2.8 13 5.2 8 7.6 3 5.2Z"></path><path d="M3 8.6 8 11l5-2.4"></path></svg>
+        知识库
+      </a>
+      <a class="sb-item" href="./eval.html">
+        <svg viewBox="0 0 16 16"><path d="M3.2 11.4a5 5 0 1 1 9.6 0"></path><path d="M8 11.4 10.4 7.6"></path></svg>
+        评测
+      </a>
+    </nav>
+    <div class="sb-foot">
+    </div>
+  </aside>
 
   <header class="topbar">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"></circle>
-        <path d="M12 3v18M3 12h18"></path>
-      </svg>
-      <div class="brand-text">
-        <h1>Socratic Mind <span>临床审核记录</span></h1>
-        <p>系统不替人签字 · 只记录谁看过哪一版</p>
-      </div>
+    <div class="crumb">
+      <span>内部后台</span>
+      <i>/</i>
+      <b>审核</b>
+      <em class="crumb-note">系统不替人签字 · 只记录谁看过哪一版</em>
     </div>
     <div class="top-actions">
-      <a class="btn" href="./index.html">会话</a>
-      <a class="btn" href="./settings.html">规则与参数</a>
-      <a class="btn" href="./lexicon.html">词库</a>
-      <a class="btn" href="./eval.html">评测</a>
-      <button class="btn" id="refreshBtn" type="button">刷新</button>
+        <button class="btn" id="refreshBtn" type="button">刷新</button>
     </div>
   </header>
 
   <main class="review-wrap">
     <div class="review-head">
-      <h2>当前审核状态</h2>
-      <p>
-        这里记录的是"哪一版规则、被谁、在什么时候看过、结论是什么"。规则或词库改版后，
-        旧记录自动变成"版本已变，需重审"——不会拿旧的签字给新规则背书。
-        默认状态是<b>未审核</b>；本系统不能替代临床医生的签字。
-      </p>
+      <div>
+        <h2>审核与心理复核</h2>
+        <p>
+          这里记录"哪一版规则、被谁、在什么时候看过、结论是什么"。规则或词库改版后，
+          旧记录自动变成"版本已变，需重审"——不会拿旧的签字给新规则背书。默认状态是<b>未审核</b>；
+          本系统不能替代临床医生的签字。
+        </p>
+      </div>
+      <div class="review-actions">
+        <span class="pending-pill" id="pendingPill">读取中…</span>
+        <button class="btn" id="exportCsv" type="button">导出 CSV</button>
+        <button class="btn" id="exportJson" type="button">导出 JSON</button>
+      </div>
     </div>
 
     <div class="cards" id="cards"></div>
@@ -101,17 +231,22 @@
     <div class="cols">
       <section class="panel">
         <h3>审核时要逐条确认的清单</h3>
-        <ol>
-          <li><b>自伤/伤人规则</b>：本人意图必须 HOLD，他人/引用进待复核；"我不想活了，他不知道"不能被放行。</li>
-          <li><b>转介信息</b>：12356 与 120 在最前面，不藏在折叠里；不承诺"会有人马上联系你"。</li>
-          <li><b>诊断边界</b>：任何话术都不下诊断、不判断病程、不推荐药物或剂量。</li>
-          <li><b>偏差标签</b>：只作为候选提示，不写成"你有 XX 思维"，不进总结。</li>
-          <li><b>情绪自评</b>：只由用户点击，低分只进"关注"，不触发安全暂停。</li>
-          <li><b>词库</b>：自伤表达不放进 block；不把"废物""没用""安眠药"等治疗性词汇当敏感词。</li>
-          <li><b>输出守卫</b>：禁句、长度、与输入重合度的阈值是否符合本机构话术规范。</li>
-          <li><b>联系人</b>：只展示、不自动外呼；拨号/短信入口必须由本人按下。</li>
-          <li><b>分享</b>：记录页一次性链接不得包含联系人电话；打印后不再受系统保护，页面须写明。</li>
-        </ol>
+        <div class="check-bar">
+          <span id="checkCount">已勾选 0 / 9</span>
+          <button type="button" id="checkAll">全选</button>
+          <button type="button" id="checkNone">清空</button>
+        </div>
+        <div class="checks" id="checks">
+          <label><input type="checkbox" value="self_harm"> <span><b>自伤/伤人规则</b>：本人意图必须 HOLD，他人/引用进待复核；"我不想活了，他不知道"不能被放行。</span></label>
+          <label><input type="checkbox" value="referral"> <span><b>转介信息</b>：12356 与 120 在最前面，不藏在折叠里；不承诺"会有人马上联系你"。</span></label>
+          <label><input type="checkbox" value="diagnosis"> <span><b>诊断边界</b>：任何话术都不下诊断、不判断病程、不推荐药物或剂量。</span></label>
+          <label><input type="checkbox" value="distortion"> <span><b>偏差标签</b>：只作为候选提示，不写成"你有 XX 思维"，不进总结。</span></label>
+          <label><input type="checkbox" value="mood"> <span><b>情绪自评</b>：只由用户点击，低分只进"关注"，不触发安全暂停。</span></label>
+          <label><input type="checkbox" value="lexicon"> <span><b>词库</b>：自伤表达不放进 block；不把"废物""没用""安眠药"等治疗性词汇当敏感词。</span></label>
+          <label><input type="checkbox" value="guard"> <span><b>输出守卫</b>：禁句、长度、与输入重合度的阈值是否符合本机构话术规范。</span></label>
+          <label><input type="checkbox" value="contact"> <span><b>联系人</b>：只展示、不自动外呼；拨号/短信入口必须由本人按下。</span></label>
+          <label><input type="checkbox" value="share"> <span><b>分享</b>：记录页一次性链接不得包含联系人电话；打印后不再受系统保护，页面须写明。</span></label>
+        </div>
       </section>
 
       <section class="panel">
@@ -122,6 +257,9 @@
             <select id="kind">
               <option value="safety">安全规则</option>
               <option value="lexicon">敏感词库</option>
+              <option value="flow">流程画布与系统话术</option>
+              <option value="policy">输出策略</option>
+              <option value="limits">运行参数</option>
             </select>
           </label>
           <label>
@@ -134,6 +272,7 @@
           <label>
             <span>审核人（姓名 / 资质）</span>
             <input id="reviewer" type="text" maxlength="32" placeholder="如：李医生 · 精神科主治" required>
+            <span class="foot" id="identityHint" style="margin:0"></span>
           </label>
           <label>
             <span>备注</span>
@@ -143,11 +282,45 @@
         </form>
         <div class="msg" id="msg" role="status"></div>
         <p class="foot">
-          登记会把"当前生效版本"一起写进去。之后如果再改规则或词库，状态会变成"版本已变"，
+          登记会把"当前生效版本"、勾选清单与登录身份一起写进去。之后如果再改配置，状态会变成"版本已变"，
           需要重新审核。这是刻意的：审核针对版本，不针对模块。
         </p>
       </section>
     </div>
+
+    <section class="panel" style="margin-top: 18px">
+      <h3>会话心理复核</h3>
+      <p class="foot" style="margin-bottom: 10px">
+        这里只列已经触发安全关注/暂停的会话，不是全部会话。看对话、写结论、标记是否已上报。
+        <b>系统不会自动通知任何人</b>——"已上报/已联系"记录的是你实际做过的动作，不是系统替你发出去的消息。
+      </p>
+      <div id="sessionRows"><p class="foot">读取中…</p></div>
+      <div class="session-detail" id="sessionDetail" hidden>
+        <h4 id="sessionTitle">对话记录</h4>
+        <div class="transcript" id="transcript"></div>
+        <form class="session-form" id="sessionForm">
+          <label>复核结论
+            <select id="sessionStatus">
+              <option value="ok">未见明显风险</option>
+              <option value="watch">持续关注</option>
+              <option value="refer">建议转介</option>
+              <option value="urgent">紧急上报</option>
+            </select>
+          </label>
+          <label>备注
+            <textarea id="sessionNote" maxlength="1000" placeholder="依据、建议、已经联系了谁"></textarea>
+          </label>
+          <label style="display:flex;grid-template-columns:none;align-items:center;gap:8px">
+            <input type="checkbox" id="sessionReported"> 我已上报 / 已联系（仅留痕）
+          </label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn btn-primary" type="submit" id="sessionSave">登记复核</button>
+            <span class="msg" id="sessionMsg" role="status"></span>
+          </div>
+        </form>
+        <div id="sessionHistory"></div>
+      </div>
+    </section>
 
     <section class="panel" style="margin-top: 18px">
       <h3>知识库文档审核记录</h3>
@@ -158,6 +331,16 @@
       <div id="kbReviews"><p class="foot">读取中…</p></div>
     </section>
   </main>
+</div>
+
+<div class="review-modal" id="historyModal" hidden>
+  <div class="review-modal-card" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="review-modal-head">
+      <h3 id="historyTitle">审核历史</h3>
+      <button type="button" id="historyClose" aria-label="关闭">×</button>
+    </div>
+    <div class="review-modal-body" id="historyBody"></div>
+  </div>
 </div>
 
 <script src="./auth.js"></script>

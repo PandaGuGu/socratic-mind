@@ -15,9 +15,11 @@ import org.springframework.core.annotation.Order;
 /**
  * 组织模式的启动准备。
  *
- * 两件事，都必须**幂等**：
+ * 三件事，都必须**幂等**：
  * 1. 库为空时建一个租户与团队；
- * 2. 开发档（dev-hint）确保存在一个固定令牌的管理员。
+ * 2. 开发档（dev-hint）确保存在一个固定令牌的管理员；
+ * 3. 正式档（dev-hint 关闭）按启动参数播种一次初始登录账号——否则容器里
+ *    第一次打开就是登录页，而没有任何账号能登进去。已存在则一律不覆盖。
  *
  * 第 2 条是踩过的坑：最初只在"库为空"时发放令牌，于是本机第二次启动拿不到钥匙，
  * 后台所有写操作 401，看起来像功能坏了。现在令牌是确定性的
@@ -41,7 +43,9 @@ public class SeedOrgLoader {
     @Order(50)
     ApplicationRunner seedOrgRunner(OrgStore orgStore, DevOperatorToken devToken,
                                     com.socraticmind.app.security.PasswordHasher hasher,
-                                    @Value("${psych.internal.dev-hint:false}") boolean devHint) {
+                                    @Value("${psych.internal.dev-hint:false}") boolean devHint,
+                                    @Value("${psych.org.bootstrap.username:}") String bootstrapUser,
+                                    @Value("${psych.org.bootstrap.password:}") String bootstrapPassword) {
         return args -> {
             var tenant = orgStore.tenants().stream().findFirst().orElse(null);
             if (tenant == null) {
@@ -54,6 +58,7 @@ public class SeedOrgLoader {
                 team = orgStore.createTeam(finalTenant.id(), "cbt");
                 log.info("已建团队：{}", team.name());
             }
+            var finalTeam = team;
 
             if (devHint) {
                 if (orgStore.findByToken(DEV_OPERATOR_TOKEN).isEmpty()) {
@@ -76,6 +81,26 @@ public class SeedOrgLoader {
                 } else {
                     log.info("开发档：登录名 {} 已存在", DEV_LOGIN_USERNAME);
                 }
+                return;
+            }
+
+            // 正式档（dev-hint 关闭）：登录页没有任何内置账号，容器里第一次打开就卡在登录页。
+            // 这里只播种一次初始账号，口令以摘要落库；之后在后台改，重启不会覆盖。
+            String username = bootstrapUser == null ? "" : bootstrapUser.strip();
+            String password = bootstrapPassword == null ? "" : bootstrapPassword;
+            if (!username.isEmpty() && !password.isEmpty()) {
+                if (orgStore.credential(username).isPresent()) {
+                    log.info("初始操作者账号 {} 已存在，沿用库里的口令（不覆盖）", username);
+                    return;
+                }
+                var adminMember = orgStore.members(finalTenant.id()).stream()
+                        .filter(m -> Operator.ADMIN.equals(m.role()))
+                        .findFirst()
+                        .orElseGet(() -> orgStore
+                                .createMember(finalTenant.id(), finalTeam.id(), "管理员", Operator.ADMIN)
+                                .member());
+                orgStore.setCredential(adminMember.id(), username, hasher.hash(password));
+                log.info("已创建初始操作者账号：{}（口令来自启动参数，演示环境请在后台改掉）", username);
                 return;
             }
 

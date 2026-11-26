@@ -37,7 +37,7 @@ public class AiConfig {
 
     @Bean
     ChatPort chatPort(AiProperties props, OutputPolicyStore policyStore, GuardAuditLog auditLog,
-                      ModelCallLog callLog) {
+                      ModelCallLog callLog, AiConfigStore configStore) {
         String provider = resolve(props.getChatProvider(), props.getProvider());
         ChatPort delegate;
         if (!"http".equalsIgnoreCase(provider)) {
@@ -50,8 +50,11 @@ public class AiConfig {
                     props.getTemperature(), props.isThinkingDisabled(), props.isNoThink(),
                     props.getReadTimeoutSeconds());
         }
+        // 后台可以在运行时换模型；外层仍是统一守卫与计量，换模型不等于绕过规则。
+        SwitchableChatPort switchable = new SwitchableChatPort(delegate);
+        configStore.bind(switchable, props);
         // 先计时（含守卫触发的重写），再进输出守卫：所有模型调用统一过同一道闸。
-        return new GuardedChatPort(new MeteredChatPort(delegate, callLog), policyStore, auditLog);
+        return new GuardedChatPort(new MeteredChatPort(switchable, callLog), policyStore, auditLog);
     }
 
     private static String resolve(String specific, String fallback) {

@@ -88,6 +88,21 @@
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
+  .node.is-start {
+    border-color: var(--accent);
+  }
+
+  .node.is-start::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 16px;
+    bottom: 16px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--accent);
+  }
+
   .node.is-locked {
     background: var(--surface-2);
     border-style: dashed;
@@ -98,6 +113,32 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .node-expand {
+    margin-left: auto;
+    flex: none;
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  .node:hover .node-expand,
+  .node.is-selected .node-expand {
+    opacity: 1;
+  }
+
+  .node-expand:hover {
+    border-color: var(--accent-line);
+    color: var(--accent-deep);
+    background: var(--accent-soft);
   }
 
   .node-title {
@@ -159,6 +200,13 @@
     border-color: #CECBF6;
     background: #EEEDFE;
     color: #3C3489;
+  }
+
+  .ntag.is-start {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+    font-weight: 600;
   }
 
   .inspector {
@@ -401,6 +449,146 @@
     font-size: 11px;
     color: var(--muted);
     flex: none;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .legend-bar > span {
+    flex: none;
+  }
+
+  .legend-meta {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(27, 30, 28, 0.34);
+  }
+
+  .modal[hidden] {
+    display: none;
+  }
+
+  .modal-card {
+    width: min(620px, 92vw);
+    max-height: 78vh;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-shadow: 0 24px 60px -20px rgba(27, 30, 28, 0.35);
+    overflow: hidden;
+  }
+
+  .modal-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .modal-head h3 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .modal-head code {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .modal-head button {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+  }
+
+  .modal-foot {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--line-soft);
+    background: var(--surface-2);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .modal-foot .ntag {
+    font-family: var(--mono);
+  }
+
+  .canvas-select {
+    max-width: 180px;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid #e4e1d9;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+  }
+
+  .canvas-form {
+    display: grid;
+    gap: 12px;
+  }
+
+  .canvas-form label {
+    display: grid;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  .canvas-form input,
+  .canvas-form textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12.5px;
+  }
+
+  .canvas-form textarea {
+    min-height: 76px;
+    resize: vertical;
+  }
+
+  .canvas-form input:focus,
+  .canvas-form textarea:focus {
+    outline: none;
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .board-col {
@@ -474,40 +662,102 @@
 </head>
 <body>
 
-<div class="app canvas-mode">
+<div class="app is-shell canvas-mode">
+
+    <aside class="sb">
+    <div class="sb-brand">
+      <span class="sb-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"></circle><path d="M12 3.4v17.2M3.4 12h17.2"></path></svg>
+      </span>
+      <span class="sb-name">
+        <b>Socratic Mind</b>
+        <small>内部后台</small>
+      </span>
+    </div>
+
+    <nav class="sb-nav">
+      <p class="sb-label">运营</p>
+      <a class="sb-item" href="./index.html">
+        <svg viewBox="0 0 16 16"><path d="M3 3.6h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7.2L4.4 13.6v-2H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"></path></svg>
+        会话
+      </a>
+      <a class="sb-item" href="./review.html">
+        <svg viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"></path></svg>
+        审核
+      </a>
+      <a class="sb-item" href="./accounts.html">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="5.7" r="2.4"></circle><path d="M3.4 13.2c.6-2.5 2.4-3.7 4.6-3.7s4 1.2 4.6 3.7"></path></svg>
+        账号
+      </a>
+      <a class="sb-item" href="./login.html">
+        <svg viewBox="0 0 16 16"><path d="M9.2 3.6H4.6a1 1 0 0 0-1 1v6.8a1 1 0 0 0 1 1h4.6"></path><path d="M11 5.9 13 8l-2 2.1M6.4 8h6.4"></path></svg>
+        登录
+      </a>
+
+      <p class="sb-label">配置</p>
+      <a class="sb-item is-on" href="./flow.html">
+        <svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="6.2" r="1.6"></circle><circle cx="7" cy="12" r="1.6"></circle><path d="M5.5 4.4 10.5 5.6M4.6 5.5l1.9 5"></path></svg>
+        流程画布
+      </a>
+      <a class="sb-item" href="./policy.html">
+        <svg viewBox="0 0 16 16"><path d="M8 2.5 12.8 4.4v3.9c0 3-1.9 4.6-4.8 5.4-2.9-.8-4.8-2.4-4.8-5.4V4.4Z"></path></svg>
+        输出策略
+      </a>
+      <a class="sb-item" href="./settings.html">
+        <svg viewBox="0 0 16 16"><path d="M2.6 5.2h2.2M8.2 5.2h5.2M2.6 10.8h5.2M11.2 10.8h2.2"></path><circle cx="6.6" cy="5.2" r="1.5"></circle><circle cx="9.6" cy="10.8" r="1.5"></circle></svg>
+        规则与参数
+      </a>
+      <a class="sb-item" href="./lexicon.html">
+        <svg viewBox="0 0 16 16"><path d="M3.2 3.6h3.9a1 1 0 0 1 1 1v8H4.2a1 1 0 0 1-1-1Z"></path><path d="M12.8 3.6H8.9a1 1 0 0 0-1 1v8h3.9a1 1 0 0 0 1-1Z"></path></svg>
+        词库
+      </a>
+      <a class="sb-item" href="./ai.html">
+        <svg viewBox="0 0 16 16"><rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.2"></rect><path d="M6.6 2.4v2.2M9.4 2.4v2.2M6.6 11.4v2.2M9.4 11.4v2.2M2.4 6.6h2.2M2.4 9.4h2.2M11.4 6.6h2.2M11.4 9.4h2.2"></path></svg>
+        模型
+      </a>
+      <a class="sb-item" href="./knowledge.html">
+        <svg viewBox="0 0 16 16"><path d="M8 2.8 13 5.2 8 7.6 3 5.2Z"></path><path d="M3 8.6 8 11l5-2.4"></path></svg>
+        知识库
+      </a>
+      <a class="sb-item" href="./eval.html">
+        <svg viewBox="0 0 16 16"><path d="M3.2 11.4a5 5 0 1 1 9.6 0"></path><path d="M8 11.4 10.4 7.6"></path></svg>
+        评测
+      </a>
+    </nav>
+    <div class="sb-foot">
+      <div class="badges" id="badges"></div>
+    </div>
+  </aside>
 
   <header class="topbar">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"></circle>
-        <path d="M12 3v18M3 12h18"></path>
-      </svg>
-      <div class="brand-text">
-        <h1>流程画布 <span>拖动摆位 · 点开改话术 · 发布即生效</span></h1>
-        <p id="metaLine">读取中…</p>
-      </div>
+    <div class="crumb">
+      <span>内部后台</span>
+      <i>/</i>
+      <b>流程画布</b>
     </div>
-    <div class="badges" id="badges"></div>
     <div class="top-actions">
-      <a class="btn" href="./index.html">返回控制台</a>
-      <a class="btn" href="./policy.html">输出策略</a>
-      <a class="btn" href="./knowledge.html">知识库</a>
-      <button class="btn btn-primary" id="publishBtn" type="button">发布</button>
+        <select class="btn canvas-select" id="canvasSelect" title="选择要编辑的画布"></select>
+        <button class="btn" id="newCanvasBtn" type="button">新建</button>
+        <button class="btn" id="copyCanvasBtn" type="button">复制</button>
+        <button class="btn" id="canvasSettingsBtn" type="button">设置</button>
+        <button class="btn" id="deleteCanvasBtn" type="button">删除</button>
+        <button class="btn" id="saveDraftBtn" type="button">保存草稿</button>
+        <button class="btn btn-primary" id="publishBtn" type="button">启用</button>
     </div>
   </header>
 
   <div class="workspace">
     <div class="board-col">
       <div class="legend-bar">
-        <span>每轮必过安全分流（不可编辑）</span>
+        <span>每轮必过安全分流</span>
         <span>·</span>
-        <span>实线：正常推进</span>
+        <span>实线：推进</span>
         <span>·</span>
-        <span>虚线：回退或确认</span>
+        <span>虚线：回退 / 确认</span>
         <span>·</span>
-        <span>去向只能从允许的集合里选</span>
+        <span>去向受限</span>
         <span>·</span>
-        <span><b>右键节点</b>：插入 / 加分支 / 删除</span>
+        <span><b>右键节点</b>：设为起点 / 插入 / 分支 / 删除</span>
       </div>
       <div class="board-wrap" id="boardWrap">
         <div class="board" id="board">
@@ -545,7 +795,8 @@
       <div class="errors" id="errors"></div>
       <div class="inspector-foot">
         <span id="dirtyState">未改动</span>
-        <button class="btn btn-primary" id="publishBtn2" type="button">发布</button>
+        <button class="btn" id="saveDraftBtn2" type="button">保存草稿</button>
+        <button class="btn btn-primary" id="publishBtn2" type="button">启用</button>
       </div>
     </aside>
   </div>
@@ -553,6 +804,42 @@
 
 <div class="menu" id="menu" hidden></div>
 <div class="toast" id="toast" hidden></div>
+
+<div class="modal" id="textModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h3 id="modalTitle">节点话术</h3>
+      <code id="modalKey">—</code>
+      <button type="button" id="modalClose" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div class="modal" id="canvasModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="canvasModalTitle">
+    <div class="modal-head">
+      <h3 id="canvasModalTitle">画布设置</h3>
+      <code id="canvasModalHint"></code>
+      <button type="button" id="canvasModalClose" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body" style="white-space:normal">
+      <div class="canvas-form">
+        <label>名称
+          <input id="canvasNameInput" type="text" maxlength="40" placeholder="例如：默认流程 / 青少年版">
+        </label>
+        <label>说明（可选）
+          <textarea id="canvasDescInput" maxlength="300" placeholder="这张画布适合什么场景、和默认版有什么不同"></textarea>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end">
+      <button class="btn" id="canvasModalCancel" type="button">取消</button>
+      <button class="btn btn-primary" id="canvasModalSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
 
 <script src="./auth.js"></script>
 <script>
@@ -569,7 +856,11 @@ const state = {
   def: null,
   rules: null,
   selected: null,
-  dirty: false
+  dirty: false,
+  canvasId: null,
+  canvases: [],
+  publishedVersion: 0,
+  draftUnpublished: false
 };
 
 function esc(v) {
@@ -595,8 +886,55 @@ async function getJson(url, options) {
 
 function markDirty() {
   state.dirty = true;
-  $("dirtyState").textContent = "有未发布的改动";
-  $("dirtyState").style.color = "var(--wait)";
+  updateCanvasState();
+}
+
+function updateCanvasState() {
+  const el = $("dirtyState");
+  if (!el) return;
+  const meta = state.canvases.find((c) => c.id === state.canvasId);
+  const isActive = meta && meta.active;
+  if (state.dirty) {
+    el.textContent = "有未保存的草稿改动";
+    el.style.color = "var(--wait)";
+  } else if (!isActive) {
+    el.textContent = "未启用 · 线上用的是另一张画布";
+    el.style.color = "var(--wait)";
+  } else if (state.draftUnpublished) {
+    el.textContent = "草稿未启用 · 线上 v" + state.publishedVersion;
+    el.style.color = "var(--wait)";
+  } else {
+    el.textContent = "已启用 v" + state.publishedVersion;
+    el.style.color = "";
+  }
+}
+
+function renderCanvasSelect() {
+  const sel = $("canvasSelect");
+  if (!sel) return;
+  sel.innerHTML = state.canvases.map((c) =>
+    `<option value="${esc(c.id)}">${esc(c.name)}${c.active ? " · 启用中" : ""}</option>`
+  ).join("");
+  sel.value = state.canvasId;
+}
+
+function applyView(view, keepSelection) {
+  const previous = keepSelection ? state.selected : null;
+  state.def = view.definition;
+  state.rules = view.rules;
+  state.canvasId = view.canvasId;
+  state.canvases = view.canvases || [];
+  state.publishedVersion = view.publishedVersion;
+  state.draftUnpublished = view.draftUnpublished;
+  state.dirty = false;
+  renderCanvasSelect();
+  renderBadges(view);
+  const wanted = previous && state.def.stages[previous] ? previous : null;
+  state.selected = wanted || state.def.start || "PROBLEM_IDENTIFICATION";
+  renderNodes();
+  renderEdges();
+  renderInspector();
+  updateCanvasState();
 }
 
 /* ---------- 画布 ---------- */
@@ -608,23 +946,27 @@ function stageLabel(id) {
 
 function renderNodes() {
   const stages = state.def.stages;
+  const start = state.def.start || "PROBLEM_IDENTIFICATION";
   $("nodes").innerHTML = Object.entries(stages).map(([id, s]) => {
     const tags = [];
     const branches = s.branches || [];
+    if (id === start) tags.push(`<span class="ntag is-start">起点</span>`);
     if (s.model && s.model !== "none") tags.push(`<span class="ntag is-model">${esc(s.model)}</span>`);
     if (branches.length) tags.push(`<span class="ntag is-branch">${branches.length} 条分支</span>`);
     if (!s.next && !branches.length && id !== "CONDITION") tags.push(`<span class="ntag">终态</span>`);
     if (id === "ACTION_CONFIRM") tags.push(`<span class="ntag is-interrupt">中断点</span>`);
     if (id === "CONDITION") tags.push(`<span class="ntag is-branch">判断</span>`);
-    const text = (s.text || "").replace(/\s+/g, " ").slice(0, 46);
+    const fullText = (s.text || "").replace(/\s+/g, " ").trim();
+    const text = fullText || (id === "CONDITION" ? "（判断节点：只看条件，不提问）" : s.next ? "（还没有话术）" : "（终态，没有提问话术）");
     return `
-      <div class="node ${state.selected === id ? "is-selected" : ""}" data-id="${id}"
-           style="left:${s.x}px;top:${s.y}px">
+      <div class="node ${state.selected === id ? "is-selected" : ""} ${id === start ? "is-start" : ""}"
+           data-id="${id}" style="left:${s.x}px;top:${s.y}px">
         <div class="node-head">
           <span class="node-title">${esc(s.title || id)}</span>
+          <button class="node-expand" type="button" data-full="${id}" title="查看全部话术">全文</button>
         </div>
         <div class="node-key">${esc(id)}</div>
-        <div class="node-text">${esc(text || (id === "CONDITION" ? "（判断节点：只看条件，不提问）" : s.next ? "（还没有话术）" : "（终态，没有提问话术）"))}</div>
+        <div class="node-text" title="${esc(text)}">${esc(text)}</div>
         <div class="node-tags">${tags.join("")}</div>
       </div>`;
   }).join("");
@@ -649,6 +991,17 @@ function renderNodes() {
       openMenu(e.clientX, e.clientY, menuForNode(el.dataset.id));
     });
   });
+
+  document.querySelectorAll(".node-expand").forEach((btn) =>
+    btn.addEventListener("pointerdown", (e) => e.stopPropagation())
+  );
+  document.querySelectorAll(".node-expand").forEach((btn) =>
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMenu();
+      openText(btn.dataset.full);
+    })
+  );
 }
 
 function renderEdges() {
@@ -793,7 +1146,15 @@ function renderInspector() {
       <div class="preview">${esc(preview || "（空）")}</div>
     </div>`;
 
+  const currentStart = state.def.start || state.rules.defaultStart || "PROBLEM_IDENTIFICATION";
+  const startBlock = id === currentStart
+    ? `<div class="locked-note" style="margin-bottom:12px">这是当前起点：新会话的第一问从这里开始。</div>`
+    : (state.rules.startable || []).includes(id)
+      ? `<button class="btn" id="makeStart" type="button" style="width:100%;margin-bottom:12px">设为起点</button>`
+      : `<div class="hint-line" style="margin-bottom:12px">这个节点不提问，不能作为起点。</div>`;
+
   $("insBody").innerHTML = `
+    ${startBlock}
     <div class="field-block">
       <label><span>节点标题</span></label>
       <input type="text" id="fTitle" value="${esc(s.title || "")}">
@@ -898,6 +1259,9 @@ function bindInspector(id) {
       renderNodes();
     });
   }
+
+  const makeStart = $("makeStart");
+  if (makeStart) makeStart.addEventListener("click", () => setStart(id));
 
   document.querySelectorAll("[data-del]").forEach((btn) =>
     btn.addEventListener("click", () => {
@@ -1073,7 +1437,18 @@ function menuForNode(id) {
   const s = state.def.stages[id];
   const existing = new Set(Object.keys(state.def.stages));
   const optional = state.rules.optionalNodes || [];
+  const startable = state.rules.startable || [];
+  const currentStart = state.def.start || state.rules.defaultStart || "PROBLEM_IDENTIFICATION";
   const items = [];
+
+  const canStart = startable.includes(id);
+  items.push({
+    label: id === currentStart ? "当前已经是起点" : "设为起点",
+    disabled: id === currentStart || !canStart,
+    hint: id === currentStart ? "" : canStart ? "下一轮从这里开始" : "这个节点不提问",
+    action: () => setStart(id)
+  });
+  items.push({ sep: true });
 
   if (s.branches && s.branches.length) {
     s.branches.forEach((b, i) => {
@@ -1145,46 +1520,217 @@ function menuForBoard(x, y) {
   return items;
 }
 
-/* ---------- 发布 ---------- */
+/* ---------- 起点与全文 ---------- */
 
-async function publish() {
+function setStart(id) {
+  const s = state.def.stages[id];
+  if (!s) return;
+  state.def.start = id;
+  state.selected = id;
+  markDirty();
+  renderNodes();
+  renderEdges();
+  renderInspector();
+  toast("起点已改为「" + (s.title || id) + "」，保存草稿并启用后生效");
+}
+
+function openText(id) {
+  const s = state.def.stages[id];
+  if (!s) return;
+  $("modalTitle").textContent = s.title || id;
+  $("modalKey").textContent = id;
+  const empty = id === "CONDITION"
+    ? "（判断节点：只看会话状态，不提问）"
+    : s.next ? "（还没有话术）" : "（终态，没有提问话术）";
+  $("modalBody").textContent = (s.text || "").trim() || empty;
+  const tags = [];
+  if (id === (state.def.start || state.rules.defaultStart)) tags.push('<span class="ntag is-start">起点</span>');
+  if (s.model && s.model !== "none") tags.push(`<span class="ntag is-model">${esc(s.model)}</span>`);
+  if (s.next) tags.push(`<span class="ntag">下一步：${esc(stageLabel(s.next))}</span>`);
+  (s.branches || []).forEach((b) => tags.push(`<span class="ntag is-branch">${esc(b.when)} → ${esc(stageLabel(b.to))}</span>`));
+  $("modalFoot").innerHTML = tags.length ? tags.join("") : '<span class="ntag">没有分支或下一步</span>';
+  $("textModal").hidden = false;
+}
+
+function closeText() {
+  $("textModal").hidden = true;
+}
+
+/* ---------- 保存草稿 / 启用 / 画布管理 ---------- */
+
+function showErrors(message) {
   const errors = $("errors");
+  errors.textContent = message;
+  errors.classList.add("is-on");
+}
+
+function clearErrors() {
+  const errors = $("errors");
+  errors.textContent = "";
   errors.classList.remove("is-on");
-  const buttons = [$("publishBtn"), $("publishBtn2")];
+}
+
+async function saveDraft(silent) {
+  clearErrors();
+  const buttons = [$("saveDraftBtn"), $("saveDraftBtn2"), $("publishBtn"), $("publishBtn2")];
   buttons.forEach((b) => (b.disabled = true));
   try {
     const view = await getJson(`${API}/flow`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ definition: state.def, updatedBy: "ops" })
+      body: JSON.stringify({ canvasId: state.canvasId, definition: state.def, updatedBy: "ops" })
     });
-    state.def = view.definition;
-    state.dirty = false;
-    $("dirtyState").textContent = "已发布";
-    $("dirtyState").style.color = "";
-    renderBadges(view);
-    renderNodes();
-    renderEdges();
-    renderInspector();
-    toast("已发布，下一轮立即生效");
+    applyView(view, true);
+    toast(silent ? "草稿已保存" : "草稿已保存，线上流程没有变化");
+    return true;
   } catch (e) {
-    errors.textContent = e.message;
-    errors.classList.add("is-on");
-    toast("发布失败，看右侧的校验信息", true);
+    showErrors(e.message);
+    toast("草稿保存失败，看右侧的校验信息", true);
+    return false;
   } finally {
     buttons.forEach((b) => (b.disabled = false));
   }
 }
 
+async function enableCanvas() {
+  if (state.dirty) {
+    const saved = await saveDraft(true);
+    if (!saved) return;
+  }
+  clearErrors();
+  const buttons = [$("publishBtn"), $("publishBtn2"), $("saveDraftBtn"), $("saveDraftBtn2")];
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    const view = await getJson(`${API}/flow/publish`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ canvasId: state.canvasId, updatedBy: "ops" })
+    });
+    applyView(view, true);
+    toast("已启用「" + (view.canvasName || view.canvasId) + "」，下一轮立即生效");
+  } catch (e) {
+    showErrors(e.message);
+    toast("启用失败，看右侧的校验信息", true);
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+async function loadCanvas(id) {
+  if (state.dirty && !window.confirm("当前画布有未保存的草稿改动，切换会丢掉它们。继续？")) {
+    renderCanvasSelect();
+    return;
+  }
+  try {
+    const view = await getJson(`${API}/flow?canvasId=${encodeURIComponent(id)}`);
+    applyView(view, true);
+    toast("已切换到「" + view.canvasName + "」");
+  } catch (e) {
+    toast("切换画布失败：" + e.message, true);
+    renderCanvasSelect();
+  }
+}
+
+let canvasModalMode = "new";
+let canvasEditingId = null;
+
+function openCanvasModal(mode) {
+  canvasModalMode = mode;
+  const meta = state.canvases.find((c) => c.id === state.canvasId);
+  canvasEditingId = mode === "settings" ? state.canvasId : null;
+  $("canvasModalTitle").textContent = mode === "settings" ? "画布设置" : "新建画布";
+  $("canvasModalHint").textContent = mode === "settings" ? state.canvasId : "";
+  $("canvasNameInput").value = mode === "settings" && meta ? meta.name : "";
+  $("canvasDescInput").value = mode === "settings" && meta ? (meta.description || "") : "";
+  $("canvasModal").hidden = false;
+  setTimeout(() => $("canvasNameInput").focus(), 30);
+}
+
+function closeCanvasModal() {
+  $("canvasModal").hidden = true;
+}
+
+async function saveCanvasModal() {
+  const name = $("canvasNameInput").value.trim();
+  const description = $("canvasDescInput").value.trim();
+  if (!name) {
+    toast("画布名称不能为空", true);
+    return;
+  }
+  const btn = $("canvasModalSave");
+  btn.disabled = true;
+  try {
+    const view = canvasModalMode === "settings"
+      ? await getJson(`${API}/flow/canvases/${encodeURIComponent(canvasEditingId)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, description })
+        })
+      : await getJson(`${API}/flow/canvases`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, description, updatedBy: "ops" })
+        });
+    closeCanvasModal();
+    applyView(view, false);
+    toast(canvasModalMode === "settings" ? "画布设置已保存" : "画布已创建，记得保存草稿并启用");
+  } catch (e) {
+    toast("保存失败：" + e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function copyCanvas() {
+  if (state.dirty && !window.confirm("复制的是上次保存的草稿，未保存的改动不会带过去。继续？")) return;
+  const current = state.canvases.find((c) => c.id === state.canvasId);
+  const name = (current ? current.name : "画布") + " 副本";
+  try {
+    const view = await getJson(`${API}/flow/canvases`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description: current ? current.description : "", copyFrom: state.canvasId, updatedBy: "ops" })
+    });
+    applyView(view, false);
+    toast("已复制为「" + name + "」");
+  } catch (e) {
+    toast("复制失败：" + e.message, true);
+  }
+}
+
+async function deleteCanvas() {
+  const meta = state.canvases.find((c) => c.id === state.canvasId);
+  if (!meta) return;
+  if (meta.active) {
+    toast("当前启用中的画布不能删除，请先启用另一张", true);
+    return;
+  }
+  if (!window.confirm("删除画布「" + meta.name + "」？草稿、发布文件和该画布的历史快照都会删除。")) return;
+  try {
+    const view = await getJson(`${API}/flow/canvases/${encodeURIComponent(state.canvasId)}`, { method: "DELETE" });
+    applyView(view, false);
+    toast("画布已删除");
+  } catch (e) {
+    toast("删除失败：" + e.message, true);
+  }
+}
+
 function renderBadges(view) {
   const d = view.definition;
-  $("metaLine").textContent = `版本 v${d.version}`
-    + (d.updatedBy ? ` · 最后由 ${d.updatedBy} 修改` : "")
-    + (d.updatedAt ? ` · ${new Date(d.updatedAt).toLocaleString("zh-CN", { hour12: false })}` : "");
-  $("badges").innerHTML = [
-    `<span class="badge ${view.persisted ? "is-ok" : "is-warn"}"><i></i>${view.persisted ? "已落盘" : "未落盘 · 默认值"}</span>`,
-    `<span class="badge is-quiet"><i></i>${Object.keys(d.stages).length} 个节点</span>`
-  ].join("");
+  const meta = $("metaLine");
+  if (meta) {
+    meta.textContent = `版本 v${d.version}`
+      + (d.updatedBy ? ` · 最后由 ${d.updatedBy} 修改` : "")
+      + (d.updatedAt ? ` · ${new Date(d.updatedAt).toLocaleString("zh-CN", { hour12: false })}` : "");
+  }
+  const badges = $("badges");
+  if (badges) {
+    badges.innerHTML = [
+      `<span class="badge ${view.persisted ? "is-ok" : "is-warn"}"><i></i>${view.persisted ? "已落盘" : "未落盘"}</span>`,
+      `<span class="badge is-quiet"><i></i>草稿 v${d.version} · 线上 v${state.publishedVersion}</span>`,
+      `<span class="badge is-quiet"><i></i>${state.canvases.length} 张画布 · ${Object.keys(d.stages).length} 个节点</span>`
+    ].join("");
+  }
 }
 
 /* ---------- 启动 ---------- */
@@ -1192,16 +1738,16 @@ function renderBadges(view) {
 async function boot() {
   try {
     const view = await getJson(`${API}/flow`);
-    state.def = view.definition;
-    state.rules = view.rules;
-    renderBadges(view);
+    applyView(view, false);
     const wanted = new URLSearchParams(location.search).get("node");
-    state.selected = wanted && state.def.stages[wanted] ? wanted : "PROBLEM_IDENTIFICATION";
-    renderNodes();
-    renderEdges();
-    renderInspector();
+    if (wanted && state.def.stages[wanted]) {
+      state.selected = wanted;
+      renderNodes();
+      renderInspector();
+    }
   } catch (e) {
-    $("metaLine").textContent = "接口不可达";
+    const meta = $("metaLine");
+    if (meta) meta.textContent = "接口不可达";
     $("nodes").innerHTML = `<div class="gate">读不到流程接口：${esc(e.message)}</div>`;
   }
 }
@@ -1215,12 +1761,35 @@ $("board").addEventListener("contextmenu", (e) => {
 
 document.addEventListener("click", closeMenu);
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeMenu();
+  if (e.key === "Escape") {
+    closeMenu();
+    closeText();
+    closeCanvasModal();
+  }
 });
 window.addEventListener("scroll", closeMenu, true);
 
-$("publishBtn").addEventListener("click", publish);
-$("publishBtn2").addEventListener("click", publish);
+$("modalClose").addEventListener("click", closeText);
+$("textModal").addEventListener("click", (e) => {
+  if (e.target === $("textModal")) closeText();
+});
+
+$("canvasModalClose").addEventListener("click", closeCanvasModal);
+$("canvasModalCancel").addEventListener("click", closeCanvasModal);
+$("canvasModalSave").addEventListener("click", saveCanvasModal);
+$("canvasModal").addEventListener("click", (e) => {
+  if (e.target === $("canvasModal")) closeCanvasModal();
+});
+
+$("canvasSelect").addEventListener("change", (e) => loadCanvas(e.target.value));
+$("newCanvasBtn").addEventListener("click", () => openCanvasModal("new"));
+$("copyCanvasBtn").addEventListener("click", copyCanvas);
+$("canvasSettingsBtn").addEventListener("click", () => openCanvasModal("settings"));
+$("deleteCanvasBtn").addEventListener("click", deleteCanvas);
+$("saveDraftBtn").addEventListener("click", () => saveDraft(false));
+$("saveDraftBtn2").addEventListener("click", () => saveDraft(false));
+$("publishBtn").addEventListener("click", enableCanvas);
+$("publishBtn2").addEventListener("click", enableCanvas);
 window.addEventListener("beforeunload", (e) => {
   if (state.dirty) {
     e.preventDefault();

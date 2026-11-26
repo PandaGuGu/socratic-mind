@@ -301,6 +301,35 @@ class AccountAuthTest {
                 "{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}");
     }
 
+    /**
+     * 导出：账号信息与本人能看到的会话一起下载；换一个身份看不到别人的。
+     */
+    @Test
+    void exportContainsOwnAccountAndSessionsOnly() {
+        String device = startSession();
+        String sessionId = lastSessionId(device);
+        String email = uniqueEmail("export");
+        String password = "export-password-123";
+        String accountToken = register(device, email, password, "导出测试").getHeaders().getFirst(TOKEN);
+        postOk("/api/auth/claim", accountToken, "{}");
+
+        ResponseEntity<String> json = rest.exchange("/api/export/me", HttpMethod.GET,
+                new HttpEntity<>(headers(accountToken)), String.class);
+        assertEquals(HttpStatus.OK, json.getStatusCode());
+        assertTrue(json.getBody().contains(email), "导出必须包含账号信息");
+        assertTrue(json.getBody().contains(sessionId), "导出必须包含自己的会话");
+        assertTrue(json.getBody().contains("\"kind\" : \"account\""));
+
+        ResponseEntity<String> markdown = rest.exchange("/api/export/me?format=md", HttpMethod.GET,
+                new HttpEntity<>(headers(accountToken)), String.class);
+        assertEquals(HttpStatus.OK, markdown.getStatusCode());
+        assertTrue(markdown.getBody().startsWith("# Socratic Mind 数据导出"));
+        assertTrue(markdown.getBody().contains(email));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, rest.exchange("/api/export/me", HttpMethod.GET,
+                new HttpEntity<>(headers(null)), String.class).getStatusCode());
+    }
+
     private String startSession() {
         ResponseEntity<Map> started = post("/api/cbt/sessions", null, "{}");
         assertEquals(HttpStatus.OK, started.getStatusCode());

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -84,16 +85,26 @@ public class OperatorAuthController {
 
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(HttpServletRequest request,
+                                                  @RequestHeader(value = "X-Operator-Token", required = false)
+                                                  String operatorToken,
                                                   @RequestAttribute(name = "sm.operator", required = false)
                                                   Operator operator) {
         var current = sessions.current(request);
-        if (current.isEmpty()) {
-            return ResponseEntity.status(401).body(Map.of("error", "未登录"));
+        if (current.isPresent()) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("user", Who.of(current.get().operator()));
+            out.put("csrfToken", current.get().csrfToken());
+            return ResponseEntity.ok(out);
         }
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("user", Who.of(current.get().operator()));
-        out.put("csrfToken", current.get().csrfToken());
-        return ResponseEntity.ok(out);
+        // 脚本/令牌模式没有 cookie 会话，但操作者令牌本身就是可验证的身份；
+        // 页面靠它显示“署名来自登录身份”，而不是让审核人再手填一次。
+        Operator byToken = orgStore.findByToken(operatorToken).orElse(null);
+        if (byToken != null) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("user", Who.of(byToken));
+            return ResponseEntity.ok(out);
+        }
+        return ResponseEntity.status(401).body(Map.of("error", "未登录"));
     }
 
     @PostMapping("/password")

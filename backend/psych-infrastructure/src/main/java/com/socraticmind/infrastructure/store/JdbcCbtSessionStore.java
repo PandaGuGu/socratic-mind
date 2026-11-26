@@ -143,9 +143,13 @@ public class JdbcCbtSessionStore implements CbtSessionStore {
 
     @Override
     public List<CbtSession> findByUser(String userId) {
-        List<String> ids = jdbc.query(
-                "SELECT id FROM cbt_session WHERE (? IS NULL OR user_id = ?) ORDER BY created_at DESC",
-                (rs, i) -> rs.getString("id"), userId, userId);
+        // PostgreSQL 无法推断 `? IS NULL` 的类型，所以按是否传 userId 分成两条 SQL。
+        String sql = userId == null
+                ? "SELECT id FROM cbt_session ORDER BY created_at DESC"
+                : "SELECT id FROM cbt_session WHERE user_id = ? ORDER BY created_at DESC";
+        List<String> ids = userId == null
+                ? jdbc.query(sql, (rs, i) -> rs.getString("id"))
+                : jdbc.query(sql, (rs, i) -> rs.getString("id"), userId);
         List<CbtSession> out = new ArrayList<>(ids.size());
         for (String id : ids) {
             find(id).ifPresent(out::add);

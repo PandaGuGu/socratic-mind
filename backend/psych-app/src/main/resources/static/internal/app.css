@@ -4,6 +4,11 @@
   box-sizing: border-box;
 }
 
+/* hidden 属性要压过各处的 display:flex/grid，否则“隐藏”的行仍会露出来 */
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --bg: #f6f5f2;
   --surface: #ffffff;
@@ -1324,3 +1329,955 @@ a.btn {
 .safety-banner p { margin: 2px 0; opacity: .78; }
 .safety-banner .sb-contact { font-family: var(--mono, monospace); font-size: 11.5px; }
 .safety-banner .btn { margin-top: 8px; }
+
+/* ============================================================================
+   壳层：左侧导航 + 内容区（参照 Twenty 的信息分层）
+   只作用于 .app.is-shell，其余页面继续用旧顶栏，迁移时逐个加 class 即可。
+   三条原则：
+   1) 结构靠留白和字号，不靠竖线；分隔线只出现在"可滚动区边界"。
+   2) 颜色有预算：主色只有一个（近黑），琥珀只给"等确认"，砖红只给"安全暂停"。
+   3) 元信息（id、耗时）用等宽小字压到 45% 不透明度，永不与正文同级。
+   ========================================================================== */
+
+.app.is-shell {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  grid-template-rows: 46px minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* 扁平三层：侧栏跨两行，顶栏占第一行，其余内容一律落到第二行。
+   这样各页原来的 main/.page/.workspace 不用改结构就能接进来。 */
+.app.is-shell > .sb {
+  grid-area: 1 / 1 / 3 / 2;
+}
+
+.app.is-shell > .topbar {
+  grid-area: 1 / 2 / 2 / 3;
+}
+
+.app.is-shell > :not(.sb):not(.topbar) {
+  grid-area: 2 / 2 / 3 / 3;
+  min-width: 0;
+  min-height: 0;
+}
+
+.app.is-shell > .page,
+.app.is-shell > .acct-wrap,
+.app.is-shell > .ai-wrap,
+.app.is-shell > .eval-wrap,
+.app.is-shell > .review-wrap,
+.app.is-shell > .login-wrap,
+.app.is-shell > .lex-wrap,
+.app.is-shell > .workspace {
+  overflow-y: auto;
+}
+
+/* ---------- 侧栏 ---------- */
+.app.is-shell .sb {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 10px 10px;
+  background: #faf9f6;
+  border-right: 1px solid #ecebe6;
+}
+
+.app.is-shell .sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 6px 12px;
+}
+
+.app.is-shell .sb-mark {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #1c1d1b;
+  flex: none;
+}
+
+.app.is-shell .sb-mark svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #f4f1e9;
+  stroke-width: 1.2;
+}
+
+.app.is-shell .sb-name {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.app.is-shell .sb-name b {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.app.is-shell .sb-name small {
+  font-size: 10px;
+  color: #a3a59f;
+  white-space: nowrap;
+}
+
+.app.is-shell .sb-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.app.is-shell .sb-label {
+  margin: 14px 8px 5px;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  color: #a8aaa4;
+}
+
+.app.is-shell .sb-label:first-child {
+  margin-top: 4px;
+}
+
+.app.is-shell .sb-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #56594f;
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.app.is-shell .sb-item svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: #9b9d97;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.12s ease;
+}
+
+.app.is-shell .sb-item:hover {
+  background: #f0eee8;
+  color: var(--ink);
+}
+
+.app.is-shell .sb-item:hover svg {
+  stroke: #6b6e65;
+}
+
+.app.is-shell .sb-item.is-on {
+  background: #eceae3;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.app.is-shell .sb-item.is-on svg {
+  stroke: var(--ink);
+}
+
+.app.is-shell .sb-foot {
+  margin-top: 8px;
+  padding: 10px 8px 2px;
+  border-top: 1px solid #ecebe6;
+}
+
+.app.is-shell .badges {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* 状态不再是彩色胶囊：一个点 + 一行小字。颜色只留给异常。 */
+.app.is-shell .badge {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 10.5px;
+  color: #8d908a;
+  gap: 6px;
+}
+
+.app.is-shell .badge i {
+  width: 5px;
+  height: 5px;
+  background: #c3c5bf;
+}
+
+.app.is-shell .badge.is-ok {
+  background: none;
+  border: 0;
+  color: #7c7f78;
+}
+
+.app.is-shell .badge.is-ok i {
+  background: #8fa08b;
+}
+
+.app.is-shell .badge.is-warn {
+  background: none;
+  border: 0;
+  color: #9a6a12;
+}
+
+.app.is-shell .badge.is-warn i {
+  background: #c08a25;
+}
+
+.app.is-shell .sb-note {
+  margin-top: 8px;
+  font-size: 9.5px;
+  line-height: 1.6;
+  color: #b0b2ac;
+}
+
+/* ---------- 主区 ---------- */
+.app.is-shell .topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 18px;
+  border-bottom: 1px solid #f1efea;
+  background: #fff;
+}
+
+.app.is-shell .crumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #9b9d97;
+  min-width: 0;
+}
+
+.app.is-shell .crumb i {
+  font-style: normal;
+  color: #d3d1ca;
+}
+
+.app.is-shell .crumb b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.app.is-shell .top-actions {
+  margin-left: auto;
+  gap: 4px;
+  flex-wrap: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+/* 顶栏个人入口：默认圆形头像，点进去是个人设置 */
+.acct-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid #e4e1d9;
+  background: linear-gradient(145deg, #f0ece4, #e2ddd2);
+  color: #6d706a;
+  text-decoration: none;
+  flex: none;
+  overflow: hidden;
+  transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.acct-chip:hover {
+  box-shadow: 0 0 0 3px rgba(13, 122, 99, 0.12);
+}
+
+.acct-chip-avatar {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #4a514d;
+  text-transform: uppercase;
+}
+
+.acct-chip-avatar svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: #6d706a;
+  stroke-width: 1.3;
+}
+
+/* 审核待办：侧栏数字 + 左下角可关闭的提醒 */
+.app.is-shell .sb-item .sb-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--refer-soft);
+  border: 1px solid var(--refer-line);
+  color: var(--refer);
+  font-size: 10px;
+  font-family: var(--mono);
+}
+
+.sb-review-note {
+  display: block;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--wait-line);
+  border-radius: 6px;
+  background: var(--wait-soft);
+  color: #6b3f04;
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.sb-review-note:hover {
+  text-decoration: underline;
+}
+
+.app.is-shell .topbar .btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: #6d706a;
+  font-size: 12px;
+}
+
+.app.is-shell .topbar .btn:hover {
+  background: #f4f2ed;
+  border-color: transparent;
+  color: var(--ink);
+}
+
+.app.is-shell .topbar .btn:last-child {
+  border-color: #e4e1d9;
+  background: #fff;
+  color: var(--ink);
+}
+
+.app.is-shell .topbar .btn:last-child:hover {
+  background: #f7f5f1;
+}
+
+.app.is-shell .body {
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: 292px 360px minmax(0, 1fr);
+  background: #fff;
+}
+
+/* ---------- 会话列 ---------- */
+.app.is-shell .sessions {
+  background: #fff;
+  border-right: 1px solid #f1efea;
+}
+
+.app.is-shell .panel-head {
+  padding: 13px 14px 7px;
+}
+
+.app.is-shell .panel-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.app.is-shell .count {
+  font-size: 10.5px;
+  color: #b0b2ac;
+}
+
+.app.is-shell .filters {
+  padding: 0 10px 8px;
+  gap: 2px;
+}
+
+.app.is-shell .filter {
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  color: #8d908a;
+}
+
+.app.is-shell .filter:hover {
+  background: #f6f4ef;
+  color: var(--ink);
+}
+
+.app.is-shell .filter.is-on {
+  background: #f1efe9;
+  border-color: transparent;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.app.is-shell .session-list {
+  padding: 0 6px 10px;
+}
+
+.app.is-shell .session-item {
+  position: relative;
+  padding: 9px 10px 9px 40px;
+  margin-bottom: 1px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+}
+
+/* 头像是 Twenty 列表的锚点：一行一个圆，眼睛不用读 id 就能分辨条目 */
+.app.is-shell .session-item::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 9px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #eeeae1, #ddd7ca);
+  box-shadow: inset 0 0 0 1px rgba(28, 29, 27, 0.05);
+}
+
+.app.is-shell .session-item:hover {
+  background: #f8f6f1;
+  border: 0;
+}
+
+.app.is-shell .session-item.is-on {
+  background: #f1efe9;
+  border: 0;
+  box-shadow: none;
+}
+
+.app.is-shell .session-user {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+/* 知识库资料标题不做单行省略：最多两行，悬停还能看到完整标题 */
+.app.is-shell .doc-item .session-top {
+  align-items: flex-start;
+}
+
+.app.is-shell .doc-item .session-user {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.45;
+}
+
+.app.is-shell .doc-item .status {
+  flex: none;
+  margin-top: 1px;
+}
+
+.app.is-shell .session-stage {
+  font-size: 10.5px;
+  color: #a3a59f;
+}
+
+.app.is-shell .session-meta {
+  margin-top: 2px;
+  gap: 5px;
+  font-size: 10px;
+  color: #adafa9;
+}
+
+.app.is-shell .session-id {
+  max-width: 118px;
+}
+
+.app.is-shell .dot-mark {
+  width: 5px;
+  height: 5px;
+}
+
+.app.is-shell .panel-foot {
+  padding: 9px 14px 12px;
+  border-top: 1px solid #f4f2ed;
+  font-size: 10.5px;
+  color: #adafa9;
+  line-height: 1.55;
+}
+
+/* ---------- 中间：链路 ---------- */
+.app.is-shell .rail {
+  background: #fff;
+  border-right: 1px solid #f1efea;
+}
+
+.app.is-shell .rail-head {
+  padding: 13px 16px 6px;
+}
+
+.app.is-shell .rail-title h2 {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.app.is-shell .rail-sub {
+  margin-top: 5px;
+  padding-left: 0;
+  font-size: 10.5px;
+  color: #adafa9;
+  font-family: var(--mono);
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app.is-shell .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.app.is-shell .dot.is-live {
+  background: #7f9a78;
+  box-shadow: 0 0 0 3px #eef2ea;
+}
+
+.app.is-shell .dot.is-wait {
+  box-shadow: 0 0 0 3px #fbf1e0;
+}
+
+.app.is-shell .dot.is-hold {
+  box-shadow: 0 0 0 3px #f8ece9;
+}
+
+.app.is-shell .pill {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 0;
+  font-size: 10.5px;
+  color: #9b9d97;
+}
+
+.app.is-shell .pill.is-wait {
+  background: none;
+  border: 0;
+  color: #9a6a12;
+}
+
+.app.is-shell .pill.is-hold {
+  background: none;
+  border: 0;
+  color: var(--refer);
+}
+
+.app.is-shell .progress {
+  gap: 2px;
+  padding: 0 16px 10px;
+}
+
+.app.is-shell .progress span {
+  height: 2px;
+  border-radius: 1px;
+  background: #e8e5db;
+}
+
+.app.is-shell .progress span.is-done {
+  background: #b9b3a5;
+}
+
+.app.is-shell .progress span.is-active {
+  background: #1c1d1b;
+}
+
+.app.is-shell .progress span.is-hold {
+  background: #c98a80;
+}
+
+.app.is-shell .chain {
+  padding: 2px 12px 6px 16px;
+}
+
+.app.is-shell .node {
+  padding: 0 0 6px 28px;
+}
+
+.app.is-shell .node::before {
+  left: 9px;
+  top: 20px;
+  width: 1px;
+  background: #eeece5;
+}
+
+.app.is-shell .node.is-done::before,
+.app.is-shell .node.is-wait::before {
+  background: #dcd7ca;
+}
+
+.app.is-shell .node.is-hold::before {
+  background: #e3c6c1;
+}
+
+.app.is-shell .pin {
+  left: 0;
+  top: 1px;
+  width: 19px;
+  height: 19px;
+  border: 1.5px solid #e7e3d9;
+  font-size: 9px;
+  font-weight: 500;
+  color: #adafa9;
+}
+
+.app.is-shell .node.is-done .pin {
+  background: #1c1d1b;
+  border-color: #1c1d1b;
+  color: #f7f5f1;
+}
+
+.app.is-shell .node.is-active .pin {
+  border-color: #1c1d1b;
+  color: #1c1d1b;
+  box-shadow: 0 0 0 3px #f3f1eb;
+}
+
+.app.is-shell .node.is-wait .pin {
+  background: #fdf7ec;
+  border-color: #c08a25;
+  color: #9a6a12;
+  box-shadow: 0 0 0 3px #fbf1e0;
+}
+
+.app.is-shell .node.is-hold .pin {
+  background: #fbefec;
+  border-color: var(--refer);
+  color: var(--refer);
+  box-shadow: 0 0 0 3px #f8ece9;
+}
+
+.app.is-shell .card {
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.app.is-shell .card:hover {
+  background: #fbfaf7;
+  border-color: #f0eee8;
+}
+
+.app.is-shell .node.is-done .card,
+.app.is-shell .node.is-active .card,
+.app.is-shell .node.is-wait .card,
+.app.is-shell .node.is-hold .card,
+.app.is-shell .card.is-open {
+  background: #fff;
+  border-color: #f0eee7;
+  box-shadow: none;
+}
+
+.app.is-shell .node.is-active .card {
+  border-color: #ddd8cb;
+}
+
+/* 扫光动效去掉：卡片一多，整列都在闪 */
+.app.is-shell .node.is-active .card::after {
+  display: none;
+}
+
+.app.is-shell .card-name {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.app.is-shell .card-goal {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: #a9aba5;
+}
+
+.app.is-shell .card-tag {
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid #f0eee8;
+  font-size: 9.5px;
+  line-height: 16px;
+  color: #a3a59f;
+}
+
+.app.is-shell .node.is-active .card-tag {
+  background: #f4f2ed;
+  border-color: #eae6dc;
+  color: #5d6058;
+}
+
+.app.is-shell .node.is-wait .card-tag {
+  background: none;
+  border-color: #f0dcb8;
+  color: #9a6a12;
+}
+
+.app.is-shell .node.is-hold .card-tag {
+  background: none;
+  border-color: #e3c6c1;
+  color: var(--refer);
+}
+
+.app.is-shell .card-body {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid #f4f2ed;
+}
+
+.app.is-shell .said {
+  font-size: 11.5px;
+  gap: 7px;
+}
+
+.app.is-shell .said b {
+  width: 20px;
+  font-size: 9.5px;
+}
+
+.app.is-shell .rail-foot {
+  padding: 9px 16px 11px;
+  border-top: 1px solid #f4f2ed;
+}
+
+.app.is-shell .legend {
+  gap: 3px 9px;
+  font-size: 10px;
+  color: #adafa9;
+}
+
+.app.is-shell .foot-note {
+  margin-top: 5px;
+  font-size: 9.5px;
+  color: #bfc1bb;
+}
+
+/* ---------- 详情 ---------- */
+.app.is-shell .detail {
+  background: #fff;
+}
+
+.app.is-shell .detail-head {
+  height: 46px;
+  padding: 0 18px;
+  border-bottom: 1px solid #f1efea;
+  background: #fff;
+  backdrop-filter: none;
+}
+
+.app.is-shell .tab {
+  padding: 13px 9px 12px;
+  font-size: 12px;
+  color: #a3a59f;
+  border-bottom-width: 2px;
+}
+
+.app.is-shell .tab.is-on {
+  color: var(--ink);
+  border-bottom-color: #1c1d1b;
+}
+
+.app.is-shell .detail-meta {
+  font-size: 10px;
+  color: #b0b2ac;
+  gap: 10px;
+}
+
+.app.is-shell .detail-meta a {
+  color: #6b6e65;
+}
+
+.app.is-shell .detail-body {
+  padding: 18px 20px 32px;
+}
+
+.app.is-shell .section-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #a8aaa4;
+}
+
+.app.is-shell .section-label::after {
+  background: #f4f2ed;
+}
+
+.app.is-shell .tag {
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  line-height: 16px;
+}
+
+.app.is-shell .tag.is-plain {
+  border: 1px solid #f0eee8;
+  background: none;
+  color: #a3a59f;
+}
+
+.app.is-shell .tag.is-refer {
+  border: 1px solid #e3c6c1;
+  background: none;
+  color: var(--refer);
+}
+
+/* 顶栏副标题：页面自己的那句"这页为什么存在"，压到 11px 靠右，窄屏隐藏 */
+.app.is-shell .crumb-note {
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid #eae7df;
+  font-style: normal;
+  font-size: 11px;
+  color: #b6b8b1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1240px) {
+  .app.is-shell .crumb-note {
+    display: none;
+  }
+}
+
+/* 顶栏里的下拉要和按钮同高 */
+.app.is-shell .topbar select.btn {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #e4e1d9;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+/* 壳内统一控件形状：胶囊收成 6px 圆角，主色从绿改成近黑，只留一个主按钮 */
+.app.is-shell .btn {
+  border-radius: 6px;
+}
+
+.app.is-shell .btn-primary {
+  background: #1c1d1b;
+  border-color: #1c1d1b;
+  color: #fff;
+}
+
+.app.is-shell .btn-primary:hover {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.app.is-shell input[type="text"],
+.app.is-shell input[type="search"],
+.app.is-shell input[type="email"],
+.app.is-shell input[type="password"],
+.app.is-shell input[type="number"],
+.app.is-shell select,
+.app.is-shell textarea {
+  border-radius: 6px;
+  border-color: #e4e1d9;
+  background: #fff;
+}
+
+.app.is-shell input:focus,
+.app.is-shell select:focus,
+.app.is-shell textarea:focus {
+  outline: none;
+  border-color: #b9b3a5;
+  box-shadow: 0 0 0 3px #f3f1eb;
+}
+
+/* 规则页这类"主区直接是 main"的页面 */
+.app.is-shell > main {
+  overflow-y: auto;
+}
+
+.app.is-shell .actor-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #9b9d97;
+}
+
+/* 页面自带的引导块：左边的绿线收成中性色，颜色预算只留给异常态 */
+.app.is-shell .intro {
+  border-left-color: #d9d3c6;
+}
+
+/* 有些页面（规则与参数）用 .btn.primary 而不是 .btn-primary，一并收进同一套主色 */
+.app.is-shell button.btn.primary,
+.app.is-shell .btn.primary {
+  background: #1c1d1b;
+  border-color: #1c1d1b;
+  color: #fff;
+}
+
+.app.is-shell button.btn.primary:hover,
+.app.is-shell .btn.primary:hover {
+  background: #000;
+  border-color: #000;
+}
+
+/* 画布页原本把首行写死 56px，跟新壳的 46px 顶栏差一格 */
+.app.is-shell.canvas-mode {
+  grid-template-rows: 46px minmax(0, 1fr);
+}
+
+/* 审核表单里的单选项：外层的 .form-grid label 是网格，嵌套 label 会被挤成一字一行 */
+.app.is-shell .radios {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app.is-shell .radios label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.app.is-shell input[type="radio"],
+.app.is-shell input[type="checkbox"] {
+  accent-color: #1c1d1b;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}

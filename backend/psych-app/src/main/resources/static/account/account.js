@@ -98,8 +98,10 @@
     $("title").textContent = "已经登录。";
     $("lede").textContent = "这台设备与账号都能看到这些记录；退出登录只会退回到这台设备的匿名身份。";
     renderFacts(data.account);
+    placeExport(true);
     $("claimedNote").hidden = true;
     showError("");
+    initExport();
 
     if (state.recoveryCode) {
       showRecovery("只显示这一次 · 抄下来");
@@ -196,6 +198,7 @@
   function renderSignedOut() {
     $("signedIn").hidden = true;
     $("signedOut").hidden = false;
+    placeExport(false);
     // 有设备令牌 = 这台设备可能已经有匿名记录，值得提示"登录后要你确认"
     $("claimNote").hidden = !isDeviceToken(token());
   }
@@ -365,8 +368,214 @@
         : "这台设备上的记录仍能在房间里看到。");
   }
 
+  /* ---------- 导出我的数据 ---------- */
+
+  var exportJsonBtn = $("exportJson");
+  var exportMarkdownBtn = $("exportMarkdown");
+  var previewBtn = $("previewData");
+  var exportHint = $("exportHint");
+  var previewNote = $("previewNote");
+
+  function setExportStatus(text) {
+    exportHint.textContent = text;
+    if (previewNote && !$("previewModal").hidden) previewNote.textContent = text;
+  }
+
+  function setExportEnabled(on) {
+    exportJsonBtn.disabled = !on;
+    exportMarkdownBtn.disabled = !on;
+    if (previewBtn) previewBtn.disabled = !on;
+  }
+
+  function escHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function initExport() {
+    var current = token();
+    if (!current) {
+      setExportEnabled(false);
+      setExportStatus("这台设备还没有记录。先回房间说一轮，再回来导出。");
+      return;
+    }
+    setExportEnabled(false);
+    setExportStatus("正在检查这台设备上有多少记录…");
+    fetch("/api/cbt/sessions", { headers: { "X-User-Token": current, Accept: "application/json" } })
+      .then(function (res) {
+        if (!res.ok) throw new Error("读不到记录（" + res.status + "）");
+        return res.json();
+      })
+      .then(function (rows) {
+        setExportEnabled(true);
+        var n = (rows || []).length;
+        setExportStatus(n > 0
+          ? "将导出 " + n + " 轮记录：账号信息、对话、情绪自评与行动计划。"
+          : "当前没有对话记录，仍可导出账号信息本身。");
+      })
+      .catch(function (err) {
+        setExportEnabled(false);
+        setExportStatus("暂时读不到记录：" + err.message);
+      });
+  }
+
+  function downloadExport(format) {
+    var current = token();
+    if (!current) {
+      setExportStatus("这台设备还没有记录，先回房间说一轮。");
+      return;
+    }
+    var btn = format === "md" ? exportMarkdownBtn : exportJsonBtn;
+    btn.disabled = true;
+    setExportStatus("正在生成导出文件…");
+    var url = "/api/export/me" + (format === "md" ? "?format=md" : "");
+    fetch(url, { headers: { "X-User-Token": current, Accept: "*/*" } })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            throw new Error(data.message || data.error || ("导出失败（" + res.status + "）"));
+          });
+        }
+        var disposition = res.headers.get("Content-Disposition") || "";
+        var match = disposition.match(/filename="?([^";]+)"?/);
+        var name = match ? match[1]
+          : ("socratic-mind-export." + (format === "md" ? "md" : "json"));
+        return res.blob().then(function (blob) { return { blob: blob, name: name }; });
+      })
+      .then(function (file) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(file.blob);
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+        setExportStatus("已开始下载：" + file.name);
+      })
+      .catch(function (err) {
+        setExportStatus("导出失败：" + err.message);
+      })
+      .then(function () { btn.disabled = false; });
+  }
+
+  function pvRow(label, value) {
+    if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) return "";
+    return "<dt>" + escHtml(label) + "</dt><dd>" + escHtml(Array.isArray(value) ? value.join("、") : value) + "</dd>";
+  }
+
+  function renderPreview(data) {
+    var account = data.account;
+    var identity = data.identity || {};
+    var html = '<div class="pv-account">';
+    if (account) {
+      html += "<div>类型：<b>注册账号</b> · 邮箱：<b>" + escHtml(account.email) + "</b></div>";
+      if (account.displayName) html += "<div>称呼：" + escHtml(account.displayName) + "</div>";
+      html += "<div>注册于 " + escHtml(short(account.createdAt))
+        + " · 上次登录 " + escHtml(short(account.lastLoginAt)) + "</div>";
+    } else {
+      html += "<div>类型：<b>本机匿名身份</b> · 设备 <span class=\"mono\">"
+        + escHtml(identity.userId) + "</span></div>";
+    }
+    html += '<div class="pv-count">共 ' + (data.sessions || []).length + " 轮记录</div>";
+    html += "<div>" + escHtml(data.note) + "</div></div>";
+
+    if (!(data.sessions || []).length) {
+      html += '<p class="fine">还没有对话记录。仍可以导出上面这份账号信息。</p>';
+    }
+    (data.sessions || []).forEach(function (s, index) {
+      var title = short(s.createdAt) + " · " + (s.stageLabel || s.stage || "")
+        + (s.targetProblem ? " · " + s.targetProblem : (s.summary ? " · " + s.summary : ""));
+      html += '<details class="pv-session"' + (index === 0 ? " open" : "") + ">";
+      html += "<summary>" + escHtml(title) + "</summary>";
+      html += '<div class="pv-body"><dl>';
+      html += pvRow("现在到哪一步", s.stageLabel || s.stage);
+      html += pvRow("情境", s.targetProblem);
+      html += pvRow("当时想法", s.automaticThought);
+      html += pvRow("候选说法", s.candidateThought);
+      html += pvRow("你确认的说法", s.userConfirmedThought);
+      html += pvRow("行动计划", s.actionPlan);
+      html += pvRow("复盘", s.actionResult);
+      html += pvRow("本轮总结", s.summary);
+      if (s.safetyStatus && s.safetyStatus !== "normal") {
+        html += pvRow("安全状态", s.safetyStatus + (s.safetyReason ? "（" + s.safetyReason + "）" : ""));
+      }
+      if ((s.moodSeries || []).length) html += pvRow("情绪自评", s.moodSeries.join(" → "));
+      if ((s.emotions || []).length) html += pvRow("情绪词", s.emotions);
+      if (s.contactName) {
+        html += pvRow("紧急联系人", s.contactName + (s.contactPhone ? " · " + s.contactPhone : ""));
+      }
+      html += "</dl><div class=\"meta\" style=\"margin-top:10px;color:var(--ink-3);font-size:10.5px\">对话</div>";
+      (s.messages || []).forEach(function (m) {
+        html += '<div class="pv-msg"><div class="meta">'
+          + (m.role === "user" ? "我" : "系统")
+          + " · " + escHtml(short(m.at)) + "</div>"
+          + '<div class="text">' + escHtml(m.content) + "</div></div>";
+      });
+      html += "</div></details>";
+    });
+    $("previewBody").innerHTML = html;
+    $("previewBody").scrollTop = 0;
+  }
+
+  function openPreview() {
+    var current = token();
+    if (!current) {
+      setExportStatus("这台设备还没有记录，先回房间说一轮。");
+      return;
+    }
+    $("previewModal").hidden = false;
+    $("previewBody").innerHTML = '<p class="fine">正在读取这台设备的记录…</p>';
+    $("previewNote").textContent = "预览只在本机渲染，不会上传到任何地方。";
+    fetch("/api/export/me", { headers: { "X-User-Token": current, Accept: "application/json" } })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            throw new Error(data.message || data.error || ("读取失败（" + res.status + "）"));
+          });
+        }
+        return res.json();
+      })
+      .then(function (data) {
+        renderPreview(data);
+        $("previewNote").textContent = "预览只在本机渲染，不会上传到任何地方。";
+      })
+      .catch(function (err) {
+        $("previewBody").innerHTML = '<p class="error" role="alert">' + escHtml("预览失败：" + err.message) + "</p>";
+      });
+  }
+
+  function closePreview() {
+    $("previewModal").hidden = true;
+  }
+
+  function placeExport(inAccount) {
+    var box = $("exportData");
+    if (!box) return;
+    if (inAccount) {
+      var security = document.querySelector(".security");
+      if (security && security.parentNode) security.parentNode.insertBefore(box, security);
+    } else {
+      var out = $("signedOut");
+      if (out && out.parentNode) out.parentNode.insertBefore(box, out.nextSibling);
+    }
+  }
+
+  exportJsonBtn.onclick = function () { downloadExport("json"); };
+  exportMarkdownBtn.onclick = function () { downloadExport("md"); };
+  if (previewBtn) previewBtn.onclick = openPreview;
+  $("previewClose").onclick = closePreview;
+  $("previewModal").addEventListener("click", function (e) {
+    if (e.target === $("previewModal")) closePreview();
+  });
+  $("previewDownloadJson").onclick = function () { downloadExport("json"); };
+  $("previewDownloadMd").onclick = function () { downloadExport("md"); };
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !$("previewModal").hidden) closePreview();
+  });
+
   // 初次渲染：没有令牌就直接是未登录，不必打一次必然 401 的请求
   showDeletedNote();
+  initExport();
   var current = token();
   if (!current) {
     renderSignedOut();
@@ -379,6 +588,7 @@
         renderFacts(data.account);
         $("signedOut").hidden = true;
         $("signedIn").hidden = false;
+        placeExport(true);
       } else {
         renderSignedOut();
       }

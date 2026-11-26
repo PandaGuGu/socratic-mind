@@ -126,10 +126,12 @@ public class CbtFlow {
         String id = Ids.of("cbt");
         CbtSession session = new CbtSession(id, "thread_" + id, userId == null ? "anonymous" : userId);
         session.setAccountId(accountId);
-        String question = ask(CbtStage.PROBLEM_IDENTIFICATION, Map.of());
-        session.setStage(CbtStage.PROBLEM_IDENTIFICATION);
+        // 起点由画布维护；校验已保证它不是终态，这里仍兜底回「情境」。
+        CbtStage start = flow.get().startStage();
+        String question = ask(start, Map.of());
+        session.setStage(start);
         session.setPendingQuestion(question);
-        session.addMessage(CbtMessage.assistant(CbtStage.PROBLEM_IDENTIFICATION, question));
+        session.addMessage(CbtMessage.assistant(start, question));
         return finish(session, null, CbtTurnEvent.START, TurnResult.AWAITING_USER, question,
                 null, CbtTurnEvent.NONE, t0);
     }

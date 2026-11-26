@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   本机起停应用（不依赖 Docker）：H2 文件库 + 桩模型，一条命令常驻后台。

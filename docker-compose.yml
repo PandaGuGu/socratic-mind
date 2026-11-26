@@ -19,6 +19,10 @@ x-app-env: &app-env
   # 内部后台的钥匙；容器档默认不让页面自动填令牌
   PSYCH_INTERNAL_TOKEN: ${PSYCH_INTERNAL_TOKEN:?缺少 PSYCH_INTERNAL_TOKEN：请先跑 scripts/stack.sh（会自动生成 .env）}
   PSYCH_INTERNAL_DEV_HINT: ${PSYCH_INTERNAL_DEV_HINT:-false}
+  # 后台登录页的初始账号：dev-hint 关着，没有这组就没有任何账号能登进去。
+  # 口令只在首次启动写入（摘要落库），之后在后台改。
+  PSYCH_OPERATOR_USER: ${PSYCH_OPERATOR_USER:-admin}
+  PSYCH_OPERATOR_PASSWORD: ${PSYCH_OPERATOR_PASSWORD:-}
   # 模型：默认全桩，零成本。接真实对话模型见 deploy/README.md「接真实模型」
   PSYCH_AI_PROVIDER: ${PSYCH_AI_PROVIDER:-stub}
   PSYCH_AI_CHAT_PROVIDER: ${PSYCH_AI_CHAT_PROVIDER:-stub}

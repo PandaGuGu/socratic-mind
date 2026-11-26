@@ -13,7 +13,7 @@
 
   <groupId>com.socraticmind</groupId>
   <artifactId>psych-assistant</artifactId>
-  <version>0.5.1</version>
+  <version>0.6.0</version>
   <packaging>pom</packaging>
   <name>psych-assistant</name>
   <description>心理知识科普与 CBT 自助系统（模块化单体）</description>

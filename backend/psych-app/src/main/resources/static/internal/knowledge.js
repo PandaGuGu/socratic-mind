@@ -129,7 +129,7 @@ function renderDocs() {
       <div class="session-item doc-item ${S.selectedId === d.id ? "is-on" : ""}"
            data-select="${esc(d.id)}" role="button" tabindex="0">
         <span class="session-top">
-          <span class="session-user">${esc(d.title)}</span>
+          <span class="session-user" title="${esc(d.title)}">${esc(d.title)}</span>
           <span class="status"><i class="${s.dot}"></i>${esc(s.label)}</span>
         </span>
         <span class="session-meta">

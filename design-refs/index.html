@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Socratic Mind · UI 方向参考板</title>
+<style>
+  :root{
+    --bg:#0c0d0e; --bg2:#121415; --line:#242728; --line2:#313536;
+    --ink:#e9e6e1; --ink2:#a8a49d; --ink3:#6f6b65;
+    --warm:#e0a765; --warm2:#c98b4b;
+    --sans:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+    --serif:"Songti SC","Source Han Serif SC","Noto Serif CJK SC","SimSun",serif;
+    --mono:"SF Mono","Cascadia Mono","Consolas",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.7}
+  .wrap{max-width:1000px;margin:0 auto;padding:72px 32px 140px}
+
+  /* header */
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--warm);text-transform:uppercase}
+  h1{font-family:var(--serif);font-size:42px;font-weight:400;line-height:1.25;margin:18px 0 14px;letter-spacing:.01em}
+  .lede{color:var(--ink2);font-size:15px;max-width:60ch}
+  .meta{display:flex;gap:26px;flex-wrap:wrap;margin-top:28px;padding-top:22px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink3);letter-spacing:.06em}
+  .meta b{color:var(--ink2);font-weight:400}
+
+  /* diagnosis */
+  .diag{margin-top:56px;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line)}
+  .diag > div{background:var(--bg);padding:26px 26px 28px}
+  .diag h3{font-size:12px;font-family:var(--mono);letter-spacing:.12em;color:var(--ink3);font-weight:400;margin-bottom:16px}
+  .diag ol{list-style:none;counter-reset:d}
+  .diag li{counter-increment:d;position:relative;padding-left:24px;font-size:13.5px;color:var(--ink2);margin-bottom:11px;line-height:1.65}
+  .diag li::before{content:counter(d);position:absolute;left:0;top:1px;font-family:var(--mono);font-size:10px;color:var(--warm);opacity:.8}
+  .diag li b{color:var(--ink);font-weight:500}
+
+  /* section */
+  section{margin-top:86px;padding-top:34px;border-top:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:8px}
+  .sec-no{font-family:var(--mono);font-size:11px;color:var(--warm);letter-spacing:.14em}
+  h2{font-family:var(--serif);font-size:27px;font-weight:400;letter-spacing:.01em}
+  .sec-sub{color:var(--ink2);font-size:14px;margin-bottom:30px;max-width:64ch}
+  .sec-sub em{font-style:normal;color:var(--ink)}
+
+  /* stage */
+  .stage{position:relative;height:330px;overflow:hidden;border:1px solid var(--line2);border-radius:2px;isolation:isolate}
+  .stage .cap{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:rgba(255,255,255,.32);background:linear-gradient(to top,rgba(0,0,0,.6),transparent);z-index:9}
+
+  /* ---- A 深夜静室 ---- */
+  .a{background:#0b0908}
+  .a-wall{position:absolute;inset:0 0 34% 0;background:
+      radial-gradient(120% 90% at 74% 30%, #1d1a18 0%, #14110f 45%, #0b0908 100%)}
+  .a-floor{position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(to bottom,#171310,#0d0b09)}
+  .a-pool{position:absolute;left:50%;bottom:6%;width:440px;height:170px;transform:translateX(-50%);
+    background:radial-gradient(ellipse at 50% 60%, rgba(224,167,101,.20), rgba(224,167,101,.06) 42%, transparent 70%);
+    filter:blur(6px);transition:opacity .6s ease}
+  .stage:hover .a-pool{opacity:.75}
+  .a-win{position:absolute;right:9%;top:16%;width:132px;height:104px;border:1px solid #2b2c2e;
+    background:linear-gradient(160deg,#141a24,#0a0d13);box-shadow:0 0 44px rgba(140,170,220,.10)}
+  .a-win::before,.a-win::after{content:"";position:absolute;background:#2a2c2e}
+  .a-win::before{left:50%;top:0;bottom:0;width:1px}
+  .a-win::after{top:52%;left:0;right:0;height:1px}
+  .a-moon{position:absolute;right:22px;top:14px;width:16px;height:16px;border-radius:50%;
+    background:#e8e2d2;box-shadow:0 0 26px 6px rgba(232,226,210,.28)}
+  .a-fig{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);width:26px;height:70px;filter:drop-shadow(0 0 14px rgba(224,167,101,.18))}
+  .a-fig i{position:absolute;left:50%;top:0;width:21px;height:21px;margin-left:-10.5px;border-radius:50%;
+    background:radial-gradient(circle at 32% 28%,#4a3b2c,#2b2219 70%);box-shadow:inset -2px -2px 5px rgba(0,0,0,.5)}
+  .a-fig s{position:absolute;left:50%;top:22px;width:27px;height:44px;margin-left:-13.5px;border-radius:13px 13px 6px 6px;
+    background:linear-gradient(100deg,#453629 0%,#2c231a 45%,#1c1611 100%);text-decoration:none;display:block}
+  .a-fig u{position:absolute;left:50%;top:63px;width:52px;height:11px;margin-left:-26px;border-radius:50%;background:rgba(0,0,0,.6);filter:blur(4px)}
+  .a-door{position:absolute;left:7%;bottom:34%;width:78px;height:158px;
+    background:linear-gradient(100deg,#100d0b,#171310 60%,#0d0b09);border-left:1px solid rgba(255,255,255,.035);
+    box-shadow:14px 0 40px rgba(0,0,0,.45)}
+  .a-line{position:absolute;left:calc(50% + 46px);bottom:26%;max-width:250px;font-family:var(--serif);
+    font-size:17px;color:#e5ddd0;letter-spacing:.05em;opacity:.92}
+  .a-line span{display:block;font-size:13px;color:#8d867c;margin-top:9px;letter-spacing:.02em;font-family:var(--sans)}
+  .a-start{position:absolute;left:50%;bottom:7%;transform:translateX(-50%);font-size:11px;letter-spacing:.28em;
+    color:#b09a7c;padding-bottom:4px;border-bottom:1px solid rgba(176,154,124,.35)}
+
+  /* ---- B 窗与纸 ---- */
+  .b{background:#f6f2ea;color:#2a2724}
+  .b::before{content:"";position:absolute;inset:0;opacity:.5;
+    background-image:radial-gradient(rgba(120,105,85,.16) 1px,transparent 1px);background-size:4px 4px}
+  .b-in{position:absolute;inset:0;padding:52px 56px;display:flex;flex-direction:column;justify-content:center}
+  .b-q{font-family:var(--serif);font-size:30px;line-height:1.55;letter-spacing:.02em;max-width:20ch;color:#241f1b}
+  .b-rule{width:44px;height:1px;background:#c8b9a2;margin:22px 0 18px}
+  .b-p{font-size:13.5px;color:#6d6459;max-width:34ch;line-height:1.8}
+  .b-dots{display:flex;gap:9px;margin-top:30px;align-items:center}
+  .b-dots i{width:7px;height:7px;border-radius:50%;border:1px solid #bfae95}
+  .b-dots i.on{background:#241f1b;border-color:#241f1b}
+  .b-dots em{font-style:normal;font-family:var(--mono);font-size:10px;color:#9c8f7e;margin-left:8px;letter-spacing:.1em}
+  .b-go{position:absolute;right:52px;bottom:44px;font-size:12px;letter-spacing:.16em;color:#241f1b;
+    border:1px solid #241f1b;padding:8px 18px;background:transparent}
+
+  /* ---- C 极简剧场 ---- */
+  .c{background:#0a0a0b;display:flex;align-items:center}
+  .c-in{padding:0 64px;width:100%}
+  .c-q{font-family:var(--serif);font-size:40px;line-height:1.5;letter-spacing:.02em;color:#efeae2;max-width:19ch}
+  .c-foot{position:absolute;left:64px;right:64px;bottom:38px;display:flex;justify-content:space-between;align-items:center;
+    border-top:1px solid #1e1f21;padding-top:16px;font-family:var(--mono);font-size:10px;color:#5d5a55;letter-spacing:.14em}
+  .c-prog{display:flex;gap:14px;align-items:center}
+  .c-prog b{width:34px;height:1px;background:#35373a;display:block;position:relative}
+  .c-prog b:first-child{background:#8d7a5c}
+  .c-prog b:first-child::after{content:"";position:absolute;right:-2px;top:-2px;width:5px;height:5px;border-radius:50%;background:#d3a86b}
+
+  /* ---- D 微光空间 ---- */
+  .d{background:radial-gradient(100% 80% at 50% 42%, #1a1c1f 0%, #0d0e10 60%, #08090a 100%)}
+  .d-grid{position:absolute;left:-20%;right:-20%;bottom:-4%;height:46%;transform:perspective(300px) rotateX(62deg);
+    background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);
+    background-size:44px 44px;mask-image:linear-gradient(to top,#000,transparent 85%)}
+  .d-orb{position:absolute;left:50%;top:44%;width:78px;height:78px;margin:-39px 0 0 -39px;border-radius:50%;
+    background:radial-gradient(circle at 34% 30%,#f2dcc0,#c99a63 42%,#7b5433 72%,#3a2718);
+    box-shadow:0 24px 60px rgba(201,154,99,.24), inset -6px -10px 22px rgba(0,0,0,.45);animation:breathe 7s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-5px) scale(1.012)}}
+  .d-card{position:absolute;left:50%;top:calc(44% + 66px);transform:translateX(-50%);width:300px;padding:16px 18px;
+    background:rgba(24,26,29,.72);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(9px);border-radius:3px}
+  .d-card h4{font-family:var(--serif);font-size:15px;font-weight:400;color:#e9e2d6;letter-spacing:.04em}
+  .d-card p{font-size:12px;color:#8b8781;margin-top:7px;line-height:1.7}
+
+  /* refs */
+  .refs{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:26px}
+  .ref{background:var(--bg2);padding:20px 20px 22px;display:flex;flex-direction:column;transition:background .2s}
+  .ref:hover{background:#171a1b}
+  .ref .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .ref a{color:var(--ink);text-decoration:none;font-size:13.5px;font-weight:500;letter-spacing:.01em}
+  .ref a:hover{color:var(--warm)}
+  .ref .s{font-family:var(--mono);font-size:10px;color:var(--ink3);white-space:nowrap}
+  .ref .w{font-size:12.5px;color:var(--ink2);margin-top:9px;line-height:1.65}
+  .ref .why{font-size:11.5px;color:var(--ink3);margin-top:12px;padding-top:10px;border-top:1px solid var(--line);line-height:1.6}
+
+  /* steal list */
+  .steal{margin-top:30px;display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .steal div{border-top:1px solid var(--line2);padding-top:14px}
+  .steal h5{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--warm);font-weight:400;margin-bottom:9px}
+  .steal p{font-size:12.5px;color:var(--ink2);line-height:1.75}
+
+  /* table */
+  .tbl{width:100%;border-collapse:collapse;margin-top:24px;font-size:12.5px}
+  .tbl th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--ink3);font-weight:400;
+    padding:10px 12px;border-bottom:1px solid var(--line2)}
+  .tbl td{padding:11px 12px;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+  .tbl td:first-child{color:var(--ink)}
+  .tbl td.n{font-family:var(--mono);font-size:11px;color:var(--ink3);text-align:right;white-space:nowrap}
+  .tbl a{color:var(--ink);text-decoration:none;border-bottom:1px solid #3a3d3e}
+  .tbl a:hover{color:var(--warm);border-color:var(--warm)}
+
+  /* verdict */
+  .verdict{margin-top:80px;padding:34px 36px;border:1px solid #3a3227;background:linear-gradient(140deg,rgba(224,167,101,.06),transparent 60%)}
+  .verdict h2{font-size:23px}
+  .verdict p{color:var(--ink2);font-size:14px;margin-top:14px;max-width:66ch}
+  .verdict p b{color:var(--ink);font-weight:500}
+  .ask{margin-top:26px;display:flex;gap:10px;flex-wrap:wrap}
+  .ask span{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--warm);border:1px solid #4a3c2a;padding:7px 13px}
+
+  /* table scroll on narrow */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tbl{min-width:560px}
+
+  @media (max-width:860px){
+    .diag,.refs,.steal{grid-template-columns:1fr}
+    h1{font-size:32px}
+    .wrap{padding:48px 20px 100px}
+    .c-q{font-size:26px}
+    .stage{height:300px}
+    .b-in{padding:38px 30px}
+    .b-q{font-size:23px;max-width:100%}
+    .b-p{font-size:12.5px;max-width:100%}
+    .b-go{right:26px;bottom:26px}
+    .c-in{padding:0 28px}
+    .c-q{font-size:24px;max-width:100%}
+    .c-foot{left:28px;right:28px;font-size:9px}
+    .c-prog b{width:18px}
+    .a-pool{width:300px}
+    .a-win{right:6%;width:96px;height:76px;top:12%}
+    .a-line{left:auto;right:16px;bottom:26%;max-width:170px;font-size:14px}
+    .a-line span{font-size:11px}
+    .a-start{bottom:6%;font-size:10px;letter-spacing:.2em}
+    .d-card{width:250px}
+    .verdict{padding:26px 22px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">Design Survey · 2026-11-26</div>
+  <h1>四个方向，以及它们各自偷自哪里</h1>
+  <p class="lede">指向的都是 GitHub 上真实可读源码的项目。每条方向我给了一个用你现有文案渲染的预览——不是效果图，是能点、能改的 HTML。</p>
+  <div class="meta">
+    <span><b>16</b> 个仓库</span>
+    <span>房间 <b>4</b> 个方向</span>
+    <span>控制台 <b>4</b> 个参照</span>
+    <span>星数截至 <b>2026-11</b></span>
+  </div>
+
+  <!-- 诊断 -->
+  <div class="diag">
+    <div>
+      <h3>房间，现在的问题</h3>
+      <ol>
+        <li><b>暗得没有层次。</b>墙、地面、小人都在 #1a1a1a 附近，没有明确光源，结果是"发灰"而不是"入夜"。</li>
+        <li><b>文字在跟场景抢注意力。</b>浅灰字压在渐变上，两行字权重相同，没有主句。</li>
+        <li><b>五颗石子是好主意，但形态太弱。</b>既不像进度也不像动作，看不出"我在第几步"。</li>
+        <li><b>开发信息进了画面。</b>左下角"已就绪"这类字样不该出现在用户的房间里。</li>
+      </ol>
+    </div>
+    <div>
+      <h3>控制台，现在的问题</h3>
+      <ol>
+        <li><b>层级靠边框而不是留白。</b>三栏全用 1px 线切，眼睛要靠线找结构。</li>
+        <li><b>元信息淹没正文。</b>会话 id 满屏且字号与正文同级，该用等宽小字压到 45% 不透明度。</li>
+        <li><b>没有颜色预算。</b>绿黄红紫同时出现，安全暂停这类关键状态反而失去重量。</li>
+        <li><b>密度不匹配。</b>左列很松、右列很密，中间流程卡最好看，却没被当成视觉主体。</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- A -->
+  <section id="dir-a">
+    <div class="sec-head"><span class="sec-no">方向 A</span><h2>深夜静室</h2></div>
+    <p class="sec-sub">保留你现在的房间，只把"暗"做对：一个光源、一层地面、一个可点的东西。<em>改动最小，风险最低。</em></p>
+
+    <div class="stage a">
+      <div class="a-floor"></div>
+      <div class="a-wall"></div>
+      <div class="a-win"><span class="a-moon"></span></div>
+      <div class="a-pool"></div>
+      <div class="a-door"></div>
+      <div class="a-fig"><u></u><s></s><i></i></div>
+      <div class="a-line">它在这儿等你。<span>点它一下，或者直接说想说的。</span></div>
+      <div class="a-start">这 次 开 始</div>
+      <div class="cap">A / 唯一光源 = 唯一焦点 · 悬停时光池变亮</div>
+    </div>
+
+    <div class="refs">
+      <div class="ref">
+        <div class="t"><a href="https://github.com/doublespeakgames/adarkroom" target="_blank">doublespeakgames / adarkroom</a><span class="s">8.4k</span></div>
+        <p class="w">A Dark Room：全屏黑底、一行字、一个按钮。十年了还是"少即是多"最好的样本。</p>
+        <div class="why">可偷：文本一次只出一行，永不滚动；按钮就是全部交互，没有图标。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/remvze/moodist" target="_blank">remvze / moodist</a><span class="s">4.0k</span></div>
+        <p class="w">环境音工具，深色、极静、控件几乎隐形。同类情绪产品里完成度最高的一档。</p>
+        <div class="why">可偷：控件 hover 才出现；分隔线用 6% 白而不是灰；圆角极小。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/meditohq/medito-app" target="_blank">meditohq / medito-app</a><span class="s">1.3k</span></div>
+        <p class="w">免费冥想 App（Flutter），整套配色与字号规范都写在仓库里，可直接抄色板。</p>
+        <div class="why">可偷：低饱和暖灰做背景，正文不用纯白；标题与正文只差 1.4 倍大小。</div>
+      </div>
+    </div>
+
+    <div class="steal">
+      <div><h5>光</h5><p>墙压到 #0b0908，唯一光源是窗与地面光池（radial-gradient + blur）。除光池外的一切退到 4% 亮度，暗才成立。</p></div>
+      <div><h5>字</h5><p>砍掉"标题 + 副标题"结构：只留一句 17px 衬线，第二行 13px、60% 亮度、延迟 400ms 淡入。</p></div>
+      <div><h5>动作</h5><p>房间里只有一个小人可点。其余元素默认 opacity 0，hover 到 0.35，不做任何弹跳动画。</p></div>
+    </div>
+  </section>
+
+  <!-- B -->
+  <section id="dir-b">
+    <div class="sec-head"><span class="sec-no">方向 B</span><h2>窗与纸</h2></div>
+    <p class="sec-sub">把"夜晚的房间"换成"白天的桌面"。CBT 本质是写字，纸比夜更贴近这件事。<em>情绪负担最轻，最适合白天使用。</em></p>
+
+    <div class="stage b">
+      <div class="b-in">
+        <div class="b-q">最近有什么事，一直搁在心里？</div>
+        <div class="b-rule"></div>
+        <div class="b-p">不用组织语言。先说那个时刻，再说你当时脑子里冒出来的那句话。</div>
+        <div class="b-dots"><i class="on"></i><i></i><i></i><i></i><i></i><em>STEP 1 / 5</em></div>
+      </div>
+      <div class="b-go">开 始</div>
+      <div class="cap" style="color:#9c8f7e;background:linear-gradient(to top,rgba(246,242,234,.9),transparent)">B / 纸色打底 · 墨色正文 · 手写感只给当前问题</div>
+    </div>
+
+    <div class="refs">
+      <div class="ref">
+        <div class="t"><a href="https://github.com/Demizo/Daily_You" target="_blank">Demizo / Daily_You</a><span class="s">1.4k</span></div>
+        <p class="w">自托管日记 + 情绪记录，浅色纸感界面，日期与条目排得像一本真的本子。</p>
+        <div class="why">可偷：卡片不用投影，用 1px 内阴影 + 极轻噪点；日期用等宽小字做左栏。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/ncase/loopy" target="_blank">ncase / loopy</a><span class="s">1.8k</span></div>
+        <p class="w">Nicky Case 的系统思考工具。手绘感但不幼稚——证明"温和"不等于"卡通"。</p>
+        <div class="why">可偷：整体只用一个墨色 + 一个强调色；线条粗细固定 2px，不做渐变。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/journiv/journiv-app" target="_blank">journiv / journiv-app</a><span class="s">1.3k</span></div>
+        <p class="w">另一套自托管日记，结构更接近"一问一答"，可以直接对照你的五阶段。</p>
+        <div class="why">可偷：左侧极窄的日期轴 + 右侧单列正文，永不加第三个面板。</div>
+      </div>
+    </div>
+
+    <div class="steal">
+      <div><h5>底</h5><p>#F6F2EA 纸色，正文 #2A2724 墨色，绝不用纯黑纯白。噪点用 4px 点阵，透明度 0.5。</p></div>
+      <div><h5>字</h5><p>手写/衬线只用于"当前问题"，其余标签、按钮全部无衬线，避免整页变成文艺海报。</p></div>
+      <div><h5>进度</h5><p>五颗石子改成五个实心点 + <code>STEP 1/5</code> 等宽小字，进度不再是谜语。</p></div>
+    </div>
+  </section>
+
+  <!-- C -->
+  <section id="dir-c">
+    <div class="sec-head"><span class="sec-no">方向 C</span><h2>极简剧场</h2></div>
+    <p class="sec-sub">干脆不要房间。一屏一句，问题本身就是唯一的界面。<em>最克制，也最考验文案。</em></p>
+
+    <div class="stage c">
+      <div class="c-in">
+        <div class="c-q">最近有什么事，<br>一直搁在心里？</div>
+      </div>
+      <div class="c-foot">
+        <div class="c-prog"><b></b><b></b><b></b><b></b><b></b></div>
+        <div>情 境 · 01 / 05　　　ENTER 继续</div>
+      </div>
+      <div class="cap">C / 一屏一问 · 进度是一条线，不是五颗石子</div>
+    </div>
+
+    <div class="refs">
+      <div class="ref">
+        <div class="t"><a href="https://github.com/shadcn-ui/ui" target="_blank">shadcn-ui / ui</a><span class="s">129k</span></div>
+        <p class="w">不是视觉风格，是"克制"的工程范本：默认无阴影、无渐变、边框即结构。</p>
+        <div class="why">可偷：focus 环与键盘导航的默认值；所有交互态都在 150ms 内完成。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/ibelick/motion-primitives" target="_blank">ibelick / motion-primitives</a><span class="s">7.0k</span></div>
+        <p class="w">一组动画原语，专门解决"页面切换不突兀"这种小事，代码短到能读完。</p>
+        <div class="why">可偷：文字切换用 opacity + 6px 位移 + 400ms，别用打字机效果。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/tremorlabs/tremor" target="_blank">tremorlabs / tremor</a><span class="s">3.7k</span></div>
+        <p class="w">图表与指标的默认样式库——后台那 191ms、201ms 的耗时条可以直接用它。</p>
+        <div class="why">可偷：数字一律 tabular-nums；指标卡只用一个主色 + 灰阶。</div>
+      </div>
+    </div>
+
+    <div class="steal">
+      <div><h5>尺度</h5><p>字号 clamp(28px, 4.2vw, 44px)，行高 1.5，每行最多 22 字。留白至少占屏 60%。</p></div>
+      <div><h5>进度</h5><p>1px 线 + 当前点（5px 圆），比五颗石子信息量更高、视觉噪音更低。</p></div>
+      <div><h5>次要操作</h5><p>重开、导出、设置全部收进左下角一个"…"，11px、字距 0.08em，不参与视觉竞争。</p></div>
+    </div>
+  </section>
+
+  <!-- D -->
+  <section id="dir-d">
+    <div class="sec-head"><span class="sec-no">方向 D</span><h2>微光空间</h2></div>
+    <p class="sec-sub">房间还是房间，但换成真的三维：真实光照、极慢的呼吸式运镜，UI 贴在世界里而不是浮在画面上。<em>最贵，也最容易做砸。</em></p>
+
+    <div class="stage d">
+      <div class="d-grid"></div>
+      <div class="d-orb"></div>
+      <div class="d-card">
+        <h4>它在这儿等你。</h4>
+        <p>点它一下，或者直接说想说的。</p>
+      </div>
+      <div class="cap">D / 相机固定，只做 0.6° 微动 · 光用真实衰减</div>
+    </div>
+
+    <div class="refs">
+      <div class="ref">
+        <div class="t"><a href="https://github.com/pmndrs/uikit" target="_blank">pmndrs / uikit</a><span class="s">3.3k</span></div>
+        <p class="w">把 React 组件渲染进 three.js 世界。想让"弹出的纸片"有真实厚度，就看它。</p>
+        <div class="why">可偷：面板贴在世界坐标里随相机走，而不是 fixed 在屏幕角落。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/pmndrs/react-three-fiber" target="_blank">pmndrs / react-three-fiber</a><span class="s">33.9k</span></div>
+        <p class="w">声明式 three.js，生态里阴影、后期、后处理都是现成的。</p>
+        <div class="why">可偷：只用一盏点光 + 一盏环境光；接触阴影比任何 glow 都更"稳"。</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://github.com/brunosimon/folio-2019" target="_blank">brunosimon / folio-2019</a><span class="s">4.7k</span></div>
+        <p class="w">个人站，但三维场景的组织方式是教科书级的：分组、LOD、按需渲染。</p>
+        <div class="why">可偷：空闲时降到 30fps，交互时才升 60fps，笔记本风扇不会叫。</div>
+      </div>
+    </div>
+
+    <div class="steal">
+      <div><h5>动</h5><p>相机不动，只做 0.6°、7 秒周期的微摆。比任何 hover 特效都更让人觉得"这屋子是活的"。</p></div>
+      <div><h5>光</h5><p>用 PBR 真实衰减，别用 CSS 手绘阴影——手绘阴影一多，画面立刻变廉价。</p></div>
+      <div><h5>代价</h5><p>工作量约为 A 的 3–5 倍，且要处理低端机降级。只在房间是核心卖点时才值得。</p></div>
+    </div>
+  </section>
+
+  <!-- 控制台 -->
+  <section id="console">
+    <div class="sec-head"><span class="sec-no">另一半</span><h2>控制台往哪走</h2></div>
+    <p class="sec-sub">后台不需要氛围，需要<em>可扫读</em>。这四个项目的共同点：留白分层、颜色有预算、数字用等宽。</p>
+
+    <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>仓库</th><th>能借的</th><th class="n">star</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><a href="https://github.com/langfuse/langfuse" target="_blank">langfuse / langfuse</a></td>
+          <td>最接近你的"轨迹"面板：左侧一条竖线串起轮次，耗时右对齐等宽，标签用描边不用填充。</td>
+          <td class="n">37.9k</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/twentyhq/twenty" target="_blank">twentyhq / twenty</a></td>
+          <td>三栏布局的现代解法：左侧窄导航、中间列表、右侧详情，层级全靠留白与字号，不靠边框。</td>
+          <td class="n">61.5k</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/makeplane/plane" target="_blank">makeplane / plane</a></td>
+          <td>高密度列表仍可扫读的做法：行高 36px、状态用 6px 圆点 + 文字，不用彩色胶囊。</td>
+          <td class="n">63.2k</td>
+        </tr>
+        <tr>
+          <td><a href="https://github.com/openstatusHQ/openstatus" target="_blank">openstatusHQ / openstatus</a></td>
+          <td>小团队后台的克制样本：单一主色、几乎没有阴影、图表与文字同色系。</td>
+          <td class="n">9.3k</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="steal">
+      <div><h5>颜色预算</h5><p>一个主色 + 一个警示色，其余全是灰阶。安全暂停用"红点 + 文字"，不要红底整条。</p></div>
+      <div><h5>ID 的处理</h5><p>一律 mono 11px、透明度 45%，只在标题处显示完整 ID，列表里截断到 8 位。</p></div>
+      <div><h5>结构</h5><p>去掉 80% 的竖分隔线，改用 24px 留白 + 一级标题字号差，眼睛会自己分组。</p></div>
+    </div>
+  </section>
+
+  <div class="verdict">
+    <h2>我的判断</h2>
+    <p>房间走 <b>A</b>：你已经有房间、有小人和五颗石子，缺的不是概念而是光与层级，一天能改完，且能立刻截图对比。控制台先做两件事——<b>照 Langfuse 重排轨迹</b>、<b>砍到两个颜色</b>，比换框架收益大得多。</p>
+    <p><b>B</b> 值得做一个分支试色：CBT 用户白天打开的次数远多于夜里，浅色版本可能才是主力；<b>C</b> 是长期的干净答案，但要求文案能一句话立住；<b>D</b> 等房间被验证是卖点之后再投入。</p>
+    <div class="ask">
+      <span>想先看 A 的可交互稿？</span>
+      <span>还是先试 B 的浅色分支？</span>
+      <span>或者先重排控制台？</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

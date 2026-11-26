@@ -1,6 +1,10 @@
 # 统一换行，避免 Windows 与 Linux 协作时整文件 diff
 * text=auto eol=lf
 
+# 批处理必须是 CRLF：cmd.exe 用 LF 结尾时，goto 标签与 if 块会解析错
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
 *.png binary
 *.jpg binary
 *.jpeg binary

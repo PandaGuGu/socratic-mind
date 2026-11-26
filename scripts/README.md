@@ -4,6 +4,8 @@
 
 | 脚本 | 用途 | 何时写 |
 |-|-|-|
+| `../start.cmd` | Windows 双击入口：`start.cmd [up\|ai\|edge\|down\|status\|logs\|psql\|reset]`，只做参数翻译，逻辑在 `stack.ps1` | 已有 |
+| `../stop.cmd` | Windows 双击停止：默认保留数据卷，`stop.cmd purge` 才删 | 已有 |
 | `stack.sh` | 一键起停全部容器：应用 + PostgreSQL，可选 Ollama 向量 | 已有 |
 | `stack.ps1` | 同上，Windows 原生终端（参数 `-Ai` / `-Yes`） | 已有 |
 | `e2e.sh` | 知识链路验收：健康检查 → 问答 → 拒答 → 检索 → 草稿闸门 → 审核后放行 | 已有 |

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   一键起停全部服务（应用 + PostgreSQL/pgvector，可选 Ollama）。Windows 原生终端用这个。
@@ -6,6 +6,7 @@
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up
   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up -Ai
+  powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up -Edge
   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 reset -Yes
 #>
 [CmdletBinding()]
@@ -17,6 +18,9 @@ param(
     # 叠加 docker-compose.ai.yml：容器里跑 Ollama + BGE-M3（首次约 1.2 GB）
     [switch]$Ai,
 
+    # 叠加 docker-compose.edge.yml：Caddy 反代 + TLS + 压缩 + 安全头（对外访问时用）
+    [switch]$Edge,
+
     # reset 时跳过确认
     [switch]$Yes
 )
@@ -27,14 +31,29 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 function Write-Info($message) { Write-Host "· $message" }
 function Stop-With($message) { Write-Host "✗ $message" -ForegroundColor Red; exit 1 }
 
+# 原生命令失败时（docker 没起来、镜像不存在）会把 stderr 变成 ErrorRecord，
+# 在 $ErrorActionPreference='Stop' 下直接抛异常——友好提示就走不到了。
+# 这里临时放宽成 Continue，只取退出码。
+function Invoke-Quiet {
+    param([ScriptBlock]$Action)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Action 2>&1 | Out-Null
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
 function Assert-Docker {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
         Stop-With '没找到 docker 命令：先装 Docker Desktop（https://www.docker.com/products/docker-desktop/）'
     }
-    & docker compose version *> $null
-    if ($LASTEXITCODE -ne 0) { Stop-With 'docker compose 不可用：Docker Desktop 需要开启 Compose v2' }
-    & docker info *> $null
-    if ($LASTEXITCODE -ne 0) {
+    if ((Invoke-Quiet { docker compose version }) -ne 0) {
+        Stop-With 'docker compose 不可用：Docker Desktop 需要开启 Compose v2'
+    }
+    if ((Invoke-Quiet { docker info }) -ne 0) {
         Stop-With 'Docker 守护进程没起来：先打开 Docker Desktop，等鲸鱼图标变成运行中，再重跑本脚本'
     }
 }
@@ -47,14 +66,31 @@ function New-Secret([int]$bytes = 32) {
     return [Convert]::ToBase64String($buffer).TrimEnd('=').Replace('+', '-').Replace('/', '_')
 }
 
+# 给人抄的口令：去掉 0/O、1/l/I（等宽与无衬线字体里几乎分不清，抄错一位就是"用户名或口令不对"）。
+# 其余密钥仍用 New-Secret——那是机器读的，长度比可读性值钱。
+function New-Password([int]$length = 12) {
+    $alphabet = 'abcdefghjkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXY23456789'
+    $limit = 256 - (256 % $alphabet.Length)   # 拒绝采样，避免取模偏置
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $builder = New-Object System.Text.StringBuilder
+    while ($builder.Length -lt $length) {
+        $one = New-Object byte[] 1
+        $rng.GetBytes($one)
+        if ($one[0] -lt $limit) { [void]$builder.Append($alphabet[$one[0] % $alphabet.Length]) }
+    }
+    $rng.Dispose()
+    return $builder.ToString()
+}
+
 function Initialize-EnvFile {
     if (Test-Path .env) { return }
     Write-Info '首次运行：从 .env.example 生成 .env，并写入随机密钥'
     Copy-Item .env.example .env
     $values = @{
-        POSTGRES_PASSWORD    = New-Secret 24
-        PSYCH_USER_SECRET    = New-Secret 32
-        PSYCH_INTERNAL_TOKEN = (New-Secret 32).Substring(0, 24)
+        POSTGRES_PASSWORD      = New-Secret 24
+        PSYCH_USER_SECRET      = New-Secret 32
+        PSYCH_INTERNAL_TOKEN   = (New-Secret 32).Substring(0, 24)
+        PSYCH_OPERATOR_PASSWORD = New-Password 12
     }
     $lines = Get-Content .env -Encoding UTF8
     $out = foreach ($line in $lines) {
@@ -67,6 +103,22 @@ function Initialize-EnvFile {
     # 必须无 BOM：Docker Compose 读带 BOM 的 .env 会把第一个变量名读成 "\ufeffAPP_PORT"
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllLines((Join-Path (Get-Location) '.env'), $out, $utf8NoBom)
+}
+
+# 容器档 dev-hint 是关的，登录页没有任何内置账号；没有这行口令就没人能登进去。
+# 只在缺的时候补：已有口令的人重启多少次都不变，改过的口令也不会被覆盖。
+function Ensure-OperatorCredential {
+    $map = Get-EnvMap
+    if ($map['PSYCH_OPERATOR_PASSWORD']) { return }
+    $user = if ($map['PSYCH_OPERATOR_USER']) { $map['PSYCH_OPERATOR_USER'] } else { 'admin' }
+    $pass = New-Password 12
+    Write-Info '生成后台初始账号口令并写入 .env（首次启动时写进数据库）'
+    $lines = @(Get-Content .env -Encoding UTF8 |
+        Where-Object { $_ -notmatch '^PSYCH_OPERATOR_(USER|PASSWORD)=' })
+    $lines += "PSYCH_OPERATOR_USER=$user"
+    $lines += "PSYCH_OPERATOR_PASSWORD=$pass"
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllLines((Join-Path (Get-Location) '.env'), $lines, $utf8NoBom)
 }
 
 function Get-EnvMap {
@@ -83,7 +135,16 @@ function Get-EnvMap {
 function Invoke-Compose {
     $base = @('-f', 'docker-compose.yml')
     if ($Ai) { $base += @('-f', 'docker-compose.ai.yml') }
-    & docker compose @base @args
+    if ($Edge) { $base += @('-f', 'docker-compose.edge.yml') }
+    # compose 失败时会把原因写 stderr；Stop 模式下那会变成异常，
+    # 用户看不到"退出码 + 日志"两行。放宽成 Continue，让输出照常打出来。
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & docker compose @base @args
+    } finally {
+        $ErrorActionPreference = $previous
+    }
     if ($LASTEXITCODE -ne 0) { Stop-With "docker compose 执行失败（exit $LASTEXITCODE）" }
 }
 
@@ -95,14 +156,14 @@ function Ensure-Images {
     $images = @('pgvector/pgvector:pg16', 'maven:3.9-eclipse-temurin-21', 'eclipse-temurin:21-jre-alpine')
     if ($Ai) { $images += 'ollama/ollama:latest' }
     foreach ($img in $images) {
-        & docker image inspect $img *> $null
-        if ($LASTEXITCODE -eq 0) { continue }
+        if ((Invoke-Quiet { docker image inspect $img }) -eq 0) { continue }
         if (-not $mirror) { continue }
         $src = if ($img -match '^(pgvector|ollama)/') { "$mirror/$img" } else { "$mirror/library/$img" }
         Write-Info "从镜像源拉取 $img"
-        & docker pull $src *> $null
-        if ($LASTEXITCODE -ne 0) { Stop-With "拉取 $src 失败：检查 .env 里的 DOCKER_MIRROR 是否可用" }
-        & docker tag $src $img *> $null
+        if ((Invoke-Quiet { docker pull $src }) -ne 0) {
+            Stop-With "拉取 $src 失败：检查 .env 里的 DOCKER_MIRROR 是否可用"
+        }
+        Invoke-Quiet { docker tag $src $img } | Out-Null
     }
 }
 
@@ -133,6 +194,8 @@ function Show-Summary {
     $envMap = Get-EnvMap
     $port = if ($envMap.APP_PORT) { $envMap.APP_PORT } else { '8099' }
     $dbPort = if ($envMap.POSTGRES_PORT) { $envMap.POSTGRES_PORT } else { '15432' }
+    $opUser = if ($envMap.PSYCH_OPERATOR_USER) { $envMap.PSYCH_OPERATOR_USER } else { 'admin' }
+    $opPass = $envMap.PSYCH_OPERATOR_PASSWORD
     $model = if ($envMap.OLLAMA_EMBED_MODEL) { $envMap.OLLAMA_EMBED_MODEL } else { 'bge-m3' }
     $chat = if ($envMap.OLLAMA_CHAT_MODEL) { $envMap.OLLAMA_CHAT_MODEL } else { 'qwen3-8b' }
     Write-Host ''
@@ -141,6 +204,14 @@ function Show-Summary {
     Write-Host "  内部后台      http://localhost:$port/internal"
     Write-Host "  内部令牌      $($envMap.PSYCH_INTERNAL_TOKEN)"
     Write-Host "  数据库        localhost:$dbPort  ($($envMap.POSTGRES_USER)/$($envMap.POSTGRES_DB))"
+    if ($opPass) {
+        Write-Host "  后台登录      $opUser / $opPass"
+        Write-Host '                （/internal/login；口令只在首次启动写入，后台改过就不再是这一行）'
+    }
+    if ($Edge) {
+        $site = if ($envMap.SITE_ADDRESS) { $envMap.SITE_ADDRESS } else { 'localhost' }
+        Write-Host "  边缘层        https://$site/  （Caddy 自签证书时浏览器会提示一次不安全）"
+    }
     if ($Ai) {
         Write-Host "  模型          对话 $chat + 向量 $model（容器内 Ollama，1024 维）"
     } else {
@@ -154,8 +225,12 @@ switch ($Command) {
     'up' {
         Assert-Docker
         Initialize-EnvFile
+        Ensure-OperatorCredential
         Ensure-Images
         Write-Info '构建并启动容器（首次较慢：要编译并下 PG 镜像）'
+        if ($Ai) {
+            Write-Info '带模型档：首次要拉 bge-m3 约 1.2 GB + qwen3-8b 约 5 GB，CPU 推理单轮可能几十秒'
+        }
         try {
             Invoke-Compose up -d --build
         } catch {

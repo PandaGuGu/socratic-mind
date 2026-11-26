@@ -22,8 +22,12 @@ public record FlowDefinition(
         String updatedBy,
         Map<String, StageSpec> stages,
         Map<String, List<String>> intervention,
-        Map<String, String> messages
+        Map<String, String> messages,
+        String start
 ) {
+
+    /** 默认起点。旧配置没有 start 字段时都用它，行为与之前一致。 */
+    public static final String DEFAULT_START = "PROBLEM_IDENTIFICATION";
 
     public FlowDefinition {
         stages = stages == null
@@ -35,12 +39,20 @@ public record FlowDefinition(
         messages = messages == null
                 ? FlowMessages.defaults()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(messages));
+        start = start == null || start.isBlank() ? DEFAULT_START : start.trim();
     }
 
     /** 兼容旧调用：没有自定义 messages 的构造。 */
     public FlowDefinition(int version, String updatedAt, String updatedBy,
                           Map<String, StageSpec> stages, Map<String, List<String>> intervention) {
-        this(version, updatedAt, updatedBy, stages, intervention, FlowMessages.defaults());
+        this(version, updatedAt, updatedBy, stages, intervention, FlowMessages.defaults(), DEFAULT_START);
+    }
+
+    /** 兼容旧调用：没有自定义起点，默认从「情境」开始。 */
+    public FlowDefinition(int version, String updatedAt, String updatedBy,
+                          Map<String, StageSpec> stages, Map<String, List<String>> intervention,
+                          Map<String, String> messages) {
+        this(version, updatedAt, updatedBy, stages, intervention, messages, DEFAULT_START);
     }
 
     /** 取一句系统话术；缺失时退回内置默认，避免"配置漏了一个键就没有话" 。 */
@@ -52,6 +64,15 @@ public record FlowDefinition(
 
     public StageSpec stage(CbtStage stage) {
         return stages.get(stage.name());
+    }
+
+    /** 解析当前起点；配置损坏时退回「情境」，不让一轮对话起不来。 */
+    public CbtStage startStage() {
+        try {
+            return CbtStage.valueOf(start);
+        } catch (RuntimeException e) {
+            return CbtStage.PROBLEM_IDENTIFICATION;
+        }
     }
 
     public String textOf(CbtStage stage) {

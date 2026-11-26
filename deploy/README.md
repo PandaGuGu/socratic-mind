@@ -17,8 +17,11 @@ updated: 2026-11-20
 | `Dockerfile` | 多阶段构建：Maven 编译 → JRE 运行，非 root 用户，自带健康检查 |
 | `docker-compose.yml` | 应用 + PostgreSQL/pgvector |
 | `docker-compose.ai.yml` | 叠加层：加 Ollama 与 BGE-M3 拉取任务，把向量换成真模型 |
+| `docker-compose.edge.yml` | 叠加层：加 Caddy 反向代理，做 TLS / 压缩 / 安全头 |
+| `Caddyfile` | 边缘层的站点配置（在 `deploy/` 下，被叠加层挂进容器） |
 | `.env.example` | 变量模板，首次启动自动复制成 `.env` 并填随机密钥 |
-| `scripts/stack.sh` / `stack.ps1` | 一键起停脚本 |
+| `start.cmd` / `stop.cmd` | Windows 双击入口：起 / 停，出错不闪退 |
+| `scripts/stack.sh` / `stack.ps1` | 一键起停脚本（真正的逻辑都在这里） |
 
 ```bash
 bash scripts/stack.sh up            # 起；首次会构建镜像，几分钟
@@ -30,8 +33,68 @@ bash scripts/stack.sh down          # 停，保留数据卷
 bash scripts/stack.sh reset         # 停并删卷（会二次确认）
 ```
 
-Windows 原生终端用 `powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up`，参数换成 `-Ai` / `-Yes`。
+Windows 上**双击根目录的 `start.cmd`** 即可；命令行等价写法是
+`powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up`（参数换成 `-Ai` / `-Yes`），
+或 `start.cmd [up|ai|down|status|logs|psql|reset]`。
 脚本只做四件事：检查 Docker 是否真的在跑、生成 `.env`、`docker compose up -d --build`、轮询 `/actuator/health` 直到就绪。
+
+### 哪些进了容器，哪些没有
+
+| 依赖 | 容器 | 说明 |
+|-|-|-|
+| 应用（Spring Boot + 静态前端） | 是 | 前端不是独立服务，打在 jar 的 `static/` 里 |
+| PostgreSQL 16 + pgvector | 是 | 唯一的外部存储；限流、会话、轨迹、知识库都在它里面 |
+| Ollama（对话 + 向量） | 可选 | 模型层，`--ai` 才起；默认桩，不起也能跑完两个流程 |
+| Caddy（反代 / TLS） | 可选 | `--edge` 才起；本机开发不需要，对外暴露时才加 |
+| 语音转写 ASR | 否 | 走 `psych.asr.command` 这个进程钩子，宿主侧用 Windows 语音包 |
+| 评测 / 压测 / 语料导入 | 否 | 一次性任务，用宿主机 Python 跑，不是常驻服务 |
+
+### 为什么没有 Redis、消息队列
+
+不是漏了，是刻意的：
+
+- **限流**用数据库表的原子 upsert（`JdbcRateLimiter`），代价是固定窗口、边界可能瞬时放行两倍配额，
+  换来的是"每个请求只碰一行、不引入第二个存储"。要精确滑动窗口才需要 Redis——那是另一个取舍，不是缺陷。
+- **没有消息队列**：流程是同步状态机，一个会话的推进在同一进程里走完，没有扇出、没有跨进程解耦的需求。
+  加 Kafka/RabbitMQ 只会多一个要监控、要重启、可能堆积的组件，而代码里没有任何地方会去消费它。
+- **反向代理**只在对外时才有意义（TLS、压缩、安全头、访问日志）。本机 `localhost:8099` 直连更快，
+  所以它是叠加层而不是默认。
+
+换句话说：默认档两个容器就是完整可用的系统，加一层是加了新能力，不是补上缺失的零件。
+
+### 边缘层（可选）
+
+要 `https://`、域名、或者想在应用前面统一加安全头时：
+
+```bash
+start.cmd edge                     # Windows
+bash scripts/stack.sh up --edge    # 其他平台
+powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up -Edge   # Windows 命令行
+```
+
+- 默认 `SITE_ADDRESS=localhost`，Caddy 出**自签内部证书**，浏览器会提示一次不安全——本机/内网够用。
+- 换成真域名（`SITE_ADDRESS=demo.example.com`，写进 `.env`）且 80/443 能被外网访问时，Caddy 会自动申请 Let's Encrypt。
+- 端口被占时改 `.env` 的 `EDGE_HTTP_PORT` / `EDGE_HTTPS_PORT`。
+- 应用的 `8099` 仍然发布着，方便绕过代理直连对比；对外只开 80/443。
+- 访问日志在 `caddy_data` 卷的 `/data/access.log`（按 10 MiB 切，留 5 份）。
+
+
+### 后台登录
+
+容器档默认 `PSYCH_INTERNAL_DEV_HINT=false`，登录页**没有内置账号**——所以首次启动会按
+`.env` 里的 `PSYCH_OPERATOR_USER` / `PSYCH_OPERATOR_PASSWORD` 播种一个初始账号：
+
+| 项 | 默认 | 说明 |
+|-|-|-|
+| 用户名 | `admin` | `.env` 的 `PSYCH_OPERATOR_USER` |
+| 口令 | 首次运行随机生成 | `.env` 的 `PSYCH_OPERATOR_PASSWORD`；`stack.sh` / `stack.ps1` 结束时也会打印 |
+
+口令是 12 位，字符集刻意去掉了 `0 O 1 l I`——这几个在等宽和无衬线字体里几乎分不清，
+抄错一位就只看到"用户名或口令不对"。要换口令就改 `.env` 里那一行并 `reset` 清库，
+下次启动会按新值重新播种。
+
+只在库里没有这个用户名时写入一次（摘要落库），之后在后台改口令不会被重启覆盖。
+想重来一遍就 `reset` 清库，下次启动会按 `.env` 重新播种。
 
 ### 端口与数据
 
@@ -98,6 +161,9 @@ cp .env.example .env
 docker compose up -d
 docker compose exec postgres psql -U psych -d psych -c "SELECT extversion FROM pg_extension WHERE extname='vector';"
 ```
+
+这一档只起数据库，容器名是 `psych-postgres-dev`、端口 `5432`；根目录那套全容器是
+`psych-postgres` + `15432`。名字和端口都错开，两档可以同时存在，切档时不会互相顶掉。
 
 然后本机启动应用并指向它：
 

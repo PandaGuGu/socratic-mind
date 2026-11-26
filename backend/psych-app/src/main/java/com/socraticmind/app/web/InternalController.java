@@ -9,6 +9,7 @@ import com.socraticmind.agent.cbt.flow.FlowParamsStore;
 import com.socraticmind.agent.cbt.flow.FlowValidator;
 import com.socraticmind.agent.cbt.flow.StageSpec;
 import com.socraticmind.agent.cbt.safety.SafetyCase;
+import com.socraticmind.agent.cbt.safety.SafetyRule;
 import com.socraticmind.agent.cbt.safety.SafetyRules;
 import com.socraticmind.agent.cbt.safety.SafetyRulesStore;
 import com.socraticmind.agent.cbt.safety.SafetyRulesValidator;
@@ -23,11 +24,14 @@ import com.socraticmind.common.guard.GuardRules;
 import com.socraticmind.common.guard.GuardViolation;
 import com.socraticmind.common.guard.OutputPolicy;
 import com.socraticmind.common.guard.ProfileRule;
+import com.socraticmind.common.model.Operator;
 import com.socraticmind.common.port.AccountStore;
 import com.socraticmind.common.port.EmbeddingPort;
 import com.socraticmind.infrastructure.guard.GuardAuditEntry;
 import com.socraticmind.infrastructure.guard.GuardAuditLog;
+import com.socraticmind.infrastructure.ai.AiConfigStore;
 import com.socraticmind.infrastructure.ai.AiProperties;
+import com.socraticmind.infrastructure.ai.AiRuntimeConfig;
 import com.socraticmind.infrastructure.ai.ModelCallLog;
 import com.socraticmind.infrastructure.guard.OutputPolicyStore;
 import com.socraticmind.session.CbtMessage;
@@ -38,10 +42,12 @@ import com.socraticmind.session.CbtTurnEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,6 +59,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * 内部只读控制台接口。它不是产品功能，读者是作者与评审：
@@ -82,9 +90,9 @@ public class InternalController {
     private final ModelCallLog modelLog;
     private final EmbeddingPort embeddingPort;
     private final AiProperties aiProperties;
-    private final String aiProvider;
-    private final String chatModel;
+    private final AiConfigStore aiConfigStore;
     private final boolean authEnabled;
+    private final boolean orgEnabled;
 
     public InternalController(CbtFlow flow,
                               CbtSessionStore store,
@@ -99,9 +107,9 @@ public class InternalController {
                               ModelCallLog modelLog,
                               EmbeddingPort embeddingPort,
                               AiProperties aiProperties,
-                              @Value("${psych.ai.provider:stub}") String aiProvider,
-                              @Value("${psych.ai.chat-model:}") String chatModel,
-                              @Value("${psych.internal.token:}") String internalToken) {
+                              AiConfigStore aiConfigStore,
+                              @Value("${psych.internal.token:}") String internalToken,
+                              @Value("${psych.org.enabled:false}") boolean orgEnabled) {
         this.flow = flow;
         this.store = store;
         this.policyStore = policyStore;
@@ -115,10 +123,10 @@ public class InternalController {
         this.modelLog = modelLog;
         this.embeddingPort = embeddingPort;
         this.aiProperties = aiProperties;
-        this.aiProvider = aiProvider;
-        this.chatModel = chatModel;
+        this.aiConfigStore = aiConfigStore;
         // 开启内部接口时令牌是必填的（见 InternalAuthInterceptor），这里如实反映"有没有钥匙"
         this.authEnabled = internalToken != null && !internalToken.isBlank();
+        this.orgEnabled = orgEnabled;
     }
 
     public record RuntimeView(
@@ -207,8 +215,9 @@ public class InternalController {
         int guardRejections = (int) guardAudit.recent(200).stream()
                 .filter(e -> GuardAuditEntry.REJECTED.equals(e.outcome()))
                 .count();
-        return new RuntimeView(storeName, durable, aiProvider, chatModel,
-                "stub".equalsIgnoreCase(aiProvider), authEnabled,
+        AiRuntimeConfig ai = aiConfigStore.current();
+        return new RuntimeView(storeName, durable, ai.mode(), ai.chatModel(),
+                AiRuntimeConfig.STUB.equals(ai.mode()), authEnabled,
                 all.size(), holds, review, awaiting, events,
                 policyStore.get().version(), guardRejections, flowParams.get().version(),
                 stageCounts, Instant.now());
@@ -321,42 +330,79 @@ public class InternalController {
         int dimension = embeddingPort.dimension();
         if (dimension <= 0) dimension = aiProperties.getEmbeddingDimension();
         String costNote = "本地 Ollama 按 0 元计；token 为估算（字符数 / 1.7），不是上游账单。";
-        return new AiView(aiProvider, chatModel,
+        AiRuntimeConfig ai = aiConfigStore.current();
+        return new AiView(ai.mode(), ai.chatModel(),
                 aiProperties.getEmbeddingModel() == null || aiProperties.getEmbeddingModel().isBlank()
                         ? "hash-stub" : aiProperties.getEmbeddingModel(),
-                dimension, "stub".equalsIgnoreCase(aiProvider), new AiSummaryView(
+                dimension, AiRuntimeConfig.STUB.equals(ai.mode()), new AiSummaryView(
                 s.calls(), s.errors(), s.p50ms(), s.p95ms(), s.avgMs(), s.estTokens()), recent, costNote);
     }
 
     /* ---------------- 临床审核记录：谁看过哪一版 ---------------- */
 
-    public record ReviewRow(String kind, String label, int currentVersion, int items,
-                            String state, ReviewStore.Review review) {
+    public record ReviewRow(String kind, String target, String label, int currentVersion, int items,
+                            String state, ReviewStore.Review review, int historyCount,
+                            List<String> changes) {
     }
 
-    public record ReviewsView(String path, java.util.List<ReviewRow> rows) {
+    public record ReviewsView(String path, List<ReviewRow> rows, int pending, int pendingSessions) {
     }
 
-    public record ReviewSaveRequest(String kind, String status, String reviewer, String note) {
+    public record ReviewSaveRequest(String kind, String target, String status, String reviewer,
+                                    String note, List<String> checks, Boolean reported) {
+    }
+
+    /** 会话心理复核列表：只列已经触发安全关注/暂停的会话，不是全部会话。 */
+    public record SessionReviewRow(String sessionId, String userId, String stage, String safetyStatus,
+                                   String safetyReason, String targetProblem, int turns, Instant updatedAt,
+                                   Integer moodLast, String contactName, String contactPhone,
+                                   Instant safetyAckAt, ReviewStore.Review review, int historyCount) {
     }
 
     /**
-     * 审核状态。注意它记录的是"这一版被谁看过"，不是"这个模块被审核过"：
-     * 规则或词库改版后，旧记录自动变成 stale，页面会要求重审。
-     * 系统不能替临床医生签字，但可以保证没签过这件事始终显式。
+     * 审核状态：当前版本 + 最近一次签字 + 与上次审核版本的差异。
+     * 未审核/版本已变时状态会显式返回，页面不隐藏这件事。
      */
     @GetMapping("/reviews")
     public ReviewsView reviews() {
-        var safety = safetyRules.get();
-        var lexicon = lexiconStore.view();
-        java.util.List<ReviewRow> rows = new ArrayList<>();
-        rows.add(reviewRow("safety", "安全规则", safety.version(), safety.rules().size() + safety.cases().size()));
-        rows.add(reviewRow("lexicon", "敏感词库", lexicon.version(), lexicon.count()));
-        return new ReviewsView(reviews.path().toString(), rows);
+        List<ReviewRow> rows = new ArrayList<>();
+        SafetyRules safety = safetyRules.get();
+        rows.add(reviewRow("safety", "", "安全规则", safety.version(),
+                safety.rules().size() + (safety.cases() == null ? 0 : safety.cases().size())));
+        LexiconStore.View lex = lexiconStore.view();
+        rows.add(reviewRow("lexicon", "", "敏感词库", lex.version(), lex.count()));
+        FlowParamsStore.CanvasMeta canvas = flowParams.activeCanvas();
+        FlowDefinition flow = flowParams.published(canvas.id());
+        rows.add(reviewRow("flow", canvas.id(), "流程画布与系统话术", flow.version(),
+                flow.stages().size() + flow.messages().size()));
+        OutputPolicy policy = policyStore.get();
+        rows.add(reviewRow("policy", "", "输出策略", policy.version(), policy.profiles().size()));
+        RuntimeLimits limitsDef = limits.get();
+        rows.add(reviewRow("limits", "", "运行参数", limitsDef.version(), 3));
+        int pending = (int) rows.stream().filter(r -> !"approved".equals(r.state())).count();
+        return new ReviewsView(reviews.path().toString(), rows, pending, pendingSessionCount());
     }
 
-    private ReviewRow reviewRow(String kind, String label, int version, int items) {
-        ReviewStore.Review review = reviews.find(kind);
+    @GetMapping("/reviews/sessions")
+    public List<SessionReviewRow> sessionReviews() {
+        List<SessionReviewRow> out = new ArrayList<>();
+        for (CbtSession s : flaggedSessions()) {
+            out.add(new SessionReviewRow(s.id(), s.userId(), s.stage().name(), s.safetyStatus(),
+                    s.safetyReason(), s.targetProblem(), s.trace().size(), s.updatedAt(),
+                    lastMood(s), s.contactName(), s.contactPhone(), s.safetyAckAt(),
+                    reviews.find("session", s.id()), reviews.count("session", s.id())));
+        }
+        return out;
+    }
+
+    /** 全部签字历史，供审核页导出；新→旧。 */
+    @GetMapping("/reviews/history")
+    public List<ReviewStore.Review> reviewHistory() {
+        return reviews.historyAll();
+    }
+
+    private ReviewRow reviewRow(String kind, String target, String label, int version, int items) {
+        ReviewStore.Review review = reviews.find(kind, target);
         String state;
         if (review == null) {
             state = "unreviewed";
@@ -365,23 +411,247 @@ public class InternalController {
         } else {
             state = review.status();
         }
-        return new ReviewRow(kind, label, version, items, state, review);
+        List<String> changes = review == null || review.version() == version
+                ? List.of() : diff(kind, target, review.version(), version);
+        return new ReviewRow(kind, target, label, version, items, state, review,
+                reviews.count(kind, target), changes);
     }
 
-    /** 保存一次审核。版本号由服务端取当前生效版本，不接受客户端指定。 */
+    /**
+     * 登记一次审核。版本号由服务端取当前生效版本；组织模式下署名来自登录身份，
+     * 请求体里的 reviewer 只在没有组织域时兜底。
+     */
     @PutMapping("/reviews")
     public ReviewsView saveReview(@RequestBody ReviewSaveRequest request,
+                                  @RequestAttribute(name = "sm.operator", required = false) Operator operator,
                                   @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
         if (request == null) throw new IllegalArgumentException("审核内容不能为空");
-        int version = switch (request.kind() == null ? "" : request.kind()) {
-            case "safety" -> safetyRules.get().version();
-            case "lexicon" -> lexiconStore.view().version();
-            default -> throw new IllegalArgumentException("kind 只能是 safety / lexicon");
-        };
-        // 版本 0 表示"随包基线、尚未落盘"，也是可以审核的对象；审核记录会跟着版本一起走。
-        reviews.save(request.kind(), version, request.status(),
-                firstNonBlank(request.reviewer(), actor), request.note());
+        String kind = request.kind() == null ? "" : request.kind();
+        String target = request.target() == null ? "" : request.target().trim();
+        int version;
+        switch (kind) {
+            case "safety" -> {
+                version = safetyRules.get().version();
+                target = "";
+            }
+            case "lexicon" -> {
+                version = lexiconStore.view().version();
+                target = "";
+            }
+            case "policy" -> {
+                version = policyStore.get().version();
+                target = "";
+            }
+            case "limits" -> {
+                version = limits.get().version();
+                target = "";
+            }
+            case "flow" -> {
+                FlowParamsStore.CanvasMeta canvas = flowParams.activeCanvas();
+                target = canvas.id();
+                version = flowParams.published(target).version();
+            }
+            case "session" -> version = flow.require(target).trace().size();
+            default -> throw new IllegalArgumentException(
+                    "kind 只能是 safety / lexicon / flow / policy / limits / session");
+        }
+        if (orgEnabled && operator == null) {
+            throw new IllegalArgumentException("组织模式下的审核署名必须来自登录身份，请先登录");
+        }
+        String reviewer = operator == null ? firstNonBlank(request.reviewer(), actor) : operator.display();
+        String operatorId = operator == null ? "" : operator.id();
+        reviews.save(kind, target, version, request.status(), reviewer, operatorId,
+                request.note(), request.checks(), Boolean.TRUE.equals(request.reported()));
         return reviews();
+    }
+
+    private int pendingSessionCount() {
+        int pending = 0;
+        for (CbtSession s : flaggedSessions()) {
+            ReviewStore.Review r = reviews.find("session", s.id());
+            if (r == null || r.version() != s.trace().size()) pending++;
+        }
+        return pending;
+    }
+
+    private List<CbtSession> flaggedSessions() {
+        List<CbtSession> out = new ArrayList<>();
+        for (CbtSession s : store.findByUser(null)) {
+            boolean review = "review".equals(s.safetyStatus());
+            boolean watch = "watch".equals(s.safetyStatus());
+            boolean hold = s.stage() == CbtStage.SAFETY_HOLD;
+            if (review || hold || watch) out.add(s);
+        }
+        out.sort((a, b) -> b.updatedAt().compareTo(a.updatedAt()));
+        return out;
+    }
+
+    private static Integer lastMood(CbtSession s) {
+        return s.moodPoints().isEmpty() ? null : s.moodPoints().get(s.moodPoints().size() - 1).score();
+    }
+
+    /* ---------------- 版本差异（只做摘要，不返回整份配置） ---------------- */
+
+    private List<String> diff(String kind, String target, int fromVersion, int toVersion) {
+        try {
+            return switch (kind) {
+                case "safety" -> diffSafety(fromVersion);
+                case "lexicon" -> diffLexicon(fromVersion);
+                case "flow" -> diffFlow(target, fromVersion);
+                case "policy" -> diffPolicy(fromVersion);
+                case "limits" -> diffLimits(fromVersion);
+                default -> List.of();
+            };
+        } catch (RuntimeException e) {
+            return List.of("差异读取失败：" + e.getMessage());
+        }
+    }
+
+    private List<String> diffSafety(int fromVersion) {
+        SafetyRules old = safetyRules.snapshot(fromVersion);
+        if (old == null) return missingSnapshot("safety", fromVersion);
+        SafetyRules cur = safetyRules.get();
+        Map<String, SafetyRule> before = new LinkedHashMap<>();
+        for (SafetyRule r : old.rules()) before.put(r.id(), r);
+        Map<String, SafetyRule> after = new LinkedHashMap<>();
+        for (SafetyRule r : cur.rules()) after.put(r.id(), r);
+        List<String> out = new ArrayList<>();
+        List<String> added = new ArrayList<>();
+        List<String> removed = new ArrayList<>();
+        List<String> changed = new ArrayList<>();
+        for (String id : unionKeys(before, after)) {
+            SafetyRule a = before.get(id);
+            SafetyRule b = after.get(id);
+            if (a == null) added.add(id);
+            else if (b == null) removed.add(id);
+            else if (!Objects.equals(a.pattern(), b.pattern())
+                    || !Objects.equals(a.level(), b.level())
+                    || a.on() != b.on()
+                    || !Objects.equals(a.note(), b.note())) changed.add(id);
+        }
+        if (!added.isEmpty()) out.add("新增规则：" + joinShort(added));
+        if (!removed.isEmpty()) out.add("删除规则：" + joinShort(removed));
+        if (!changed.isEmpty()) out.add("修改规则：" + joinShort(changed));
+        List<SafetyCase> oc = old.cases() == null ? List.of() : old.cases();
+        List<SafetyCase> cc = cur.cases() == null ? List.of() : cur.cases();
+        Set<String> ocText = new java.util.LinkedHashSet<>(oc.stream().map(SafetyCase::text).toList());
+        Set<String> ccText = new java.util.LinkedHashSet<>(cc.stream().map(SafetyCase::text).toList());
+        int caseAdded = (int) ccText.stream().filter(t -> !ocText.contains(t)).count();
+        int caseRemoved = (int) ocText.stream().filter(t -> !ccText.contains(t)).count();
+        if (caseAdded > 0) out.add("新增用例 " + caseAdded + " 条");
+        if (caseRemoved > 0) out.add("删除用例 " + caseRemoved + " 条");
+        if (out.isEmpty()) out.add("规则内容与已审核版本一致（只有版本号变化）");
+        return out;
+    }
+
+    private List<String> diffLexicon(int fromVersion) {
+        LexiconStore.Snapshot old = lexiconStore.snapshot(fromVersion);
+        if (old == null) return missingSnapshot("lexicon", fromVersion);
+        Set<String> before = new java.util.LinkedHashSet<>();
+        for (LexiconStore.Row r : old.entries()) before.add(rowKey(r));
+        Set<String> after = new java.util.LinkedHashSet<>();
+        for (LexiconStore.Row r : lexiconStore.view().entries()) after.add(rowKey(r));
+        List<String> added = after.stream().filter(x -> !before.contains(x)).toList();
+        List<String> removed = before.stream().filter(x -> !after.contains(x)).toList();
+        List<String> out = new ArrayList<>();
+        if (!added.isEmpty()) out.add("新增词条：" + joinShort(added));
+        if (!removed.isEmpty()) out.add("删除词条：" + joinShort(removed));
+        if (out.isEmpty()) out.add("词条集合与已审核版本一致（可能只有顺序变化）");
+        return out;
+    }
+
+    private List<String> diffFlow(String canvasId, int fromVersion) {
+        FlowDefinition old = flowParams.snapshot(canvasId, fromVersion);
+        if (old == null) return missingSnapshot("flow", fromVersion);
+        FlowDefinition cur = flowParams.published(canvasId);
+        List<String> out = new ArrayList<>();
+        if (!Objects.equals(old.start(), cur.start())) {
+            out.add("起点：" + old.start() + " → " + cur.start());
+        }
+        List<String> added = new ArrayList<>();
+        List<String> removed = new ArrayList<>();
+        List<String> changed = new ArrayList<>();
+        for (String id : unionKeys(old.stages(), cur.stages())) {
+            StageSpec a = old.stages().get(id);
+            StageSpec b = cur.stages().get(id);
+            if (a == null) added.add(id);
+            else if (b == null) removed.add(id);
+            else if (!Objects.equals(a.text(), b.text())
+                    || !Objects.equals(a.next(), b.next())
+                    || !Objects.equals(a.model(), b.model())
+                    || !Objects.equals(a.branches(), b.branches())) changed.add(id);
+        }
+        if (!added.isEmpty()) out.add("新增节点：" + joinShort(added));
+        if (!removed.isEmpty()) out.add("删除节点：" + joinShort(removed));
+        if (!changed.isEmpty()) out.add("修改节点：" + joinShort(changed));
+        List<String> msgChanged = new ArrayList<>();
+        Set<String> msgKeys = new java.util.LinkedHashSet<>(old.messages().keySet());
+        msgKeys.addAll(cur.messages().keySet());
+        for (String key : msgKeys) {
+            if (!Objects.equals(old.messages().get(key), cur.messages().get(key))) msgChanged.add(key);
+        }
+        if (!msgChanged.isEmpty()) out.add("修改系统话术：" + joinShort(msgChanged));
+        if (out.isEmpty()) out.add("画布内容与已审核版本一致");
+        return out;
+    }
+
+    private List<String> diffPolicy(int fromVersion) {
+        OutputPolicy old = policyStore.snapshot(fromVersion);
+        if (old == null) return missingSnapshot("policy", fromVersion);
+        OutputPolicy cur = policyStore.get();
+        List<String> added = new ArrayList<>();
+        List<String> removed = new ArrayList<>();
+        List<String> changed = new ArrayList<>();
+        for (String id : unionKeys(old.profiles(), cur.profiles())) {
+            ProfileRule a = old.profiles().get(id);
+            ProfileRule b = cur.profiles().get(id);
+            if (a == null) added.add(id);
+            else if (b == null) removed.add(id);
+            else if (!a.equals(b)) changed.add(id);
+        }
+        List<String> out = new ArrayList<>();
+        if (!added.isEmpty()) out.add("新增档位：" + joinShort(added));
+        if (!removed.isEmpty()) out.add("删除档位：" + joinShort(removed));
+        if (!changed.isEmpty()) out.add("修改档位：" + joinShort(changed));
+        if (out.isEmpty()) out.add("输出策略与已审核版本一致");
+        return out;
+    }
+
+    private List<String> diffLimits(int fromVersion) {
+        RuntimeLimits old = limits.snapshot(fromVersion);
+        if (old == null) return missingSnapshot("limits", fromVersion);
+        RuntimeLimits cur = limits.get();
+        List<String> out = new ArrayList<>();
+        if (old.maxMessageChars() != cur.maxMessageChars()) {
+            out.add("单条消息上限：" + old.maxMessageChars() + " → " + cur.maxMessageChars());
+        }
+        if (old.messagesPerMinute() != cur.messagesPerMinute()) {
+            out.add("每分钟消息数：" + old.messagesPerMinute() + " → " + cur.messagesPerMinute());
+        }
+        if (old.newSessionsPerHour() != cur.newSessionsPerHour()) {
+            out.add("每小时新会话：" + old.newSessionsPerHour() + " → " + cur.newSessionsPerHour());
+        }
+        if (out.isEmpty()) out.add("运行参数与已审核版本一致");
+        return out;
+    }
+
+    private static List<String> missingSnapshot(String kind, int version) {
+        return List.of("找不到 " + kind + " v" + version + " 的快照，只能按当前版本重新审");
+    }
+
+    private static String rowKey(LexiconStore.Row r) {
+        return r.scope() + "|" + r.category() + "|" + r.action() + "|" + r.word();
+    }
+
+    private static Set<String> unionKeys(Map<String, ?> a, Map<String, ?> b) {
+        Set<String> out = new java.util.LinkedHashSet<>(a.keySet());
+        out.addAll(b.keySet());
+        return out;
+    }
+
+    private static String joinShort(List<String> values) {
+        List<String> limited = values.size() > 6 ? values.subList(0, 6) : values;
+        return String.join("、", limited) + (values.size() > 6 ? " 等 " + values.size() + " 项" : "");
     }
 
     /* ---------------- 账号视图：只读，不代客注销 ---------------- */
@@ -592,37 +862,118 @@ public class InternalController {
         return guardAudit.recent(Math.max(1, Math.min(limit, 200)));
     }
 
-    /* ---------------- 流程画布：改话术、改去向、发布 ---------------- */
+    /* ---------------- 流程画布：多画布、草稿与启用 ---------------- */
 
     public record FlowView(FlowDefinition definition, String path, boolean persisted,
-                           List<String> hints, Map<String, Object> rules) {
+                           List<String> hints, Map<String, Object> rules,
+                           String canvasId, String canvasName,
+                           List<FlowParamsStore.CanvasMeta> canvases,
+                           int publishedVersion, boolean draftUnpublished) {
     }
 
-    public record FlowSaveRequest(FlowDefinition definition, String updatedBy) {
+    public record FlowSaveRequest(String canvasId, FlowDefinition definition, String updatedBy) {
+    }
+
+    public record FlowPublishRequest(String canvasId, String updatedBy) {
+    }
+
+    public record CanvasCreateRequest(String name, String description, String copyFrom, String updatedBy) {
+    }
+
+    public record CanvasMetaRequest(String name, String description) {
+    }
+
+    public record FlowMessagesRequest(Map<String, String> messages, String updatedBy) {
     }
 
     @GetMapping("/flow")
-    public FlowView flowDefinition() {
+    public FlowView flowDefinition(@RequestParam(required = false) String canvasId) {
+        String id = canvasId == null || canvasId.isBlank() ? flowParams.activeId() : canvasId;
+        FlowParamsStore.CanvasMeta meta = flowParams.canvas(id);
+        if (meta == null) throw new IllegalArgumentException("没有这张画布：" + id);
         List<String> hints = new ArrayList<>();
-        if (!flowParams.exists()) {
-            hints.add("流程还没落盘，当前是从提示词资产推出的默认值；发布一次就会写入 " + flowParams.path() + "。");
+        if (!flowParams.exists() && meta.publishedVersion() == 0) {
+            hints.add("流程还没落盘，当前是从提示词资产推出的默认值；启用一次就会写入 " + flowParams.path() + "。");
         }
-        hints.add("节点可以拖动摆位，去向只能从允许的集合里选；发布前会跑一遍结构校验。");
-        return new FlowView(flowParams.get(), flowParams.path().toString(), flowParams.exists(), hints, flowRules());
+        if (meta.draftVersion() != meta.publishedVersion()) {
+            hints.add("当前显示的是草稿 v" + meta.draftVersion()
+                    + "，线上仍是 v" + meta.publishedVersion() + "；点「启用」后才会切换。");
+        }
+        hints.add("节点可以拖动摆位，去向只能从允许的集合里选；启用前会跑一遍结构校验。");
+        return flowView(meta, hints);
     }
 
     @PutMapping("/flow")
-    public ResponseEntity<Object> saveFlow(@RequestBody FlowSaveRequest request) {
+    public FlowView saveFlowDraft(@RequestBody FlowSaveRequest request) {
         if (request == null || request.definition() == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "流程定义不能为空"));
+            throw new IllegalArgumentException("流程定义不能为空");
         }
-        try {
-            FlowDefinition saved = flowParams.save(request.definition(), request.updatedBy());
-            return ResponseEntity.ok(new FlowView(saved, flowParams.path().toString(), true,
-                    List.of("已发布，下一轮对话立即按新流程走。"), flowRules()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        String id = request.canvasId() == null || request.canvasId().isBlank()
+                ? flowParams.activeId() : request.canvasId();
+        flowParams.saveDraft(id, request.definition(), request.updatedBy());
+        FlowParamsStore.CanvasMeta meta = flowParams.canvas(id);
+        return flowView(meta, List.of("草稿已保存，线上流程没有变化；点「启用」后下一轮才会按它走。"));
+    }
+
+    @PutMapping("/flow/publish")
+    public FlowView publishFlow(@RequestBody FlowPublishRequest request) {
+        String id = request == null || request.canvasId() == null || request.canvasId().isBlank()
+                ? flowParams.activeId() : request.canvasId();
+        flowParams.publish(id, request == null ? null : request.updatedBy());
+        FlowParamsStore.CanvasMeta meta = flowParams.canvas(id);
+        return flowView(meta, List.of("已启用，下一轮对话立即按这张画布走。"));
+    }
+
+    @PostMapping("/flow/canvases")
+    public FlowView createCanvas(@RequestBody CanvasCreateRequest request) {
+        FlowParamsStore.CanvasMeta created = flowParams.createCanvas(
+                request == null ? null : request.name(),
+                request == null ? null : request.description(),
+                request == null ? null : request.copyFrom(),
+                request == null ? null : request.updatedBy());
+        return flowView(created, List.of("画布已创建。它现在还是草稿，启用后才会切换线上。"));
+    }
+
+    @PutMapping("/flow/canvases/{id}")
+    public FlowView updateCanvas(@PathVariable String id, @RequestBody CanvasMetaRequest request) {
+        FlowParamsStore.CanvasMeta updated = flowParams.updateCanvas(id,
+                request == null ? null : request.name(),
+                request == null ? null : request.description());
+        return flowView(updated, List.of("画布名称与说明已更新。"));
+    }
+
+    @DeleteMapping("/flow/canvases/{id}")
+    public FlowView deleteCanvas(@PathVariable String id) {
+        flowParams.deleteCanvas(id);
+        FlowParamsStore.CanvasMeta active = flowParams.activeCanvas();
+        return flowView(active, List.of("画布已删除。删掉的是草稿与发布文件，历史快照也一并清理。"));
+    }
+
+    @PostMapping("/flow/canvases/{id}/activate")
+    public FlowView activateCanvas(@PathVariable String id,
+                                   @RequestBody(required = false) Map<String, String> body) {
+        String by = body == null ? null : body.get("updatedBy");
+        flowParams.publish(id, by);
+        FlowParamsStore.CanvasMeta meta = flowParams.canvas(id);
+        return flowView(meta, List.of("已切换到这张画布，下一轮对话立即生效。"));
+    }
+
+    /** 系统话术属于流程：保存后立即发布，保持设置页原来的“保存即生效”。 */
+    @PutMapping("/flow/messages")
+    public FlowView saveMessages(@RequestBody FlowMessagesRequest request) {
+        if (request == null) throw new IllegalArgumentException("话术不能为空");
+        flowParams.saveMessages(request.messages(), request.updatedBy());
+        FlowParamsStore.CanvasMeta meta = flowParams.activeCanvas();
+        return flowView(meta, List.of("系统话术已发布，下一轮立即生效。"));
+    }
+
+    private FlowView flowView(FlowParamsStore.CanvasMeta meta, List<String> hints) {
+        FlowDefinition draft = flowParams.draft(meta.id());
+        int publishedVersion = flowParams.published(meta.id()).version();
+        boolean unpublished = draft.version() != publishedVersion;
+        return new FlowView(draft, flowParams.pathOf(meta.id()).toString(), publishedVersion > 0,
+                hints, flowRules(), meta.id(), meta.name(), flowParams.canvases(),
+                publishedVersion, unpublished);
     }
 
     // ---------------------------------------------------------------- 安全规则
@@ -759,6 +1110,8 @@ public class InternalController {
         rules.put("allowedModel", FlowValidator.ALLOWED_MODEL);
         rules.put("allowedBranch", FlowValidator.ALLOWED_BRANCH);
         rules.put("interventionTypes", FlowValidator.INTERVENTION_TYPES);
+        rules.put("startable", FlowValidator.STARTABLE);
+        rules.put("defaultStart", FlowDefinition.DEFAULT_START);
         rules.put("placeholders", FlowValidator.PLACEHOLDERS);
         rules.put("messageKeys", com.socraticmind.agent.cbt.flow.FlowMessages.PLACEHOLDERS);
         rules.put("predicates", ConditionWhen.ALL.stream()

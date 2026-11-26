@@ -215,6 +215,20 @@
         </details>
       </section>
 
+      <section class="export-data" id="exportData">
+        <h2>导出我的数据</h2>
+        <p class="export-lede">
+          导出账号信息、每一轮对话、情绪自评与行动计划。文件下载到本机，不经过第三方；
+          内容是给你的副本，不是诊断或病历。
+        </p>
+        <div class="acts">
+          <button class="submit" id="previewData" type="button">预览数据</button>
+          <button class="ghost" id="exportJson" type="button">导出 JSON</button>
+          <button class="ghost" id="exportMarkdown" type="button">导出 Markdown</button>
+        </div>
+        <p class="fine" id="exportHint">正在检查这台设备上有多少记录…</p>
+      </section>
+
       <section class="boundaries">
         <h2>这一版没做的</h2>
         <ul>
@@ -226,6 +240,23 @@
 
     </div>
   </main>
+</div>
+
+<div class="data-modal" id="previewModal" hidden>
+  <div class="data-modal-card" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+    <div class="data-modal-head">
+      <h2 id="previewTitle">数据预览</h2>
+      <button type="button" id="previewClose" aria-label="关闭">×</button>
+    </div>
+    <div class="data-modal-body" id="previewBody"></div>
+    <div class="data-modal-foot">
+      <span class="fine" id="previewNote">预览只在本机渲染，不会上传到任何地方。</span>
+      <div class="acts">
+        <button class="ghost" id="previewDownloadJson" type="button">下载 JSON</button>
+        <button class="ghost" id="previewDownloadMd" type="button">下载 Markdown</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="./account.js"></script>

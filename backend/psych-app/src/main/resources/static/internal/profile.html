@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mind · 个人设置</title>
+<link rel="stylesheet" href="./app.css">
+<style>
+  .profile-wrap {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 26px 28px 44px;
+  }
+  .profile-card {
+    max-width: 620px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    padding: 20px 22px 18px;
+  }
+  .profile-card + .profile-card { margin-top: 16px; }
+  .profile-card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .profile-card p.hint { font-size: 11.5px; color: var(--muted); line-height: 1.8; margin-bottom: 14px; }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .who-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #f0ece4, #e2ddd2);
+    border: 1px solid #e4e1d9;
+    font-size: 20px;
+    font-weight: 600;
+    color: #4a514d;
+    flex: none;
+  }
+  .who-avatar svg { width: 24px; height: 24px; fill: none; stroke: #6d706a; stroke-width: 1.3; }
+  .who-name { font-size: 15px; font-weight: 600; }
+  .who-meta { margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+  .kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; font-size: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { color: var(--ink-soft); }
+  .form-row { margin-bottom: 12px; }
+  .form-row label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 5px; }
+  .form-row input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12.5px;
+  }
+  .form-row input:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .msg { font-size: 11.5px; min-height: 17px; }
+  .msg.ok { color: var(--accent-deep); }
+  .msg.bad { color: var(--refer); }
+  .token-note {
+    padding: 10px 12px;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    font-size: 11.5px;
+    line-height: 1.8;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="app is-shell">
+
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="sb-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"></circle><path d="M12 3.4v17.2M3.4 12h17.2"></path></svg>
+      </span>
+      <span class="sb-name"><b>Socratic Mind</b><small>内部后台</small></span>
+    </div>
+
+    <nav class="sb-nav">
+      <p class="sb-label">运营</p>
+      <a class="sb-item" href="./index.html">
+        <svg viewBox="0 0 16 16"><path d="M3 3.6h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7.2L4.4 13.6v-2H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"></path></svg>
+        会话
+      </a>
+      <a class="sb-item" href="./review.html">
+        <svg viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"></path></svg>
+        审核
+      </a>
+      <a class="sb-item" href="./accounts.html">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="5.7" r="2.4"></circle><path d="M3.4 13.2c.6-2.5 2.4-3.7 4.6-3.7s4 1.2 4.6 3.7"></path></svg>
+        账号
+      </a>
+      <a class="sb-item" href="./login.html">
+        <svg viewBox="0 0 16 16"><path d="M9.2 3.6H4.6a1 1 0 0 0-1 1v6.8a1 1 0 0 0 1 1h4.6"></path><path d="M11 5.9 13 8l-2 2.1M6.4 8h6.4"></path></svg>
+        登录
+      </a>
+
+      <p class="sb-label">配置</p>
+      <a class="sb-item" href="./flow.html">
+        <svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="6.2" r="1.6"></circle><circle cx="7" cy="12" r="1.6"></circle><path d="M5.5 4.4 10.5 5.6M4.6 5.5l1.9 5"></path></svg>
+        流程画布
+      </a>
+      <a class="sb-item" href="./policy.html">
+        <svg viewBox="0 0 16 16"><path d="M8 2.5 12.8 4.4v3.9c0 3-1.9 4.6-4.8 5.4-2.9-.8-4.8-2.4-4.8-5.4V4.4Z"></path></svg>
+        输出策略
+      </a>
+      <a class="sb-item" href="./settings.html">
+        <svg viewBox="0 0 16 16"><path d="M2.6 5.2h2.2M8.2 5.2h5.2M2.6 10.8h5.2M11.2 10.8h2.2"></path><circle cx="6.6" cy="5.2" r="1.5"></circle><circle cx="9.6" cy="10.8" r="1.5"></circle></svg>
+        规则与参数
+      </a>
+      <a class="sb-item" href="./lexicon.html">
+        <svg viewBox="0 0 16 16"><path d="M3.2 3.6h3.9a1 1 0 0 1 1 1v8H4.2a1 1 0 0 1-1-1Z"></path><path d="M12.8 3.6H8.9a1 1 0 0 0-1 1v8h3.9a1 1 0 0 0 1-1Z"></path></svg>
+        词库
+      </a>
+      <a class="sb-item" href="./ai.html">
+        <svg viewBox="0 0 16 16"><rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.2"></rect><path d="M6.6 2.4v2.2M9.4 2.4v2.2M6.6 11.4v2.2M9.4 11.4v2.2M2.4 6.6h2.2M2.4 9.4h2.2M11.4 6.6h2.2M11.4 9.4h2.2"></path></svg>
+        模型
+      </a>
+      <a class="sb-item" href="./knowledge.html">
+        <svg viewBox="0 0 16 16"><path d="M8 2.8 13 5.2 8 7.6 3 5.2Z"></path><path d="M3 8.6 8 11l5-2.4"></path></svg>
+        知识库
+      </a>
+      <a class="sb-item" href="./eval.html">
+        <svg viewBox="0 0 16 16"><path d="M3.2 11.4a5 5 0 1 1 9.6 0"></path><path d="M8 11.4 10.4 7.6"></path></svg>
+        评测
+      </a>
+    </nav>
+  </aside>
+
+  <header class="topbar">
+    <div class="crumb">
+      <span>内部后台</span>
+      <i>/</i>
+      <b>个人设置</b>
+      <em class="crumb-note">账号与口令</em>
+    </div>
+    <div class="top-actions"></div>
+  </header>
+
+  <main class="profile-wrap">
+    <section class="profile-card">
+      <h2>当前身份</h2>
+      <p class="hint">顶栏头像进入这里。操作者账号用于审核署名与写操作留痕；没有登录时，后台仍靠内部令牌访问。</p>
+      <div class="who">
+        <div class="who-avatar" id="whoAvatar" aria-hidden="true">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="5.6" r="2.5"></circle><path d="M3.2 13.4c.7-2.7 2.6-3.9 4.8-3.9s4.1 1.2 4.8 3.9"></path></svg>
+        </div>
+        <div>
+          <div class="who-name" id="whoName">—</div>
+          <div class="who-meta" id="whoMeta">正在读取…</div>
+        </div>
+      </div>
+      <dl class="kv" id="whoDetail" hidden>
+        <dt>登录名</dt><dd id="kvId">—</dd>
+        <dt>角色</dt><dd id="kvRole">—</dd>
+        <dt>租户 / 团队</dt><dd id="kvScope">—</dd>
+      </dl>
+      <div class="token-note" id="tokenNote" hidden>
+        当前没有操作者账号登录，后台仍以内部令牌访问。<br>
+        若后台启用了组织模式（<code>psych.org.enabled=true</code>），可以先 <a href="./login.html">登录</a>，再回到这里查看身份、改口令。
+      </div>
+      <div class="actions" id="logoutRow" hidden>
+        <button class="btn" id="logoutBtn" type="button">退出登录</button>
+        <span class="msg" id="logoutMsg"></span>
+      </div>
+    </section>
+
+    <section class="profile-card" id="passwordCard" hidden>
+      <h2>修改口令</h2>
+      <p class="hint">改完口令后所有设备都会下线，需要用新口令重新登录。</p>
+      <form id="passwordForm" autocomplete="on">
+        <div class="form-row">
+          <label for="oldPassword">当前口令</label>
+          <input id="oldPassword" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="form-row">
+          <label for="newPassword">新口令</label>
+          <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="form-row">
+          <label for="confirmPassword">再输一次新口令</label>
+          <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="submit" id="savePassword">保存新口令</button>
+          <span class="msg" id="passwordMsg" role="status"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<script src="./auth.js"></script>
+<script src="./profile.js"></script>
+</body>
+</html>

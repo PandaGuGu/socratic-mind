@@ -92,6 +92,7 @@
     hist.querySelectorAll("button[data-v]").forEach(function (btn) {
       btn.addEventListener("click", function () { rollback(btn.dataset.v); });
     });
+    fitEditor();
   }
 
   function short(value) {
@@ -187,6 +188,28 @@
   };
 
   $("refreshBtn").onclick = load;
+
+  var wrap = document.querySelector(".lex-wrap");
+  var expandBtn = $("expandBtn");
+  var expanded = false;
+
+  function fitEditor() {
+    if (!expanded) {
+      editor.style.height = "";
+      return;
+    }
+    editor.style.height = "auto";
+    editor.style.height = (editor.scrollHeight + 4) + "px";
+  }
+
+  expandBtn.onclick = function () {
+    expanded = !expanded;
+    wrap.classList.toggle("is-expanded", expanded);
+    expandBtn.textContent = expanded ? "收起编辑" : "展开编辑";
+    fitEditor();
+  };
+
+  editor.addEventListener("input", fitEditor);
 
   load();
 })();

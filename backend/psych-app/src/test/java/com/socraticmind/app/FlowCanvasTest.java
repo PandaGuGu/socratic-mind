@@ -53,6 +53,57 @@ class FlowCanvasTest {
     }
 
     @Test
+    void movingTheStartChangesTheFirstQuestion() {
+        FlowParamsStore params = store();
+        FlowDefinition base = params.defaults();
+        params.save(new FlowDefinition(base.version(), null, "test", base.stages(),
+                base.intervention(), base.messages(), "COGNITIVE_EXTRACTION"), "test");
+
+        CbtFlow flow = flow(params);
+        TurnResult started = flow.start("canvas-u0");
+
+        assertEquals("那个时刻，你脑子里冒出来的第一句话是什么？尽量用当时的原话，不用修饰。",
+                started.response(), "设为起点后，第一问必须换成该节点的话术");
+    }
+
+    @Test
+    void draftDoesNotChangeRuntimeUntilEnabled() {
+        FlowParamsStore params = store();
+        FlowDefinition base = params.defaults();
+        Map<String, StageSpec> stages = new LinkedHashMap<>(base.stages());
+        StageSpec first = stages.get("PROBLEM_IDENTIFICATION");
+        stages.put("PROBLEM_IDENTIFICATION", new StageSpec(first.title(),
+                "这是草稿里的新第一问", first.next(), first.model(), first.x(), first.y()));
+        FlowDefinition draft = new FlowDefinition(base.version(), null, "test", stages,
+                base.intervention(), base.messages(), "PROBLEM_IDENTIFICATION");
+
+        params.saveDraft(params.activeId(), draft, "test");
+        assertEquals("最近有什么事一直搁在心里？可以只说一个具体的时刻：什么时候、在哪儿、当时在做什么。",
+                params.get().stages().get("PROBLEM_IDENTIFICATION").text(),
+                "保存草稿不能改线上流程");
+
+        params.publish(params.activeId(), "test");
+        assertEquals("这是草稿里的新第一问",
+                params.get().stages().get("PROBLEM_IDENTIFICATION").text(),
+                "启用之后线上才换成草稿");
+    }
+
+    @Test
+    void canvasesCanBeCopiedEnabledAndDeleted() {
+        FlowParamsStore params = store();
+        var created = params.createCanvas("夜间流程", "用于夜间", "default", "test");
+        assertEquals(2, params.canvases().size());
+
+        params.publish(created.id(), "test");
+        assertEquals(created.id(), params.activeId());
+
+        params.publish("default", "test");
+        params.deleteCanvas(created.id());
+        assertEquals(1, params.canvases().size());
+        assertEquals("default", params.activeId());
+    }
+
+    @Test
     void editingTextChangesWhatTheUserSees() {
         FlowParamsStore params = store();
         FlowDefinition base = params.defaults();

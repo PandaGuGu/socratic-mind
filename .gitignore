@@ -95,6 +95,10 @@ backend/config/history/
 # 文档审核记录是运行期数据（谁签了哪一版），各部署独立，不进库。
 # 与 config/reviews.json 不同：那份是"规则/词库当前结论"，属于配置；这份是可累积的审计历史。
 backend/config/knowledge-reviews.json
+# 多画布库是运行期状态（每张画布的草稿/发布/历史），由旧 flow-params.json 首次启动迁移而来。
+backend/config/flows/
+# 后台保存的模型接入配置可能含 API Key，各部署独立，不进库。
+backend/config/ai-config.json
 # 测试在模块目录下跑时会按默认路径写一份（工作目录是 psych-app），同样是运行期产物。
 backend/psych-app/config/
 

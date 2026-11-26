@@ -103,7 +103,12 @@
         var csrf = csrfToken();
         if (csrf) init.headers["X-CSRF-Token"] = csrf;
       }
-      return raws.call(window, input, init);
+      var pending = raws.call(window, input, init);
+      // 任何配置写操作后刷新“待审核”徽标：保存完立刻就能看到提醒。
+      if (method !== "GET" && method !== "HEAD") {
+        pending.then(function () { refreshReviewBadge(); }).catch(function () {});
+      }
+      return pending;
     }).then(function (res) {
       if (res.status === 401) requireLogin();
       return res;
@@ -112,8 +117,112 @@
 
   // 页面一打开就先问提示，避免第一屏全是 401
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { ensureToken(); });
+    document.addEventListener("DOMContentLoaded", function () {
+      ensureToken();
+      mountAccountChip();
+      mountReviewBadge();
+    });
   } else {
     ensureToken();
+    mountAccountChip();
+    mountReviewBadge();
+  }
+
+  var reviewTimer = null;
+  var reviewDismissed = false;
+
+  function refreshReviewBadge() {
+    clearTimeout(reviewTimer);
+    reviewTimer = setTimeout(loadReviewState, 500);
+  }
+
+  function mountReviewBadge() {
+    loadReviewState();
+  }
+
+  function loadReviewState() {
+    try {
+      window.fetch("/api/internal/reviews", { headers: { Accept: "application/json" } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          renderReviewState((data.pending || 0) + (data.pendingSessions || 0),
+            data.pending || 0, data.pendingSessions || 0);
+        })
+        .catch(function () { /* 没有内部权限的页面（如登录页）忽略 */ });
+    } catch (e) { /* 忽略 */ }
+  }
+
+  function renderReviewState(total, pendingConfig, pendingSessions) {
+    try {
+      var link = document.querySelector('.sb-item[href="./review.html"]');
+      if (link) {
+        var badge = link.querySelector(".sb-badge");
+        if (total <= 0) {
+          if (badge) badge.remove();
+        } else {
+          if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "sb-badge";
+            link.appendChild(badge);
+          }
+          badge.textContent = String(total);
+          badge.title = pendingConfig + " 项配置待审 / " + pendingSessions + " 条会话待复核";
+        }
+      }
+      var box = document.getElementById("reviewReminder");
+      var foot = document.querySelector(".sb-foot");
+      if (total <= 0 || reviewDismissed) {
+        if (box) box.remove();
+        if (foot) {
+          var old = foot.querySelector(".sb-review-note");
+          if (old) old.remove();
+        }
+        return;
+      }
+      if (!box && foot) {
+        box = document.createElement("a");
+        box.id = "reviewReminder";
+        box.className = "sb-review-note";
+        box.href = "./review.html";
+        foot.appendChild(box);
+      }
+      if (!box) return;
+      box.textContent = total + " 项待审核 / 待复核，去处理 →";
+      box.title = pendingConfig + " 项配置待审 / " + pendingSessions + " 条会话待复核";
+    } catch (e) { /* 忽略 */ }
+  }
+
+  /**
+   * 顶栏个人入口。默认就是一个圆形头像；登录了操作者账号时用首字母，
+   * 没登录（内部令牌模式）也保留入口，点进去会说明当前模式。
+   */
+  function mountAccountChip() {
+    try {
+      var actions = document.querySelector(".topbar .top-actions");
+      if (!actions || actions.querySelector(".acct-chip")) return;
+      var link = document.createElement("a");
+      link.className = "acct-chip";
+      link.href = "./profile.html";
+      link.title = "个人设置";
+      link.setAttribute("aria-label", "个人设置");
+      link.innerHTML = '<span class="acct-chip-avatar" aria-hidden="true">'
+        + '<svg viewBox="0 0 16 16"><circle cx="8" cy="5.6" r="2.5"></circle>'
+        + '<path d="M3.2 13.4c.7-2.7 2.6-3.9 4.8-3.9s4.1 1.2 4.8 3.9"></path></svg>'
+        + '</span>';
+      actions.appendChild(link);
+
+      raws.call(window, "/api/operator/me", { headers: { Accept: "application/json" } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          var user = data && data.user;
+          if (!user) return;
+          var name = String(user.name || "").trim();
+          if (!name) return;
+          link.title = name + " · 个人设置";
+          link.querySelector(".acct-chip-avatar").textContent = name.charAt(0);
+        })
+        .catch(function () { /* 令牌模式：保留默认头像 */ });
+    } catch (e) { /* 没有顶栏的页面忽略 */ }
   }
 })();

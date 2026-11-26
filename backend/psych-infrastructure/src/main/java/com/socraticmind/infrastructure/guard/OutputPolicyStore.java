@@ -12,9 +12,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * 输出策略的存储：一份 JSON 文件，运维改完保存即生效，不需要重启。
@@ -30,16 +33,31 @@ public class OutputPolicyStore {
     private static final Logger log = LoggerFactory.getLogger(OutputPolicyStore.class);
 
     private final Path path;
+    private final Path historyRoot;
     private final ObjectMapper mapper;
 
     private volatile OutputPolicy current = OutputPolicy.defaults();
     private volatile long seenMtime = -1L;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public OutputPolicyStore(@Value("${psych.guard.policy-file:config/output-policy.json}") String file,
+                             @Value("${psych.config.history-dir:config/history}") String historyDir,
                              ObjectMapper mapper) {
         this.path = Path.of(file).toAbsolutePath().normalize();
+        this.historyRoot = Path.of(historyDir).toAbsolutePath().normalize();
         this.mapper = mapper;
         reloadIfChanged();
+        ensureBaseline();
+    }
+
+    /** 测试/脚本用：历史目录取策略文件同级。 */
+    public OutputPolicyStore(String file, ObjectMapper mapper) {
+        this(file, siblingHistory(file), mapper);
+    }
+
+    private static String siblingHistory(String file) {
+        Path parent = Path.of(file).toAbsolutePath().normalize().getParent();
+        return (parent == null ? Path.of("config") : parent).resolve("history").toString();
     }
 
     public OutputPolicy get() {
@@ -53,6 +71,59 @@ public class OutputPolicyStore {
 
     public boolean exists() {
         return Files.exists(path);
+    }
+
+    /** 审核页做版本对比用；与 safety/flow 一样按版本留存快照。 */
+    public OutputPolicy snapshot(int version) {
+        Path file = historyRoot.resolve("policy").resolve("v" + version + ".json");
+        if (!Files.isRegularFile(file)) return null;
+        try {
+            return mapper.readValue(file.toFile(), OutputPolicy.class);
+        } catch (IOException e) {
+            log.warn("输出策略快照读不出来（v{}）：{}", version, e.getMessage());
+            return null;
+        }
+    }
+
+    public List<Integer> history() {
+        Path dir = historyRoot.resolve("policy");
+        if (!Files.isDirectory(dir)) return List.of();
+        try (Stream<Path> files = Files.list(dir)) {
+            List<Integer> out = new ArrayList<>();
+            files.forEach(f -> {
+                String name = f.getFileName().toString();
+                if (!name.startsWith("v") || !name.endsWith(".json")) return;
+                try {
+                    out.add(Integer.parseInt(name.substring(1, name.length() - 5)));
+                } catch (NumberFormatException ignored) {
+                    // 非版本文件忽略
+                }
+            });
+            out.sort(Comparator.reverseOrder());
+            return out;
+        } catch (IOException e) {
+            return List.of();
+        }
+    }
+
+    private void ensureBaseline() {
+        if (!exists()) return;
+        try {
+            if (!history().contains(current.version())) snapshot(current);
+        } catch (RuntimeException e) {
+            log.warn("输出策略基线快照写入失败（不影响运行）：{}", e.getMessage());
+        }
+    }
+
+    private void snapshot(OutputPolicy policy) {
+        try {
+            Path dir = historyRoot.resolve("policy");
+            Files.createDirectories(dir);
+            mapper.writerWithDefaultPrettyPrinter()
+                    .writeValue(dir.resolve("v" + policy.version() + ".json").toFile(), policy);
+        } catch (IOException e) {
+            log.warn("输出策略快照写入失败（不影响保存）：{}", e.getMessage());
+        }
     }
 
     public synchronized OutputPolicy save(OutputPolicy incoming, String updatedBy) {
@@ -69,6 +140,7 @@ public class OutputPolicyStore {
             mapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), next);
             current = next;
             seenMtime = Files.getLastModifiedTime(path).toMillis();
+            snapshot(next);
             log.info("输出策略已保存：版本 {}，档位 {}，写入 {}", next.version(), next.profiles().keySet(), path);
             return next;
         } catch (IOException e) {

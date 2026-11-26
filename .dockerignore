@@ -8,6 +8,9 @@
 **/target/
 backend/data/
 backend/config/history/
+# 多画布草稿/发布文件是运行期状态，由 flow-params.json 首次启动迁移
+backend/config/flows/
+backend/config/ai-config.json
 *.log
 hs_err_pid*
 

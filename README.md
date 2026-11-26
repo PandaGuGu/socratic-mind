@@ -7,6 +7,7 @@
 
 | 版本 | 测试 | 模型 | 状态 |
 |-|-|-|-|
+| v0.6.0 | 202 项通过 | 云端 / 本地 Ollama / 桩三档热切换，保存即生效 | 流程画布多库与起点、审核扩面与会话复核、用户数据导出；未上线 |
 | v0.5.1 | 194 项通过 | 默认接本地 Ollama（qwen3-8b + bge-m3），离线可切回桩 | 检索补上重排、语料补上生命周期与权限、后台补上真登录；未上线 |
 | v0.5.0 | 155 项通过 | 默认接本地 Ollama（qwen3-8b + bge-m3），离线可切回桩 | 一条命令起全部服务；账号可选，未上线 |
 
@@ -70,6 +71,11 @@
 
 ### 方式一：Docker（全部服务，推荐）
 
+Windows 上**双击根目录的 `start.cmd`** 就行：生成 `.env`（随机密钥）→ 构建镜像 → 起 PostgreSQL/pgvector → 等健康检查 → 打开房间。
+要停就双击 `stop.cmd`；其余动作走参数：`start.cmd status`、`start.cmd logs`、`start.cmd edge`。
+
+命令行等价写法：
+
 ```bash
 bash scripts/stack.sh up        # Git Bash / WSL / Linux / macOS
 ```
@@ -78,20 +84,28 @@ bash scripts/stack.sh up        # Git Bash / WSL / Linux / macOS
 powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 up   # Windows 原生终端
 ```
 
-一条命令做完这些：生成 `.env`（随机密钥）→ 构建应用镜像 → 起 PostgreSQL/pgvector → 等健康检查 → 打印地址与内部令牌。
 数据落在命名卷里，`down` 不丢，`reset` 才清空。
 
-**容器默认是桩**（零依赖、不需要模型）。要真模型：`bash scripts/stack.sh up --ai`，会再起容器内 Ollama，
+启动结束时会打印**后台登录账号**：用户名 `admin`，口令是首次运行生成并写进 `.env` 的 `PSYCH_OPERATOR_PASSWORD`。
+它只在第一次启动时写入数据库（摘要落库），之后在后台改口令不会被覆盖；`.env` 里那行可以随时回看。
+
+**一个 compose 就够，除模型层外没有别的容器要起。** `docker-compose.yml` 里只有两个服务，
+没有 Redis、没有消息队列——限流走数据库表的原子 upsert，静态前端打在 jar 里由应用自己 serve，
+流程是同步状态机、不存在跨进程解耦的点。反向代理做成了可选叠层（`start.cmd edge` 起 Caddy，
+负责 TLS、压缩、安全头），本机开发不需要。模型默认是桩（哈希向量 256 维，零成本），所以断网也能完整跑通两个流程。
+
+| 依赖 | 放在哪 | 说明 |
+|-|-|-|
+| 应用本体 | 容器 `psych-app` | 多阶段构建，运行镜像只有 JRE；`backend/config` 随镜像分发 |
+| PostgreSQL 16 + pgvector | 容器 `psych-postgres` | 知识库、会话、轨迹都落这里；端口映射到 `15432` |
+| Ollama（bge-m3 / qwen3-8b） | **可选**叠层 `docker-compose.ai.yml` | 模型层，`--ai` 才起，就是你说的要单独排除的那层 |
+| Caddy（反代 / TLS） | **可选**叠层 `docker-compose.edge.yml` | 对外暴露时才需要；`--edge` 起，默认自签证书 |
+| 语音转写 ASR | 宿主机 | 走 `psych.asr.command` 进程钩子，用 Windows 语音包；容器里留空即关闭，接口回 503 |
+| 评测 / 压测 / 语料导入 | 宿主机脚本 | 是一次性任务，不是常驻服务 |
+
+要真模型：`bash scripts/stack.sh up --ai`（Windows：`start.cmd ai`），会再起容器内 Ollama，
 拉 `bge-m3`（1.2 GB）与 `qwen3-8b`（5 GB），对话与向量都接过去。**本机 jar 档默认接宿主 Ollama**。
-
-| 容器 | 是什么 |
-|-|-|
-| `psych-app` | 应用本体（多阶段构建，运行镜像只有 JRE） |
-| `psych-postgres` | PostgreSQL 16 + pgvector，知识库与会话都落这里 |
-| `psych-ollama` | 可选，加 `--ai` 才起：本地 BGE-M3 向量，1024 维 |
-
-想让检索用真向量：`bash scripts/stack.sh up --ai`（首次需拉约 1.2 GB 模型）。细节与踩坑见 [deploy/README](deploy/README.md)。
-国内网络拉不动 Docker Hub 时，在 `.env` 里设 `DOCKER_MIRROR=docker.m.daocloud.io`（脚本会先经镜像源拉取再打回标准标签），或给 Docker Desktop 配代理。
+国内网络拉不动 Docker Hub 时，在 `.env` 里设 `DOCKER_MIRROR=docker.m.daocloud.io`（脚本会先经镜像源拉取再打回标准标签），或给 Docker Desktop 配代理。细节与踩坑见 [deploy/README](deploy/README.md)。
 
 ### 方式二：本机 jar（没有 Docker 时）
 
@@ -107,7 +121,7 @@ ollama serve
 ollama pull bge-m3 && ollama pull qwen3-8b
 
 # H2 文件库，重启数据还在；默认接 Ollama
-java -jar psych-app/target/psych-app-0.5.0.jar --server.port=8099 --spring.profiles.active=h2
+java -jar psych-app/target/psych-app-0.6.0.jar --server.port=8099 --spring.profiles.active=h2
 
 # 没有 Ollama / 只想看流程：加 stub 档，零依赖
 # java -jar ... --spring.profiles.active=h2,stub
@@ -162,7 +176,7 @@ java -jar psych-app/target/psych-app-0.5.0.jar --server.port=8099 --spring.profi
 
 | 项 | 结果 |
 |-|-|
-| 单元 + 集成测试 | 194 项通过（`mvn -o test`） |
+| 单元 + 集成测试 | 202 项通过（`mvn -o test`） |
 | 检索链路 | 重排四档（none / lexical / fixture / http）接入，候选池 3× 再截断；5 个查询上改变了 4/5 的 top-1；两位独立标注者 top-1 一致率 1.0、逐条平均差 0.045 |
 | 语料治理 | 同步按内容哈希去重（未变不重做）、改版自动回到待审、软删除立即从检索消失、ACL 在检索前过滤——均有测试锁住 |
 | 运营闭环 | 文档审核留痕（版本 + 审核人 + 签字时 ACL 快照）与 `/internal/eval.html`（四格指标 + badcase 池 + 确定性抽样）。真实实例冒烟：越权提问拒答且零引用；只改权限不回填历史签字 |
