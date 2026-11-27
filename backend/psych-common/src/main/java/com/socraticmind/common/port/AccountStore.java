@@ -1,6 +1,7 @@
 package com.socraticmind.common.port;
 
 import com.socraticmind.common.account.Account;
+import com.socraticmind.common.account.EmergencyContact;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,6 +32,14 @@ public interface AccountStore {
 
     /** 运营视图用：只读列表，按创建时间倒序。不做分页——账号数不是这个量级的瓶颈。 */
     List<Account> findAll();
+
+    /**
+     * 账号上保存的紧急联系人。为空表示没填过。
+     * 单独读写而不是塞进 {@link Account}：它会变，而且不属于"证明你是你"的那部分。
+     */
+    Optional<EmergencyContact> findContact(String accountId);
+
+    void saveContact(String accountId, EmergencyContact contact);
 
     /**
      * 注销：删除账号本身。会话不跟着删——它们的第一归属是设备（ADR-0009），

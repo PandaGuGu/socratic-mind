@@ -10,6 +10,7 @@ import com.socraticmind.app.web.support.ConflictException;
 import com.socraticmind.app.web.support.IdempotencyCache;
 import com.socraticmind.app.web.support.NotFoundException;
 import com.socraticmind.app.web.support.RateLimitPort;
+import com.socraticmind.app.web.support.SessionContacts;
 import com.socraticmind.app.web.support.TooManyRequestsException;
 import com.socraticmind.app.web.support.UnauthorizedException;
 import com.socraticmind.common.port.AccountStore;
@@ -183,6 +184,9 @@ public class CbtController {
         if (fresh) identity = UserTokenService.Identity.device(tokens.newUserId());
 
         TurnResult result = flow.start(identity.userId(), identity.accountId());
+        if (identity.hasAccount()) {
+            SessionContacts.prefill(store, accounts, result.sessionId(), identity.accountId());
+        }
         return ResponseEntity.ok()
                 .header(USER_TOKEN_HEADER, fresh ? tokens.issue(identity.userId()) : token)
                 .body(result);

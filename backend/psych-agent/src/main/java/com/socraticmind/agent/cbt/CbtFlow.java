@@ -33,10 +33,11 @@ import java.util.concurrent.locks.ReentrantLock;
  * CbtGraph 的流程实现。
  *
  * 与 KnowledgeFlow 的关键差别：这里**有中断**。走到 ACTION_CONFIRM 时 awaitingUser=true，
- * 只能用 /confirm 推进，普通消息推不动——这就是 docs/01-方案/05 §5.3 第 6 节点的落地形态。
+ * 只能用 /confirm 推进，普通消息推不动——这就是 docs/02-架构/02-流程与状态.md §2 第 6 节点的落地形态。
  *
  * 第一版没有用框架 Graph 的 checkpoint：状态就在 CbtSession 里，进程内可恢复；
- * 换成真正的持久化 Checkpoint 时，CbtSession 作为业务表继续保留（§6.3 的两层分法）。
+ * 换成真正的持久化 Checkpoint 时，CbtSession 作为业务表继续保留（两层分法见
+ * docs/02-架构/02-流程与状态.md §5）。
  *
  * 每一轮结束都写一条 {@link CbtTurnEvent}：只存当前字段的话，
  * "第几轮为什么走了这一步""这句总结是模型写的还是模板兜底"事后都无从复核。
@@ -155,7 +156,7 @@ public class CbtFlow {
                     reply, null, CbtTurnEvent.NONE, t0);
         }
 
-        // 安全分流每轮都跑，不是只跑第一轮（docs/02-设计/CBT状态机.md §3.4）
+        // 安全分流每轮都跑，不是只跑第一轮（docs/03-设计/01-CBT状态机.md §3.4）
         SafetyScreener.Screen screen = screener.screen(message);
         if (screen.hold()) {
             session.setSafetyStatus("hold");

@@ -29,8 +29,10 @@ class CrisisCardTest {
 
         CrisisCard card = CrisisCard.of(s, s.safetyReason());
 
-        assertTrue(card.hotlines().stream().anyMatch(h -> h.contains("12356")));
-        assertTrue(card.hotlines().stream().anyMatch(h -> h.contains("120")));
+        assertTrue(card.hotlines().stream().anyMatch(h -> h.contains("所在地区")));
+        assertTrue(card.hotlines().stream().anyMatch(h -> h.contains("急救")));
+        assertFalse(card.hotlines().stream().anyMatch(h -> h.matches(".*\\d{3,}.*")),
+                "不写死某一地区的号码：换一个国家就会拨错");
         assertEquals("小周", card.contactName());
         assertEquals("13800001111", card.contactPhone());
         assertTrue(card.notice().contains("联系我"), "文案要能被用户直接转发");

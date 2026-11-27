@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Markdown 解析：按标题层级切成 Section，并保留标题链。
- * 第一版只支持 Markdown/纯文本；PDF/DOCX 待接入 RAGFlow DeepDoc 或 Tika（见 docs/02-设计/世界观与导航.md 之外的入库待办）。
+ * 第一版只支持 Markdown/纯文本；PDF/DOCX 待接入 RAGFlow DeepDoc 或 Tika（见 docs/03-设计/04-界面与交互.md 之外的入库待办）。
  */
 public class MarkdownParser {
 

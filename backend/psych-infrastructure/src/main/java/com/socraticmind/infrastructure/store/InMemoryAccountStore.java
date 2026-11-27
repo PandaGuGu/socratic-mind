@@ -1,6 +1,7 @@
 package com.socraticmind.infrastructure.store;
 
 import com.socraticmind.common.account.Account;
+import com.socraticmind.common.account.EmergencyContact;
 import com.socraticmind.common.port.AccountStore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ public class InMemoryAccountStore implements AccountStore {
 
     private final Map<String, Account> byEmail = new ConcurrentHashMap<>();
     private final Map<String, Account> byId = new ConcurrentHashMap<>();
+    private final Map<String, EmergencyContact> contacts = new ConcurrentHashMap<>();
 
     @Override
     public Optional<Account> findById(String id) {
@@ -73,9 +75,24 @@ public class InMemoryAccountStore implements AccountStore {
     }
 
     @Override
+    public Optional<EmergencyContact> findContact(String accountId) {
+        return Optional.ofNullable(contacts.get(accountId));
+    }
+
+    @Override
+    public void saveContact(String accountId, EmergencyContact contact) {
+        if (contact == null || contact.absent()) {
+            contacts.remove(accountId);
+        } else {
+            contacts.put(accountId, contact.sanitized());
+        }
+    }
+
+    @Override
     public void delete(String id) {
         Account removed = byId.remove(id);
         if (removed != null) byEmail.remove(normalize(removed.email()));
+        contacts.remove(id);
     }
 
     private static String normalize(String email) {

@@ -5,6 +5,7 @@ import com.socraticmind.app.web.support.RateLimitPort;
 import com.socraticmind.app.web.support.UnauthorizedException;
 import com.socraticmind.app.web.support.TooManyRequestsException;
 import com.socraticmind.common.account.Account;
+import com.socraticmind.common.account.EmergencyContact;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +13,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -66,6 +68,11 @@ public class AuthController {
 
     public record PasswordRequest(@NotBlank @Size(max = 128) String currentPassword,
                                   @NotBlank @Size(max = 128) String newPassword) {
+    }
+
+    public record ContactRequest(@Size(max = 32) String name,
+                                 @Size(max = 32) String phone,
+                                 @Size(max = 16) String relation) {
     }
 
     public record RecoverRequest(@NotBlank @Size(max = 254) String email,
@@ -146,6 +153,28 @@ public class AuthController {
                 .orElseThrow(() -> new UnauthorizedException("请先登录"));
         int released = auth.deleteAccount(who, request.password());
         return new DeleteResponse(true, released);
+    }
+
+    /**
+     * 账号上的紧急联系人。登录后填一次，之后每轮开始会自动带到会话里；
+     * 会话内仍可单独改，互不覆盖。返回空对象表示没填过。
+     */
+    @GetMapping("/contact")
+    public EmergencyContact contact(@RequestHeader(value = USER_TOKEN_HEADER, required = false) String token) {
+        UserTokenService.Identity who = tokens.verifyIdentity(token)
+                .orElseThrow(() -> new UnauthorizedException("请先登录"));
+        return auth.contact(who);
+    }
+
+    /** 保存账号级紧急联系人。传空值即清空；只做字符清洗，不做格式校验。 */
+    @PutMapping("/contact")
+    public EmergencyContact saveContact(
+            @RequestHeader(value = USER_TOKEN_HEADER, required = false) String token,
+            @Valid @RequestBody ContactRequest request) {
+        UserTokenService.Identity who = tokens.verifyIdentity(token)
+                .orElseThrow(() -> new UnauthorizedException("请先登录"));
+        return auth.saveContact(who,
+                new EmergencyContact(request.name(), request.phone(), request.relation()));
     }
 
     /**

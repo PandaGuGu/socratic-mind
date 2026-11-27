@@ -6,7 +6,7 @@
     python scripts/check-secrets.py --staged   # 只扫描暂存区（pre-commit 用）
 
 退出码：0 = 干净；1 = 发现疑似密钥。
-规则依据：docs/04-规范/外部依赖与付费资源约定.md
+规则依据：docs/05-规范/03-外部依赖约定.md
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ SKIP_DIRS = {".git", "target", "node_modules", "dist", ".idea", ".vscode", "__py
 SKIP_FILES = {
     "scripts/check-secrets.py",
     "scripts/pre-commit",
-    "docs/04-规范/外部依赖与付费资源约定.md",
+    "docs/05-规范/03-外部依赖约定.md",
 }
 BINARY_EXT = {
     ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf", ".zip", ".gz", ".jar",

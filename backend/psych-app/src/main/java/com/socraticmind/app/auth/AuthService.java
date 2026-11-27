@@ -4,6 +4,7 @@ import com.socraticmind.app.security.PasswordHasher;
 import com.socraticmind.app.security.UserTokenService;
 import com.socraticmind.app.web.support.UnauthorizedException;
 import com.socraticmind.common.account.Account;
+import com.socraticmind.common.account.EmergencyContact;
 import com.socraticmind.common.port.AccountStore;
 import com.socraticmind.common.support.Ids;
 import com.socraticmind.session.CbtSessionStore;
@@ -227,6 +228,23 @@ public class AuthService {
         int pending = sessions.countClaimable(deviceUserId);
         String token = tokens.issueAccount(deviceUserId, account.id(), account.tokenEpoch());
         return new Result(token, account, pending, recoveryCode);
+    }
+
+    /** 读取账号上保存的紧急联系人；没填过返回空对象。 */
+    public EmergencyContact contact(UserTokenService.Identity who) {
+        Account account = requireAccount(who);
+        return accounts.findContact(account.id()).orElse(EmergencyContact.EMPTY);
+    }
+
+    /**
+     * 保存账号级紧急联系人。传空对象即清空。
+     * 只做字符清洗，不做格式校验：留联系方式这件事不该被校验规则挡住。
+     */
+    public EmergencyContact saveContact(UserTokenService.Identity who, EmergencyContact contact) {
+        Account account = requireAccount(who);
+        EmergencyContact clean = contact == null ? EmergencyContact.EMPTY : contact.sanitized();
+        accounts.saveContact(account.id(), clean);
+        return clean;
     }
 
     /**

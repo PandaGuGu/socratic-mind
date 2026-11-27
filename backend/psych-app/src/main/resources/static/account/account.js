@@ -98,6 +98,7 @@
     $("title").textContent = "已经登录。";
     $("lede").textContent = "这台设备与账号都能看到这些记录；退出登录只会退回到这台设备的匿名身份。";
     renderFacts(data.account);
+    loadContact();
     placeExport(true);
     $("claimedNote").hidden = true;
     showError("");
@@ -258,6 +259,40 @@
       })
       .catch(function (err) { showError(err.message); })
       .then(function () { setBusy(false); });
+  };
+
+  /* ---------- 紧急联系人 ---------- */
+
+  function loadContact() {
+    api("/contact", null, "GET").then(function (c) {
+      $("ecName").value = c.name || "";
+      $("ecPhone").value = c.phone || "";
+      $("ecRelation").value = c.relation || "";
+    }).catch(function () { /* 读不到就留空，不打断页面 */ });
+  }
+
+  $("contactForm").onsubmit = function (e) {
+    e.preventDefault();
+    var note = $("contactNote");
+    var btn = $("contactForm").querySelector(".submit");
+    note.hidden = true;
+    btn.disabled = true;
+    api("/contact", {
+      name: $("ecName").value.trim(),
+      phone: $("ecPhone").value.trim(),
+      relation: $("ecRelation").value.trim()
+    }, "PUT").then(function (c) {
+      $("ecName").value = c.name || "";
+      $("ecPhone").value = c.phone || "";
+      $("ecRelation").value = c.relation || "";
+      note.hidden = false;
+      note.textContent = (c.name || c.phone)
+        ? "已保存。下一次开一轮会自动带上；房间里仍可单独改。"
+        : "已清空。";
+    }).catch(function (err) {
+      note.hidden = false;
+      note.textContent = err.message;
+    }).then(function () { btn.disabled = false; });
   };
 
   /* ---------- 已登录 ---------- */
@@ -586,6 +621,7 @@
     .then(function (data) {
       if (data && data.signedIn) {
         renderFacts(data.account);
+        loadContact();
         $("signedOut").hidden = true;
         $("signedIn").hidden = false;
         placeExport(true);

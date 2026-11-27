@@ -1,6 +1,7 @@
 package com.socraticmind.infrastructure.store;
 
 import com.socraticmind.common.account.Account;
+import com.socraticmind.common.account.EmergencyContact;
 import com.socraticmind.common.port.AccountStore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DuplicateKeyException;
@@ -71,6 +72,23 @@ public class JdbcAccountStore implements AccountStore {
                 """, account.passwordHash(), account.tokenEpoch(), account.recoveryHash(),
                 account.recoveryUsedAt() == null ? null : Timestamp.from(account.recoveryUsedAt()),
                 account.id());
+    }
+
+    @Override
+    public Optional<EmergencyContact> findContact(String accountId) {
+        List<EmergencyContact> rows = jdbc.query(
+                "SELECT contact_name, contact_phone, contact_relation FROM app_account WHERE id = ?",
+                (rs, i) -> new EmergencyContact(rs.getString(1), rs.getString(2), rs.getString(3)),
+                accountId);
+        return rows.stream().findFirst().filter(c -> !c.absent());
+    }
+
+    @Override
+    public void saveContact(String accountId, EmergencyContact contact) {
+        EmergencyContact c = contact == null ? EmergencyContact.EMPTY : contact.sanitized();
+        jdbc.update(
+                "UPDATE app_account SET contact_name = ?, contact_phone = ?, contact_relation = ? WHERE id = ?",
+                c.name(), c.phone(), c.relation(), accountId);
     }
 
     @Override

@@ -1,6 +1,6 @@
 # 离线档：不连任何模型，进程内桩。CI、没有 Ollama 的机器、只想看流程时用。
 #
-#   java -jar psych-app-0.6.0.jar --spring.profiles.active=h2,stub
+#   java -jar psych-app-0.6.1.jar --spring.profiles.active=h2,stub
 #
 # 它会把"没有真实数据"这件事显式写在 /internal/ai 上，而不是悄悄降级。
 psych:

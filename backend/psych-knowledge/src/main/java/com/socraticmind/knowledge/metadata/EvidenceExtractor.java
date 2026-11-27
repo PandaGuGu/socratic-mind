@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * 证据属性抽取。
  *
  * 只做"从原文里找"，不做"推测"。推荐强度、证据质量一律 null——这两个字段必须由审核人填，
- * 让程序或模型猜等于制造假证据（见 docs/01-方案/04-RAG知识数据架构.md §4.2）。
+ * 让程序或模型猜等于制造假证据（见 docs/02-架构/03-RAG与知识库.md §2）。
  */
 public class EvidenceExtractor {
 

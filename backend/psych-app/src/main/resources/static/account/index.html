@@ -155,6 +155,30 @@
           退出只丢掉这枚账号令牌，不会删掉任何记录：再登录还能看到，本机原来的匿名记录也仍在。
         </p>
 
+        <div class="security" id="contactBlock">
+          <h2>紧急联系人</h2>
+          <p class="fine">
+            只在你主动查看危机卡片时显示。系统不会联系他，也不会替你发送任何东西。
+            留了之后，登录状态下新开的一轮会自动带上；在房间里也能单独改。
+          </p>
+          <form class="form" id="contactForm" autocomplete="off">
+            <label>
+              <span>怎么称呼</span>
+              <input id="ecName" maxlength="32" placeholder="可不填">
+            </label>
+            <label>
+              <span>电话</span>
+              <input id="ecPhone" type="tel" inputmode="tel" maxlength="32" placeholder="可不填">
+            </label>
+            <label>
+              <span>关系</span>
+              <input id="ecRelation" maxlength="16" placeholder="如室友">
+            </label>
+            <button class="submit" type="submit">保存</button>
+            <p class="fine" id="contactNote" hidden></p>
+          </form>
+        </div>
+
         <div class="security">
           <h2>安全</h2>
 

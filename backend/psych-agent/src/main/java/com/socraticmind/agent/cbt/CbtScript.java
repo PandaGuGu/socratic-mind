@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 /**
  * CBT 对话脚本。话术与代码分离，理由是这些话术要经专业审核、要能版本化对比，
- * 而不是散落在 if 分支里（docs/01-方案/07-提示词组织.md）。
+ * 而不是散落在 if 分支里（docs/03-设计/05-提示词.md）。
  */
 public class CbtScript {
 

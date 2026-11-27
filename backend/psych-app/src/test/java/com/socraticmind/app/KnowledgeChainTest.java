@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 全链路冒烟：示例语料入库 → 检索 → 证据 → 生成 → 引用校验。
- * 这组断言就是 M2 的验收标准（docs/01-方案/10-里程碑与开发顺序.md）。
+ * 这组断言就是 M2 的验收标准（docs/06-评估/02-评估与测试集.md）。
  */
 @SpringBootTest
 class KnowledgeChainTest {

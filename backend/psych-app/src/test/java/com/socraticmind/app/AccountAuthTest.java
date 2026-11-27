@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -288,6 +289,34 @@ class AccountAuthTest {
         assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, login(null, email, password).getStatusCode());
     }
 
+    /**
+     * 账号级紧急联系人：登录后可读写，保存时只做字符清洗，传空即清空。
+     * "新会话自动带上"由 SessionContacts 的单测覆盖——这里不再开会话，
+     * 否则会撞上"每小时新会话数"的限流（那条限流在真实环境里是对的）。
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void accountContactIsSavedSanitizedAndCanBeCleared() {
+        String email = uniqueEmail("contact");
+        String accountToken = register(null, email, "contact-password", null).getHeaders().getFirst(TOKEN);
+
+        Map<String, Object> saved = putOk("/api/auth/contact", accountToken,
+                "{\"name\":\" 小周 \",\"phone\":\"138-0000-1111 转 12\",\"relation\":\"室友\"}");
+        assertEquals("小周", saved.get("name"));
+        assertTrue(String.valueOf(saved.get("phone")).contains("138-0000-1111"),
+                "只保留数字与常见分隔符，去掉无关字符");
+        assertEquals("室友", saved.get("relation"));
+
+        Map<String, Object> read = getOk("/api/auth/contact", accountToken);
+        assertEquals("小周", read.get("name"), "重新读取时应当拿到保存过的联系人");
+
+        putOk("/api/auth/contact", accountToken, "{}");
+        assertNull(getOk("/api/auth/contact", accountToken).get("name"), "传空即清空");
+
+        assertEquals(HttpStatus.UNAUTHORIZED,
+                get("/api/auth/contact", null).getStatusCode(), "未登录不能读写联系人");
+    }
+
     // ---------- helpers ----------
 
     private ResponseEntity<Map> register(String token, String email, String password, String displayName) {
@@ -354,6 +383,15 @@ class AccountAuthTest {
     @SuppressWarnings("unchecked")
     private Map<String, Object> postOk(String path, String token, String json) {
         ResponseEntity<Map> res = post(path, token, json);
+        assertEquals(HttpStatus.OK, res.getStatusCode(), path + " -> " + res.getBody());
+        assertNotNull(res.getBody());
+        return res.getBody();
+    }
+
+    private Map<String, Object> putOk(String path, String token, String json) {
+        HttpHeaders h = headers(token);
+        h.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<Map> res = rest.exchange(path, HttpMethod.PUT, new HttpEntity<>(json, h), Map.class);
         assertEquals(HttpStatus.OK, res.getStatusCode(), path + " -> " + res.getBody());
         assertNotNull(res.getBody());
         return res.getBody();

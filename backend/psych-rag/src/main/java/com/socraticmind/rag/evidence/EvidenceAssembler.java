@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * 证据组装：命中 → 可引用证据。
  *
  * "证据是否充分"由规则判定：至少一条命中，且（两路都命中，或命中数 >= 3）。
- * 不让模型自己说"够不够"——它总会说够（见 docs/01-方案/05 §5.2.1）。
+ * 不让模型自己说"够不够"——它总会说够（见 docs/02-架构/02-流程与状态.md）。
  */
 @Component
 public class EvidenceAssembler {

@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 轮次轨迹的验收：内部后台的全部判断都建立在它之上。
  *
- * 对应 docs/02-设计/内部后台.md §3：只存字段快照的话，
+ * 对应 docs/03-设计/03-内部后台.md §3：只存字段快照的话，
  * 「第几轮为什么走这一步」「这句总结是不是模板兜底」事后都无从复核。
  */
 @SpringBootTest

@@ -96,6 +96,12 @@ ALTER TABLE app_account ADD COLUMN IF NOT EXISTS token_epoch INT NOT NULL DEFAUL
 ALTER TABLE app_account ADD COLUMN IF NOT EXISTS recovery_hash VARCHAR(255);
 ALTER TABLE app_account ADD COLUMN IF NOT EXISTS recovery_used_at TIMESTAMP WITH TIME ZONE;
 
+-- 账号级的紧急联系人（v0.7.1）：登录后在账号页填一次，新开的一轮自动带上。
+-- 只用于安全暂停时的危机卡片；系统不据此评级、不外呼、不发送。会话里仍可单独覆盖。
+ALTER TABLE app_account ADD COLUMN IF NOT EXISTS contact_name     VARCHAR(64);
+ALTER TABLE app_account ADD COLUMN IF NOT EXISTS contact_phone    VARCHAR(32);
+ALTER TABLE app_account ADD COLUMN IF NOT EXISTS contact_relation VARCHAR(32);
+
 ALTER TABLE cbt_session ADD COLUMN IF NOT EXISTS account_id VARCHAR(64);
 CREATE INDEX IF NOT EXISTS idx_cbt_session_account ON cbt_session (account_id, created_at DESC);
 

@@ -10,7 +10,7 @@ import java.util.List;
  *
  * 为什么不是"自动外呼"：我们没有资质，也不能替用户判断该不该惊动别人；
  * 误报的代价由用户承担。所以卡片做三件事——
- * 1. 把热线放在最前面（12356 / 120），这是不依赖任何人的兜底；
+ * 1. 把求助方式放在最前面：你所在地区的急救与心理援助，这是不依赖任何人的兜底；
  * 2. 把用户自己填的联系人原样回显，手机号不脱敏（这是他自己的数据）；
  * 3. 生成一段**用户自己发**的通知文案，复制即可发给对方。
  *
@@ -26,15 +26,28 @@ public record CrisisCard(
         boolean acknowledged
 ) {
 
+    /**
+     * 默认只给"去哪里找"，不给具体号码。
+     *
+     * 不同国家与地区的急救、心理援助号码不同：写死某一地区的号码，会让另一个地区的用户
+     * 在真正的危机里拨错号。需要给出本地号码时，由部署方按服务地区替换这三行，
+     * 或调用 {@link #of(CbtSession, String, List)} 传入自己的清单。
+     */
     public static final List<String> DEFAULT_HOTLINES = List.of(
-            "12356　全国统一心理援助热线（24 小时）",
-            "120　　急救");
+            "你所在地区的急救电话（紧急救助号码）",
+            "你所在地区的心理援助热线（可在当地卫生部门或医院官网查询）");
 
     private static final DateTimeFormatter WHEN =
             DateTimeFormatter.ofPattern("M 月 d 日 HH:mm").withZone(ZoneId.systemDefault());
 
     public static CrisisCard of(CbtSession session, String reason) {
-        return new CrisisCard(DEFAULT_HOTLINES, session.contactName(), session.contactPhone(),
+        return of(session, reason, DEFAULT_HOTLINES);
+    }
+
+    /** @param contacts 部署方按服务地区配置的求助方式；为空时退回默认的"所在地区"写法 */
+    public static CrisisCard of(CbtSession session, String reason, List<String> contacts) {
+        List<String> lines = (contacts == null || contacts.isEmpty()) ? DEFAULT_HOTLINES : contacts;
+        return new CrisisCard(List.copyOf(lines), session.contactName(), session.contactPhone(),
                 session.contactRelation(), buildNotice(),
                 Instant.now(), session.safetyAckAt() != null);
     }

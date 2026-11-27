@@ -60,7 +60,9 @@ class PromptAssetTest {
         int from = text.indexOf("[stage:safety_hold]");
         assertTrue(from > 0);
         String safety = text.substring(from);
-        assertTrue(safety.contains("120"), "转介必须给可执行路径，不能只说「请寻求帮助」");
+        assertTrue(safety.contains("所在地区"), "转介必须给可执行路径，不能只说「请寻求帮助」");
+        assertTrue(safety.contains("急救") || safety.contains("心理援助"), "要指向当地求助渠道");
+        assertFalse(safety.matches("(?s).*\\d{3,}.*"), "不写死某一地区的电话号码");
         assertTrue(safety.contains("不会追问"), "边界话术：不追问细节、不判断");
     }
 
@@ -68,7 +70,7 @@ class PromptAssetTest {
     void assetStaysLfAndCalm() throws Exception {
         String text = asset();
         assertFalse(text.contains("\r"), "提示词资产必须是 LF，Windows 检出后不应产生整文件 diff");
-        assertFalse(text.contains("！"), "全套文案不用感叹号（docs/04-规范/UI设计规范.md §7）");
+        assertFalse(text.contains("！"), "全套文案不用感叹号（docs/05-规范/02-UI设计规范.md §7）");
         assertFalse(text.toLowerCase().contains("加油"), "不做安慰性套话");
     }
 

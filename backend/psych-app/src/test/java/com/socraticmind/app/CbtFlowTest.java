@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * CBT 流程的验收：状态推进、中断点、用户确认字段分离、安全分流。
- * 对应 docs/02-设计/CBT状态机.md 与 docs/01-方案/10-里程碑与开发顺序.md 的 M4 验收。
+ * 对应 docs/03-设计/01-CBT状态机.md 与 docs/06-评估/02-评估与测试集.md 的 M4 验收。
  */
 @SpringBootTest
 class CbtFlowTest {
@@ -121,7 +121,8 @@ class CbtFlowTest {
         assertEquals(CbtStage.SAFETY_HOLD, hold.stage());
         assertEquals(TurnResult.SAFETY_HOLD, hold.status());
         assertEquals("hold", hold.safetyStatus());
-        assertTrue(hold.response().contains("120"), "必须给出可执行的求助路径");
+        assertTrue(hold.response().contains("所在地区"), "必须给出可执行的求助路径");
+        assertTrue(hold.response().contains("急救"), "指向当地急救，而不是写死某一地区的号码");
 
         TurnResult again = flow.handle(started.sessionId(), "我还想说点别的");
         assertEquals(CbtStage.SAFETY_HOLD, again.stage(), "暂停后不得恢复普通流程");

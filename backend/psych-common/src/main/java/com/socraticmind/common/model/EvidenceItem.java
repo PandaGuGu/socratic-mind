@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * 证据单元：把普通文本转成带证据属性的知识单元。
- * 无法确认的字段一律 null —— 不允许模型补全（见 docs/01-方案/04-RAG知识数据架构.md §4.2）。
+ * 无法确认的字段一律 null —— 不允许模型补全（见 docs/02-架构/03-RAG与知识库.md §2）。
  */
 public record EvidenceItem(
         String id,
