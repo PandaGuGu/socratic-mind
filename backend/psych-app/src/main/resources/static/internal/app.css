@@ -2286,6 +2286,12 @@ a.btn {
   overflow-y: auto;
 }
 
+/* main 是 grid 时，卡片不能沿用流程画布的 overflow:hidden：
+   它会把卡片的最小高度压成 0，内容被裁在首屏，滚动条也不会出现。 */
+.app.is-shell > main > section.card {
+  overflow: visible;
+}
+
 .app.is-shell .actor-label {
   display: inline-flex;
   align-items: center;
