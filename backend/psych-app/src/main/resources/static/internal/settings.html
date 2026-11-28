@@ -50,6 +50,13 @@
   }
   .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .row label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .prompt-editor {
+    width: 100%; min-height: 280px; margin-top: 10px; padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--surface-2); color: var(--ink);
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.7; resize: vertical;
+  }
+  .prompt-editor:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
   .actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
   .msg { font-size: 12px; }
   .msg.ok { color: var(--accent-deep); }
@@ -104,45 +111,57 @@
         <svg viewBox="0 0 16 16"><path d="M3 3.6h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7.2L4.4 13.6v-2H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"></path></svg>
         会话
       </a>
-      <a class="sb-item" href="./review.html">
+      <a class="sb-item" href="./review.html" data-perm="review">
         <svg viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"></path></svg>
         审核
       </a>
-      <a class="sb-item" href="./accounts.html">
+      <a class="sb-item" href="./accounts.html" data-perm="manage">
         <svg viewBox="0 0 16 16"><circle cx="8" cy="5.7" r="2.4"></circle><path d="M3.4 13.2c.6-2.5 2.4-3.7 4.6-3.7s4 1.2 4.6 3.7"></path></svg>
         账号
       </a>
-      <a class="sb-item" href="./login.html">
+      <a class="sb-item" href="./members.html" data-perm="manage">
+        <svg viewBox="0 0 16 16"><circle cx="5.6" cy="5.9" r="2.1"></circle><path d="M2.4 13c.5-2.2 1.9-3.3 3.9-3.3s3.4 1.1 3.9 3.3"></path><circle cx="11.2" cy="6.6" r="1.6"></circle><path d="M10.4 12.6c.3-1.7 1.2-2.5 2.5-2.5.9 0 1.5.4 1.9 1.2"></path></svg>
+        成员
+      </a>
+      <a class="sb-item" href="./login.html" data-perm="manage">
         <svg viewBox="0 0 16 16"><path d="M9.2 3.6H4.6a1 1 0 0 0-1 1v6.8a1 1 0 0 0 1 1h4.6"></path><path d="M11 5.9 13 8l-2 2.1M6.4 8h6.4"></path></svg>
         登录
       </a>
 
       <p class="sb-label">配置</p>
-      <a class="sb-item" href="./flow.html">
+      <a class="sb-item" href="./flow.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="6.2" r="1.6"></circle><circle cx="7" cy="12" r="1.6"></circle><path d="M5.5 4.4 10.5 5.6M4.6 5.5l1.9 5"></path></svg>
         流程画布
       </a>
-      <a class="sb-item" href="./policy.html">
+      <a class="sb-item" href="./policy.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M8 2.5 12.8 4.4v3.9c0 3-1.9 4.6-4.8 5.4-2.9-.8-4.8-2.4-4.8-5.4V4.4Z"></path></svg>
         输出策略
       </a>
-      <a class="sb-item is-on" href="./settings.html">
+      <a class="sb-item is-on" href="./settings.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M2.6 5.2h2.2M8.2 5.2h5.2M2.6 10.8h5.2M11.2 10.8h2.2"></path><circle cx="6.6" cy="5.2" r="1.5"></circle><circle cx="9.6" cy="10.8" r="1.5"></circle></svg>
         规则与参数
       </a>
-      <a class="sb-item" href="./lexicon.html">
+      <div class="sb-sub" data-perm="ops">
+        <a class="sb-sub-item is-on" href="#safety" data-sub="safety">安全规则</a>
+        <a class="sb-sub-item" href="#limits" data-sub="limits">运行参数</a>
+        <a class="sb-sub-item" href="#messages" data-sub="messages">系统话术</a>
+        <a class="sb-sub-item" href="#free" data-sub="free">门外提示词</a>
+        <a class="sb-sub-item" href="#rag" data-sub="rag">知识问答</a>
+        <a class="sb-sub-item" href="#history" data-sub="history">历史与回滚</a>
+      </div>
+      <a class="sb-item" href="./lexicon.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M3.2 3.6h3.9a1 1 0 0 1 1 1v8H4.2a1 1 0 0 1-1-1Z"></path><path d="M12.8 3.6H8.9a1 1 0 0 0-1 1v8h3.9a1 1 0 0 0 1-1Z"></path></svg>
         词库
       </a>
-      <a class="sb-item" href="./ai.html">
+      <a class="sb-item" href="./ai.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.2"></rect><path d="M6.6 2.4v2.2M9.4 2.4v2.2M6.6 11.4v2.2M9.4 11.4v2.2M2.4 6.6h2.2M2.4 9.4h2.2M11.4 6.6h2.2M11.4 9.4h2.2"></path></svg>
         模型
       </a>
-      <a class="sb-item" href="./knowledge.html">
+      <a class="sb-item" href="./knowledge.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M8 2.8 13 5.2 8 7.6 3 5.2Z"></path><path d="M3 8.6 8 11l5-2.4"></path></svg>
         知识库
       </a>
-      <a class="sb-item" href="./eval.html">
+      <a class="sb-item" href="./eval.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M3.2 11.4a5 5 0 1 1 9.6 0"></path><path d="M8 11.4 10.4 7.6"></path></svg>
         评测
       </a>
@@ -166,7 +185,18 @@
 
 <main>
 
-  <section class="card">
+  <div class="subnav">
+    <div class="tabs" role="tablist" aria-label="规则与参数分类">
+      <button class="tab is-on" type="button" role="tab" data-sub="safety" aria-selected="true">安全规则</button>
+      <button class="tab" type="button" role="tab" data-sub="limits" aria-selected="false">运行参数</button>
+      <button class="tab" type="button" role="tab" data-sub="messages" aria-selected="false">系统话术</button>
+      <button class="tab" type="button" role="tab" data-sub="free" aria-selected="false">门外提示词</button>
+      <button class="tab" type="button" role="tab" data-sub="rag" aria-selected="false">知识问答</button>
+      <button class="tab" type="button" role="tab" data-sub="history" aria-selected="false">历史与回滚</button>
+    </div>
+  </div>
+
+  <section class="card" data-subpane="safety">
     <h2>安全分流规则</h2>
     <p class="hint">
       规则和用例都由你维护：可以新建、删除、改正则。保存前会做两件事：结构校验（正则能否编译、
@@ -196,7 +226,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" data-subpane="limits" hidden>
     <h2>运行参数</h2>
     <p class="hint">限流与长度。保存后下一轮请求立即按新值判断；数值有范围限制，避免 0 条/分钟这类事故。</p>
     <div class="row">
@@ -210,7 +240,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" data-subpane="messages" hidden>
     <h2>系统话术</h2>
     <p class="hint">
       阶段提问（"最近有什么事搁在心里"这类）在流程画布上改；这里改的是系统在你点错、结束、
@@ -223,7 +253,40 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" data-subpane="free" hidden>
+    <h2>门外提示词</h2>
+    <p class="hint">
+      门外自由对话每轮都会带上这段系统提示词。它决定语气与边界；"这句话能不能出去"由输出策略的「门外」档位把关。
+      保存即生效，不需要重启。
+    </p>
+    <textarea id="freePrompt" class="prompt-editor" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="btn primary" id="saveFreePrompt" type="button">保存并生效</button>
+      <span class="msg" id="freePromptMsg"></span>
+      <span class="hint" id="freePromptMeta" style="margin:0"></span>
+    </div>
+  </section>
+
+  <section class="card" data-subpane="rag" hidden>
+    <h2>知识问答</h2>
+    <p class="hint">
+      生成提示词决定"怎么根据证据作答"；检索条数决定每次带多少证据进模型。引用校验与拒答逻辑不在这里改。
+    </p>
+    <div class="row">
+      <div>
+        <label>每次检索证据条数（1–20）</label>
+        <input id="ragTopK" type="number" min="1" max="20" step="1">
+      </div>
+    </div>
+    <textarea id="ragPrompt" class="prompt-editor" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="btn primary" id="saveRagPrompt" type="button">保存并生效</button>
+      <span class="msg" id="ragPromptMsg"></span>
+      <span class="hint" id="ragPromptMeta" style="margin:0"></span>
+    </div>
+  </section>
+
+  <section class="card" data-subpane="history" hidden>
     <h2>历史版本与回滚</h2>
     <p class="hint">每次保存都会留一份快照。回滚不是覆盖旧文件，而是把旧版本当成一次新的保存——所以版本号继续往前走，每一次生效都有记录。</p>
     <div class="hist">
@@ -717,6 +780,49 @@ document.addEventListener("click", async (e) => {
 
 /* ---------- 启动 ---------- */
 
+let promptsState = null;
+
+function renderPromptMeta(view) {
+  const meta = "v" + view.version
+    + (view.updatedBy ? " · 最后由 " + view.updatedBy + " 修改" : "")
+    + (view.persisted ? "" : " · 使用随包默认值");
+  $("freePromptMeta").textContent = meta;
+  $("ragPromptMeta").textContent = meta;
+}
+
+async function loadPrompts() {
+  const view = await api("/api/internal/prompts");
+  promptsState = view;
+  $("freePrompt").value = view.freeChat || "";
+  $("ragPrompt").value = view.knowledgeAnswer || "";
+  $("ragTopK").value = view.knowledgeTopK;
+  renderPromptMeta(view);
+}
+
+async function savePrompts(which) {
+  const btn = which === "free" ? $("saveFreePrompt") : $("saveRagPrompt");
+  const msgId = which === "free" ? "freePromptMsg" : "ragPromptMsg";
+  btn.disabled = true;
+  say(msgId, "正在保存…", true);
+  try {
+    const view = await api("/api/internal/prompts", {
+      method: "PUT",
+      body: JSON.stringify({
+        freeChat: $("freePrompt").value,
+        knowledgeAnswer: $("ragPrompt").value,
+        knowledgeTopK: Number($("ragTopK").value || 4)
+      })
+    });
+    promptsState = view;
+    renderPromptMeta(view);
+    say(msgId, "已保存 v" + view.version + "，下一轮立即生效", true);
+  } catch (err) {
+    say(msgId, err.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function loadAll() {
   const view = await api("/api/internal/safety/rules");
   rulesState = view.definition;
@@ -725,14 +831,44 @@ async function loadAll() {
   renderCases();
   await loadLimits();
   await loadFlow();
+  await loadPrompts();
   await loadHistory();
 }
+
+$("saveFreePrompt").addEventListener("click", () => savePrompts("free"));
+$("saveRagPrompt").addEventListener("click", () => savePrompts("rag"));
 
 $("reload").addEventListener("click", () => loadAll().then(() => toast("已刷新")).catch((e) => toast(e.message)));
 
 loadAll().catch((e) => toast("加载失败：" + e.message));
+
+/**
+ * 三块配置都归运营：它们是系统怎么跑、系统怎么说，不是"审一份内容"。
+ * 这里只把不该按的按钮收起来；真正的边界在 /api/internal 的 @RequirePerm。
+ */
+document.addEventListener("sm:perm", (e) => {
+  const role = e.detail.role;
+  const canReview = role === "admin" || role === "operator";
+  const ops = role === "admin" || role === "operator";
+  const off = (id, why) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = true;
+    btn.title = why;
+  };
+  if (!ops) off("saveLimits", "运行参数由运营维护");
+  if (!ops) {
+    off("saveFreePrompt", "提示词由运营维护");
+    off("saveRagPrompt", "提示词由运营维护");
+  }
+  if (!canReview) {
+    off("saveRules", "安全规则由运营维护");
+    off("saveMessages", "系统话术由运营维护");
+  }
+});
 </script>
 </div>
 
+<script src="../shared/subnav.js"></script>
 </body>
 </html>

@@ -18,6 +18,7 @@ import com.socraticmind.agent.config.ConfigVersion;
 import com.socraticmind.agent.config.RuntimeLimits;
 import com.socraticmind.agent.config.RuntimeLimitsStore;
 import com.socraticmind.app.lexicon.LexiconStore;
+import com.socraticmind.app.web.support.ForbiddenException;
 import com.socraticmind.app.review.ReviewStore;
 import com.socraticmind.common.account.Account;
 import com.socraticmind.common.guard.GuardRules;
@@ -42,6 +43,7 @@ import com.socraticmind.session.CbtTurnEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
+import com.socraticmind.app.security.RequirePerm;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -166,11 +168,11 @@ public class InternalController {
             Instant createdAt,
             Instant updatedAt
     ) {
-        static SessionRow of(CbtSession s) {
+        static SessionRow of(CbtSession s, boolean withContent) {
             return new SessionRow(
                     s.id(), s.userId(), s.stage(), s.stage().label(), s.stage().visibleIndex(),
                     s.stage().isTerminal(), s.awaitingUser(), s.safetyStatus(), s.interventionType(),
-                    s.targetProblem(),
+                    withContent ? s.targetProblem() : null,
                     s.trace().size(), s.history().size(), isDemo(s.userId()),
                     s.createdAt(), s.updatedAt());
         }
@@ -190,6 +192,23 @@ public class InternalController {
             List<CbtTurnEvent> trace,
             List<Branch> branches
     ) {
+    }
+
+    /**
+     * 谁能读一段对话的原文。
+     *
+     * 默认只有管理员：这个产品的承诺是"不写业务状态、不替用户判断"，
+     * 后台能随手翻所有人的原话，这个承诺就不成立了。
+     * 唯一的例外是审核者可以对**已进入安全流程**的会话读原文——那些是他必须看的。
+     */
+    private static boolean canReadContent(Operator me, CbtSession s) {
+        if (me == null) return true; // 内部令牌：破窗钥匙，不代表某个人
+        if (me.allows(Operator.Perm.SESSIONS_CONTENT)) return true;
+        boolean marked = s.stage() == CbtStage.SAFETY_HOLD
+                || "hold".equals(s.safetyStatus())
+                || "review".equals(s.safetyStatus())
+                || "watch".equals(s.safetyStatus());
+        return marked && me.allows(Operator.Perm.CONTENT_REVIEW);
     }
 
     @GetMapping("/overview")
@@ -224,21 +243,30 @@ public class InternalController {
     }
 
     @GetMapping("/sessions")
+    @RequirePerm(Operator.Perm.SESSIONS_READ)
     public List<SessionRow> sessions(@RequestParam(required = false) String userId,
                                      @RequestParam(required = false) String stage,
-                                     @RequestParam(defaultValue = "false") boolean safetyOnly) {
+                                     @RequestParam(defaultValue = "false") boolean safetyOnly,
+                                     @RequestAttribute(name = "sm.operator", required = false) Operator me) {
         List<SessionRow> rows = new ArrayList<>();
         for (CbtSession s : store.findByUser(userId)) {
             if (safetyOnly && s.stage() != CbtStage.SAFETY_HOLD && !"review".equals(s.safetyStatus())) continue;
             if (stage != null && !stage.isBlank() && !s.stage().name().equalsIgnoreCase(stage)) continue;
-            rows.add(SessionRow.of(s));
+            // 列表只回答"有哪些会话"；"他说了什么"要另外一道门（见 session()）
+            rows.add(SessionRow.of(s, canReadContent(me, s)));
         }
         return rows;
     }
 
     @GetMapping("/sessions/{id}")
-    public SessionTrace session(@PathVariable String id) {
+    @RequirePerm(Operator.Perm.SESSIONS_READ)
+    public SessionTrace session(@PathVariable String id,
+                                @RequestAttribute(name = "sm.operator", required = false) Operator me) {
         CbtSession s = flow.require(id);
+        if (!canReadContent(me, s)) {
+            throw new ForbiddenException("这一轮没有安全标记：原文、轨迹与导出只对管理员开放；"
+                    + "进入安全暂停或待复核的会话，审核可以查看");
+        }
         return new SessionTrace(
                 CbtController.SessionView.of(s),
                 s.history(),
@@ -269,6 +297,7 @@ public class InternalController {
     }
 
     @GetMapping("/safety/review")
+    @RequirePerm(Operator.Perm.CONTENT_REVIEW)
     public List<SafetyReviewRow> safetyReview() {
         List<SafetyReviewRow> rows = new ArrayList<>();
         for (CbtSession s : store.findByUser(null)) {
@@ -292,6 +321,7 @@ public class InternalController {
      * 没有任何自动通知——这一步的意义是留痕：谁在什么时候看过，之后复查有据可依。
      */
     @PostMapping("/sessions/{id}/ack")
+    @RequirePerm(Operator.Perm.CONTENT_REVIEW)
     public Map<String, Object> ack(@PathVariable String id,
                                    @RequestBody(required = false) Map<String, String> body) {
         CbtSession s = flow.require(id);
@@ -351,6 +381,15 @@ public class InternalController {
     public record ReviewSaveRequest(String kind, String target, String status, String reviewer,
                                     String note, List<String> checks, Boolean reported) {
     }
+
+    /** 通过前必须勾完的清单键；与页面 review.js 里的 KIND_CHECKS 保持一致。 */
+    private static final Map<String, List<String>> REQUIRED_CHECKS = Map.of(
+            "safety", List.of("self_harm", "referral", "diagnosis"),
+            "lexicon", List.of("lexicon", "diagnosis"),
+            "flow", List.of("self_harm", "referral", "diagnosis", "distortion", "mood"),
+            "policy", List.of("guard", "diagnosis", "referral"),
+            "limits", List.of("limits", "mood")
+    );
 
     /** 会话心理复核列表：只列已经触发安全关注/暂停的会话，不是全部会话。 */
     public record SessionReviewRow(String sessionId, String userId, String stage, String safetyStatus,
@@ -422,6 +461,7 @@ public class InternalController {
      * 请求体里的 reviewer 只在没有组织域时兜底。
      */
     @PutMapping("/reviews")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ReviewsView saveReview(@RequestBody ReviewSaveRequest request,
                                   @RequestAttribute(name = "sm.operator", required = false) Operator operator,
                                   @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
@@ -457,6 +497,15 @@ public class InternalController {
         }
         if (orgEnabled && operator == null) {
             throw new IllegalArgumentException("组织模式下的审核署名必须来自登录身份，请先登录");
+        }
+        // "通过"不是一句口头结论：先确认过本对象的清单才允许签。
+        if ("approved".equalsIgnoreCase(request.status())) {
+            List<String> got = request.checks() == null ? List.of() : request.checks();
+            List<String> missing = REQUIRED_CHECKS.getOrDefault(kind, List.of()).stream()
+                    .filter(k -> !got.contains(k)).toList();
+            if (!missing.isEmpty()) {
+                throw new IllegalArgumentException("通过前请先勾完审核清单，缺少：" + String.join(" / ", missing));
+            }
         }
         String reviewer = operator == null ? firstNonBlank(request.reviewer(), actor) : operator.display();
         String operatorId = operator == null ? "" : operator.id();
@@ -721,12 +770,14 @@ public class InternalController {
     }
 
     @PostMapping("/lexicon/validate")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public Map<String, Object> validateLexicon(@RequestBody LexiconSaveRequest request) {
         List<String> errors = lexiconStore.validate(request == null ? null : request.entries());
         return Map.of("ok", errors.isEmpty(), "errors", errors);
     }
 
     @PutMapping("/lexicon")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public LexiconStore.View saveLexicon(@RequestBody LexiconSaveRequest request,
                                          @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
         if (request == null) throw new IllegalArgumentException("词库不能为空");
@@ -737,6 +788,7 @@ public class InternalController {
     }
 
     @PostMapping("/lexicon/rollback")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public LexiconStore.View rollbackLexicon(@RequestBody LexiconRollbackRequest request,
                                              @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
         if (request == null || request.version() == null) {
@@ -746,12 +798,14 @@ public class InternalController {
     }
 
     @PostMapping("/lexicon/reset")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public LexiconStore.View resetLexicon(@RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
         return lexiconStore.reset(firstNonBlank(actor, "ops"));
     }
 
     /** 用**当前生效**的词库跑一次：输入侧与输出侧分开，因为两边的词本来就不该混。 */
     @PostMapping("/lexicon/test")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public Map<String, Object> testLexicon(@RequestBody(required = false) LexiconTestRequest request) {
         String text = request == null || request.text() == null ? "" : request.text();
         boolean output = request != null && "out".equalsIgnoreCase(request.side());
@@ -771,6 +825,7 @@ public class InternalController {
      * 页面上会打「演示」标记，避免与真实用户数据混淆。
      */
     @PostMapping("/demo")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public Map<String, String> demo(@RequestBody(required = false) DemoRequest request) {
         String kind = request == null || request.kind() == null ? "flow" : request.kind();
         String sessionId = "safety".equalsIgnoreCase(kind) ? safetyDemo() : flowDemo();
@@ -832,6 +887,7 @@ public class InternalController {
     }
 
     @PutMapping("/policy")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<Object> savePolicy(@RequestBody PolicySaveRequest request) {
         if (request == null || request.policy() == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "策略不能为空"));
@@ -847,6 +903,7 @@ public class InternalController {
 
     /** 试一下：用未保存的规则跑一次校验，让运维在点保存之前就看到结果。 */
     @PostMapping("/policy/test")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public PolicyTestResult testPolicy(@RequestBody PolicyTestRequest request) {
         ProfileRule rule = request.rule() != null ? request.rule() : policyStore.get().ruleOf(request.profile());
         boolean guarded = rule != null && rule.enabled();
@@ -904,6 +961,7 @@ public class InternalController {
     }
 
     @PutMapping("/flow")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView saveFlowDraft(@RequestBody FlowSaveRequest request) {
         if (request == null || request.definition() == null) {
             throw new IllegalArgumentException("流程定义不能为空");
@@ -916,6 +974,7 @@ public class InternalController {
     }
 
     @PutMapping("/flow/publish")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView publishFlow(@RequestBody FlowPublishRequest request) {
         String id = request == null || request.canvasId() == null || request.canvasId().isBlank()
                 ? flowParams.activeId() : request.canvasId();
@@ -925,6 +984,7 @@ public class InternalController {
     }
 
     @PostMapping("/flow/canvases")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView createCanvas(@RequestBody CanvasCreateRequest request) {
         FlowParamsStore.CanvasMeta created = flowParams.createCanvas(
                 request == null ? null : request.name(),
@@ -935,6 +995,7 @@ public class InternalController {
     }
 
     @PutMapping("/flow/canvases/{id}")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView updateCanvas(@PathVariable String id, @RequestBody CanvasMetaRequest request) {
         FlowParamsStore.CanvasMeta updated = flowParams.updateCanvas(id,
                 request == null ? null : request.name(),
@@ -943,6 +1004,7 @@ public class InternalController {
     }
 
     @DeleteMapping("/flow/canvases/{id}")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView deleteCanvas(@PathVariable String id) {
         flowParams.deleteCanvas(id);
         FlowParamsStore.CanvasMeta active = flowParams.activeCanvas();
@@ -950,6 +1012,7 @@ public class InternalController {
     }
 
     @PostMapping("/flow/canvases/{id}/activate")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView activateCanvas(@PathVariable String id,
                                    @RequestBody(required = false) Map<String, String> body) {
         String by = body == null ? null : body.get("updatedBy");
@@ -960,8 +1023,14 @@ public class InternalController {
 
     /** 系统话术属于流程：保存后立即发布，保持设置页原来的“保存即生效”。 */
     @PutMapping("/flow/messages")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public FlowView saveMessages(@RequestBody FlowMessagesRequest request) {
         if (request == null) throw new IllegalArgumentException("话术不能为空");
+        // 空表也算一次"保存"：不拦的话，误点一下就会把版本号推上去、留下一条什么都没改的记录，
+        // 事后回滚时分不清"哪一版是真空的"。
+        if (request.messages() == null || request.messages().isEmpty()) {
+            throw new IllegalArgumentException("话术表是空的：要改哪一句就只提交那一句，清空请走回滚");
+        }
         flowParams.saveMessages(request.messages(), request.updatedBy());
         FlowParamsStore.CanvasMeta meta = flowParams.activeCanvas();
         return flowView(meta, List.of("系统话术已发布，下一轮立即生效。"));
@@ -998,6 +1067,7 @@ public class InternalController {
     }
 
     @PutMapping("/safety/rules")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public SafetyRules saveSafetyRules(@RequestBody SafetyRules incoming,
                                        @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
         // 请求体里的 updatedBy 优先：HTTP 头只允许 Latin-1，中文操作者名放头里会被浏览器拒绝或变成乱码。
@@ -1006,12 +1076,14 @@ public class InternalController {
 
     /** 保存前先跑一遍：结构 + 固定用例回放，返回逐条错误，不落盘。 */
     @PostMapping("/safety/rules/validate")
+    @RequirePerm(Operator.Perm.CONTENT_REVIEW)
     public Map<String, Object> validateSafetyRules(@RequestBody SafetyRules draft) {
         List<String> errors = SafetyRulesValidator.validateAll(draft);
         return Map.of("ok", errors.isEmpty(), "errors", errors);
     }
 
     @PostMapping("/safety/rules/test")
+    @RequirePerm(Operator.Perm.CONTENT_REVIEW)
     public SafetyScreener.Screen testSafetyRules(@RequestBody(required = false) TextRequest request) {
         return SafetyScreener.screen(safetyRules.get(), request == null ? "" : request.text());
     }
@@ -1032,6 +1104,7 @@ public class InternalController {
     }
 
     @PutMapping("/limits")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public RuntimeLimits saveLimits(@RequestBody RuntimeLimits incoming,
                                     @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
         return limits.save(incoming, firstNonBlank(incoming.updatedBy(), actor));
@@ -1084,9 +1157,16 @@ public class InternalController {
     /** 回滚不是覆盖：它把旧快照当成一次新的保存，所以版本号继续往前走。 */
     @PostMapping("/config/rollback")
     public Map<String, Object> rollback(@RequestBody RollbackRequest request,
-                                        @RequestHeader(value = ACTOR_HEADER, required = false) String actor) {
+                                        @RequestHeader(value = ACTOR_HEADER, required = false) String actor,
+                                        @RequestAttribute(name = "sm.operator", required = false) Operator me) {
         if (request == null || request.kind() == null || request.version() == null) {
             throw new IllegalArgumentException("需要 kind 与 version");
+        }
+        // 回滚也是一种修改：流程/话术/规则/参数都归运营，回滚必须同一道门。
+        // 只在保存那侧做权限、回滚那侧不做，等于给了一条绕过路径。
+        Operator.Perm need = Operator.Perm.OPS_CONTENT;
+        if (me != null && !me.allows(need)) {
+            throw new ForbiddenException("回滚「" + request.kind() + "」需要「" + need.label() + "」职责");
         }
         int version = request.version();
         String who = firstNonBlank(request.actor(), actor);

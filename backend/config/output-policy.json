@@ -1,7 +1,7 @@
 {
-  "version" : 3,
-  "updatedAt" : "2026-11-18T04:56:16.400308400Z",
-  "updatedBy" : "ops",
+  "version" : 4,
+  "updatedAt" : "2026-11-28T06:30:00Z",
+  "updatedBy" : "system",
   "profiles" : {
     "cbt_balance" : {
       "enabled" : true,
@@ -20,6 +20,15 @@
       "novelty" : 0.25,
       "repairAttempts" : 1,
       "note" : "本轮总结：只陈述事实，不评价、不建议、不诊断"
+    },
+    "free_chat" : {
+      "enabled" : true,
+      "minChars" : 4,
+      "maxChars" : 300,
+      "banned" : [ "你应该", "你必须", "包治", "保证治愈", "诊断", "！", "!" ],
+      "novelty" : 0.0,
+      "repairAttempts" : 1,
+      "note" : "门外自由对话：每一句回应都要过这道闸；不劝、不诊断、不承诺疗效"
     },
     "rag_answer" : {
       "enabled" : false,

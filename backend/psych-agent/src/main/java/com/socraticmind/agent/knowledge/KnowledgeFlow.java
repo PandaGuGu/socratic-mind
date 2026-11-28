@@ -4,11 +4,13 @@ import com.socraticmind.agent.dto.SearchHit;
 import com.socraticmind.agent.dto.SearchResult;
 import com.socraticmind.common.model.Citation;
 import com.socraticmind.common.model.EvidenceItem;
+import com.socraticmind.common.guard.ModelOutputRejectedException;
 import com.socraticmind.common.model.KnowledgeDocument;
 import com.socraticmind.common.model.QueryOutcome;
 import com.socraticmind.common.model.RagAnswer;
 import com.socraticmind.common.model.Verification;
 import com.socraticmind.common.port.KnowledgeStore;
+import com.socraticmind.common.prompt.PromptSettings;
 import com.socraticmind.common.support.TextUtils;
 import com.socraticmind.rag.dto.EvidencePack;
 import com.socraticmind.rag.dto.Hit;
@@ -34,21 +36,24 @@ import java.util.Set;
 @Service
 public class KnowledgeFlow {
 
-    private static final int TOP_K = 4;
+    private static final int DEFAULT_TOP_K = 4;
 
     private final QueryClassifier classifier;
     private final QueryRewriter rewriter;
     private final RagService rag;
     private final KnowledgeStore store;
     private final OnlineEvalService onlineEval;
+    private final PromptSettings prompts;
 
     public KnowledgeFlow(QueryClassifier classifier, QueryRewriter rewriter,
-                         RagService rag, KnowledgeStore store, OnlineEvalService onlineEval) {
+                         RagService rag, KnowledgeStore store, OnlineEvalService onlineEval,
+                         PromptSettings prompts) {
         this.classifier = classifier;
         this.rewriter = rewriter;
         this.rag = rag;
         this.store = store;
         this.onlineEval = onlineEval;
+        this.prompts = prompts;
     }
 
     public RagAnswer run(String question) {
@@ -68,7 +73,8 @@ public class KnowledgeFlow {
         String rewritten = rewriter.rewrite(question);
         trace.add("rewrite_query → " + TextUtils.truncate(rewritten, 40));
 
-        List<Hit> hits = rag.retrieve(rewritten, TOP_K, scopes);
+        int topK = prompts == null ? DEFAULT_TOP_K : Math.max(1, Math.min(20, prompts.get().knowledgeTopK()));
+        List<Hit> hits = rag.retrieve(rewritten, topK, scopes);
         trace.add("retrieve_evidence → " + hits.size() + " hits");
         trace.add("rerank → " + rag.rerankModelId());
 
@@ -83,7 +89,17 @@ public class KnowledgeFlow {
                     evidenceOf(pack), Verification.empty(), rag.modelId(), trace), start, question, pack, answer);
         }
 
-        String answer = rag.generate(question, pack);
+        String answer;
+        try {
+            answer = rag.generate(question, pack);
+        } catch (ModelOutputRejectedException e) {
+            // 输出策略拦下了生成结果：宁可不答，也不把不合规的句子交出去。
+            trace.add("guard_rejected → rule=" + e.rule());
+            String fallback = insufficientAnswer(pack);
+            trace.add("format_response");
+            return record(new RagAnswer(question, RagAnswer.INSUFFICIENT, fallback, List.of(),
+                    evidenceOf(pack), Verification.empty(), rag.modelId(), trace), start, question, pack, fallback);
+        }
         trace.add("generate_answer → " + answer.length() + " chars, by " + rag.modelId());
 
         // 模型自己说"资料不足"时，状态必须跟着变：不能一边说没资料，一边把状态记成 answered。

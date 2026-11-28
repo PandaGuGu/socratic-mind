@@ -127,7 +127,7 @@ public class OutputPolicyStore {
     }
 
     public synchronized OutputPolicy save(OutputPolicy incoming, String updatedBy) {
-        OutputPolicy normalized = normalize(incoming);
+        OutputPolicy normalized = withBuiltInProfiles(normalize(incoming));
         validate(normalized);
         try {
             Path parent = path.getParent();
@@ -155,9 +155,9 @@ public class OutputPolicyStore {
             if (mtime == seenMtime) return;
             OutputPolicy loaded = mapper.readValue(path.toFile(), OutputPolicy.class);
             validate(loaded);
-            current = loaded;
+            current = withBuiltInProfiles(loaded);
             seenMtime = mtime;
-            log.info("输出策略已热加载：版本 {}，档位 {}", loaded.version(), loaded.profiles().keySet());
+            log.info("输出策略已热加载：版本 {}，档位 {}", current.version(), current.profiles().keySet());
         } catch (Exception e) {
             // 记住 mtime，避免坏文件被每次调用重复解析刷日志；文件再改动时会重新尝试。
             seenMtime = lastMtimeOrNow();
@@ -192,6 +192,20 @@ public class OutputPolicyStore {
             }
         }
         return new OutputPolicy(policy.version(), policy.updatedAt(), policy.updatedBy(), profiles);
+    }
+
+    /**
+     * 老配置文件缺少内置档位时补上。
+     *
+     * 卷里可能是上一版镜像留下的策略文件；新增的档位（如门外 free_chat）若只写进默认值，
+     * 升级后它会因为"文件里没有"而静默不设防——这正是最难发现的一类失效。
+     */
+    private static OutputPolicy withBuiltInProfiles(OutputPolicy policy) {
+        Map<String, ProfileRule> merged = new LinkedHashMap<>(policy.profiles());
+        for (Map.Entry<String, ProfileRule> entry : OutputPolicy.defaults().profiles().entrySet()) {
+            merged.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+        return new OutputPolicy(policy.version(), policy.updatedAt(), policy.updatedBy(), merged);
     }
 
     private static void validate(OutputPolicy policy) {

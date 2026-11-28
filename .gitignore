@@ -88,6 +88,8 @@ eval/datasets/private/
 *.rej
 # 设计稿的 HTML 分享包（工具导出物，源文件已入库）
 .trae-html-share-packages/
+# 本地验收截图（工具导出物，正式截图在 docs/assets）
+.screenshots/
 
 # ---- 后台配置的运行期快照 ----
 # 每次保存生成 v<n>.json，属于本机运行状态；配置本身（config/*.json）要进库。

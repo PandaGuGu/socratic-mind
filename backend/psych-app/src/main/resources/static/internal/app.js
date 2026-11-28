@@ -116,7 +116,11 @@ function stampOf(iso) {
 async function getJson(url, options) {
   const res = await fetch(url, options);
   if (!res.ok) {
-    const err = new Error(`${res.status} ${res.statusText}`);
+    // 服务端会给出人话（"需要「内容审核」职责"这种），比 "403 Forbidden" 有用得多
+    let detail = null;
+    try { detail = await res.json(); } catch (e) { /* 不是 JSON 就算了 */ }
+    const message = (detail && (detail.message || detail.error)) || `${res.status} ${res.statusText}`;
+    const err = new Error(message);
     err.status = res.status;
     throw err;
   }
@@ -608,7 +612,11 @@ async function select(id) {
   } catch (e) {
     S.detail = null;
     renderRail();
-    $("detailBody").innerHTML = `<div class="notice">读取失败：${esc(e.message)}。会话可能已随进程重启消失。</div>`;
+    // 403 不是故障，是边界：把服务端那句话原样放出来，别写成"会话已消失"
+    $("tabs").hidden = true;
+    $("detailBody").innerHTML = e.status === 403
+      ? `<div class="notice">${esc(e.message)}</div>`
+      : `<div class="notice">读取失败：${esc(e.message)}。会话可能已随进程重启消失。</div>`;
   }
 }
 

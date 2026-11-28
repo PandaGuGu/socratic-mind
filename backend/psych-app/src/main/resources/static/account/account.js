@@ -99,7 +99,6 @@
     $("lede").textContent = "这台设备与账号都能看到这些记录；退出登录只会退回到这台设备的匿名身份。";
     renderFacts(data.account);
     loadContact();
-    placeExport(true);
     $("claimedNote").hidden = true;
     showError("");
     initExport();
@@ -199,7 +198,6 @@
   function renderSignedOut() {
     $("signedIn").hidden = true;
     $("signedOut").hidden = false;
-    placeExport(false);
     // 有设备令牌 = 这台设备可能已经有匿名记录，值得提示"登录后要你确认"
     $("claimNote").hidden = !isDeviceToken(token());
   }
@@ -583,18 +581,6 @@
     $("previewModal").hidden = true;
   }
 
-  function placeExport(inAccount) {
-    var box = $("exportData");
-    if (!box) return;
-    if (inAccount) {
-      var security = document.querySelector(".security");
-      if (security && security.parentNode) security.parentNode.insertBefore(box, security);
-    } else {
-      var out = $("signedOut");
-      if (out && out.parentNode) out.parentNode.insertBefore(box, out.nextSibling);
-    }
-  }
-
   exportJsonBtn.onclick = function () { downloadExport("json"); };
   exportMarkdownBtn.onclick = function () { downloadExport("md"); };
   if (previewBtn) previewBtn.onclick = openPreview;
@@ -624,7 +610,6 @@
         loadContact();
         $("signedOut").hidden = true;
         $("signedIn").hidden = false;
-        placeExport(true);
       } else {
         renderSignedOut();
       }

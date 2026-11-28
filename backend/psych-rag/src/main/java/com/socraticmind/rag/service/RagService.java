@@ -1,8 +1,10 @@
 package com.socraticmind.rag.service;
 
+import com.socraticmind.common.guard.PolicyProfiles;
 import com.socraticmind.common.model.Verification;
 import com.socraticmind.common.port.ChatPort;
 import com.socraticmind.common.port.KnowledgeStore;
+import com.socraticmind.common.prompt.PromptSettings;
 import com.socraticmind.common.support.TextUtils;
 import com.socraticmind.rag.dto.EvidencePack;
 import com.socraticmind.rag.dto.Hit;
@@ -11,12 +13,8 @@ import com.socraticmind.rag.evidence.EvidenceAssembler;
 import com.socraticmind.rag.retrieval.HybridRetriever;
 import com.socraticmind.rag.retrieval.RerankingRetriever;
 import com.socraticmind.rag.validation.CitationVerifier;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -30,15 +28,19 @@ public class RagService {
     private final EvidenceAssembler assembler;
     private final CitationVerifier verifier;
     private final ChatPort chat;
-    private final String systemPrompt;
+    private final PromptSettings prompts;
+
+    private static final String PROMPT_FALLBACK =
+            "只根据给出的证据回答。证据不足时明确说资料不足，不要编造；引用编号必须来自证据。";
 
     public RagService(RerankingRetriever retriever, EvidenceAssembler assembler,
-                      CitationVerifier verifier, ChatPort chat, KnowledgeStore store) {
+                      CitationVerifier verifier, ChatPort chat, KnowledgeStore store,
+                      PromptSettings prompts) {
         this.retriever = retriever;
         this.assembler = assembler;
         this.verifier = verifier;
         this.chat = chat;
-        this.systemPrompt = loadPrompt();
+        this.prompts = prompts;
     }
 
     public List<Hit> retrieve(String query, int topK) {
@@ -59,7 +61,10 @@ public class RagService {
     }
 
     public String generate(String question, EvidencePack pack) {
-        return chat.chat(systemPrompt, buildUserPrompt(question, pack));
+        // 带档位：知识问答在输出策略里是独立的一档，不能和房间内/门外共用。
+        String prompt = prompts == null ? "" : prompts.get().knowledgeAnswer();
+        return chat.chat(prompt == null || prompt.isBlank() ? PROMPT_FALLBACK : prompt,
+                buildUserPrompt(question, pack), PolicyProfiles.RAG_ANSWER);
     }
 
     public Verification verify(String answer, EvidencePack pack) {
@@ -84,24 +89,6 @@ public class RagService {
         }
         sb.append("问题：").append(question).append('\n');
         return sb.toString();
-    }
-
-    private String loadPrompt() {
-        try (InputStream in = new ClassPathResource("prompts/knowledge/generate-answer.md").getInputStream()) {
-            String raw = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            return stripFrontMatter(raw);
-        } catch (IOException e) {
-            throw new IllegalStateException("提示词缺失：prompts/knowledge/generate-answer.md", e);
-        }
-    }
-
-    static String stripFrontMatter(String raw) {
-        String text = raw.replace("\r\n", "\n");
-        if (text.startsWith("---")) {
-            int end = text.indexOf("\n---", 3);
-            if (end > 0) return text.substring(end + 4).trim();
-        }
-        return text.trim();
     }
 
     public String preview(String query) {

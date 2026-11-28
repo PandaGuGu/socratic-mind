@@ -50,91 +50,19 @@ body {
 h1, h2, h3, p { margin: 0; }
 button, input { font: inherit; }
 
-.page {
-  min-height: 100%;
-  display: grid;
-  grid-template-rows: 56px minmax(0, 1fr);
-}
-
-/* ---------- 顶栏 ---------- */
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 0 28px;
-  border-bottom: 0.5px solid var(--rule);
-  background: var(--paper);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--ink);
-  text-decoration: none;
-  flex: none;
-}
-
-.brand svg {
-  width: 19px;
-  height: 19px;
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.2;
-}
-
-.brand-name {
-  font-family: var(--serif);
-  font-size: 15px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.brand-sub {
-  margin-left: 7px;
-  font-size: 10.5px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
-}
-
-.nav {
-  display: flex;
-  gap: 20px;
-  height: 56px;
-}
-
-.nav a {
-  display: flex;
-  align-items: center;
-  border-bottom: 1.5px solid transparent;
-  color: var(--ink-3);
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.nav a.active {
-  border-bottom-color: var(--accent);
-  color: var(--ink);
-}
-
-.top-note {
-  margin-left: auto;
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
 /* ---------- 布局 ---------- */
 .layout {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 280px;
 }
+
+#askBlock,
+#answerArea { scroll-margin-top: 24px; }
 
 /* ---------- 左侧问题 ---------- */
 .rail {
@@ -474,9 +402,10 @@ sup.ref {
 }
 
 @media (max-width: 900px) {
-  .top-note { display: none; }
   .layout {
     grid-template-columns: minmax(0, 1fr);
+    /* 单列时不要让三行被拉伸去填满视口，否则每块之间会多出大片空白 */
+    align-content: start;
   }
   .rail {
     padding: 18px 20px 14px;
@@ -512,8 +441,6 @@ sup.ref {
 }
 
 @media (max-width: 560px) {
-  .topbar { padding: 0 16px; gap: 16px; }
-  .brand-name { font-size: 14px; }
   .main { padding: 24px 16px 40px; }
   .intro h1 { font-size: 24px; }
   .ask { flex-direction: column; }

@@ -154,6 +154,14 @@ public class InMemoryOrgStore implements OrgStore {
     }
 
     @Override
+    public Optional<String> usernameOf(String memberId) {
+        return credentials.entrySet().stream()
+                .filter(e -> e.getValue().memberId().equals(memberId))
+                .map(java.util.Map.Entry::getKey)
+                .findFirst();
+    }
+
+    @Override
     public void setCredential(String memberId, String username, String passwordHash) {
         Member m = members.get(memberId);
         if (m == null) throw new IllegalArgumentException("成员不存在：" + memberId);

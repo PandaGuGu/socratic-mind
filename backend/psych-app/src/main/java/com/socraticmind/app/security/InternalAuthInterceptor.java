@@ -4,6 +4,7 @@ import com.socraticmind.common.model.Operator;
 import com.socraticmind.common.port.OrgStore;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.nio.charset.StandardCharsets;
@@ -78,9 +79,21 @@ public class InternalAuthInterceptor implements HandlerInterceptor {
                         "CSRF", "缺少或错误的 CSRF 令牌，请刷新页面后重试");
             }
         }
-        if (orgEnabled && operator != null && !safeMethod && !operator.canReview()) {
+        if (orgEnabled && operator != null && !safeMethod && operator.isReadOnly()) {
             return deny(response, HttpServletResponse.SC_FORBIDDEN,
                     "READ_ONLY", "当前操作者只有只读权限，不能签署或修改");
+        }
+
+        // 按"这件事归谁"再挡一层：只读之外，运营不该签字，医生不该改成员。
+        // 内部令牌（operator == null）是破窗钥匙，不受此限——它本来就不代表某个人。
+        if (orgEnabled && operator != null && handler instanceof HandlerMethod method) {
+            RequirePerm need = method.getMethodAnnotation(RequirePerm.class);
+            if (need == null) need = method.getBeanType().getAnnotation(RequirePerm.class);
+            if (need != null && !operator.allows(need.value())) {
+                return deny(response, HttpServletResponse.SC_FORBIDDEN, "ROLE_FORBIDDEN",
+                        "这个操作需要「" + need.value().label() + "」职责，当前身份是"
+                                + operator.roleLabel() + "，不在其内");
+            }
         }
 
         if (operator != null) request.setAttribute(OPERATOR_ATTR, operator);

@@ -80,6 +80,13 @@ public interface OrgStore {
     /** 按成员反查凭据，用于"改口令"这种手里只有身份、没有登录名的场景。 */
     Optional<Credential> credentialByMember(String memberId);
 
+    /**
+     * 按成员查登录名。没设过登录名的成员（只能用令牌）返回空。
+     * 单独开这个方法而不是塞进 Credential：登录名是"账号"的属性，
+     * 凭据是"能不能登录"的结果，混在一起会让每次判权都多带一个无关字段。
+     */
+    Optional<String> usernameOf(String memberId);
+
     /** 设置登录名与口令摘要。登录名冲突由调用方处理。 */
     void setCredential(String memberId, String username, String passwordHash);
 

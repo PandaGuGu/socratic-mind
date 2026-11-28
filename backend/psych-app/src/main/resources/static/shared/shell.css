@@ -1,0 +1,393 @@
+/* 全局外壳：可折叠侧栏 + 内容区。
+   依赖 knowledge.css 的纸本变量（--paper/--surface/--ink/--rule/--accent…）。
+   侧栏宽度由 --rail 控制，折叠只改这一个变量，过渡交给 grid-template-columns。 */
+
+:root {
+  --rail-full: 232px;
+  --rail-mini: 64px;
+}
+
+.shell {
+  --rail: var(--rail-full);
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 220ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.shell-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 侧栏 ---------- */
+.sidenav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 22px;
+  padding: 18px 14px 16px;
+  background: var(--paper);
+  overflow: hidden auto;
+  scrollbar-width: thin;
+}
+
+.sidenav-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.sidenav-brand .mk {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+}
+
+.sidenav-name {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidenav-toggle {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0.5px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.sidenav-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: transform 220ms ease;
+}
+
+.sidenav-toggle:hover {
+  border-color: var(--rule);
+  color: var(--ink);
+}
+
+.sidenav-label {
+  margin: 0 0 6px;
+  padding: 0 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: .14em;
+  color: var(--ink-3);
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.sidenav-nav {
+  display: grid;
+  gap: 1px;
+  align-content: start;
+}
+
+.sidenav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sidenav-item svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .85;
+}
+
+.sidenav-item:hover {
+  background: var(--tint);
+  color: var(--ink);
+}
+
+.sidenav-item.is-active {
+  color: var(--ink);
+  font-weight: 500;
+  background: var(--tint);
+}
+
+.sidenav-item.is-active svg {
+  stroke: var(--accent);
+  opacity: 1;
+}
+
+.sidenav-jumps .sidenav-item {
+  padding-left: 20px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* 页内锚点项：小圆点代替图标，像素级居中，避免和文字错开半行 */
+.sidenav-jumps .sidenav-item::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  margin-top: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  border: 0.5px solid var(--rule-strong);
+  background: transparent;
+}
+
+.sidenav-jumps .sidenav-item.is-on {
+  color: var(--ink);
+}
+
+.sidenav-jumps .sidenav-item.is-on::after {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.sidenav-foot {
+  align-self: end;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--rule);
+}
+
+.sidenav-note {
+  margin: 0;
+  padding: 0 10px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--ink-3);
+}
+
+/* ---------- 折叠态（仅桌面） ---------- */
+@media (min-width: 901px) {
+  .shell.is-collapsed { --rail: var(--rail-mini); }
+
+  /* 分界线画在内容区上：侧栏是 sticky 的，画在侧栏上滚到下面就断了 */
+  .shell-body { border-left: 0.5px solid var(--rule); }
+
+  .shell.is-collapsed .sidenav { padding: 18px 10px 16px; gap: 18px; }
+  .shell.is-collapsed .sidenav-top {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .shell.is-collapsed .sidenav-toggle { margin: 0; width: 100%; border-color: var(--rule); }
+  .shell.is-collapsed .sidenav-toggle svg { transform: rotate(180deg); }
+  .shell.is-collapsed .sidenav-name,
+  .shell.is-collapsed .sidenav-label,
+  .shell.is-collapsed .sidenav-note,
+  .shell.is-collapsed .sidenav-item > span { display: none; }
+  .shell.is-collapsed .sidenav-item {
+    justify-content: center;
+    padding: 9px 0;
+  }
+  .shell.is-collapsed .sidenav-jumps .sidenav-item { padding-left: 0; }
+  .shell.is-collapsed .sidenav-jumps .sidenav-item::after { display: none; }
+  .shell.is-collapsed .sidenav-jumps { display: none; }
+  .shell.is-collapsed .sidenav-foot { display: none; }
+}
+
+/* ---------- 小屏：侧栏变成抽屉 ---------- */
+.mobilebar { display: none; }
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(24, 22, 20, .42);
+  backdrop-filter: blur(1px);
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+
+  .sidenav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 272px;
+    transform: translateX(-102%);
+    transition: transform 240ms cubic-bezier(.4, 0, .2, 1);
+    box-shadow: 0 0 40px rgba(0, 0, 0, .18);
+  }
+
+  .shell.is-open .sidenav { transform: none; }
+
+  .mobilebar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 14px;
+    border-bottom: 0.5px solid var(--rule);
+    background: var(--paper);
+  }
+
+  .mobilebar-btn {
+    width: 30px;
+    height: 30px;
+    margin-left: -4px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+
+  .mobilebar-btn svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+
+  .mobilebar-title {
+    font-family: var(--serif);
+    font-size: 13.5px;
+  }
+
+  .mobilebar-note {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: .04em;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobilebar-note { display: none; }
+}
+
+/* ---------- 卡片：可折叠区块 ---------- */
+.card {
+  border: 0.5px solid var(--rule);
+  border-radius: 12px;
+  background: var(--surface);
+  scroll-margin-top: 24px;
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 22px 16px;
+}
+
+.card-head-text { min-width: 0; }
+
+.card-kicker {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+.card-title {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.card-hint {
+  margin: 5px 0 0;
+  max-width: 46em;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--ink-3);
+}
+
+.card-fold {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 2px -4px 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.card-fold svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  transition: transform 200ms ease;
+}
+
+.card-fold:hover { color: var(--ink); background: var(--tint); }
+
+.card-body {
+  padding: 0 22px 22px;
+}
+
+.card.is-folded .card-body { display: none; }
+.card.is-folded .card-fold svg { transform: rotate(-90deg); }
+
+@media (max-width: 620px) {
+  .card-head { padding: 16px 16px 14px; }
+  .card-body { padding: 0 16px 18px; }
+}

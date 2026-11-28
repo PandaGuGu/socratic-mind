@@ -24,6 +24,8 @@
     $("whoName").textContent = "未登录操作者";
     $("whoMeta").textContent = "当前请求只带内部令牌";
     $("tokenNote").hidden = false;
+    // 令牌模式下也要能退出：清除本机保存的凭据，而不是把按钮藏起来。
+    $("logoutBtn").textContent = "退出登录（清除本机令牌）";
   }
 
   function boot() {
@@ -89,9 +91,21 @@
   });
 
   $("logoutBtn").addEventListener("click", function () {
+    if (!window.confirm("退出登录？本机保存的登录凭据会被清除。")) return;
+    var btn = $("logoutBtn");
+    btn.disabled = true;
+    say("logoutMsg", "正在退出…", true);
+    // 先注销服务端会话（没有会话时忽略错误），再清掉本机令牌。
     fetch("/api/operator/logout", { method: "POST", headers: { Accept: "application/json" } })
-      .then(function () { location.href = "./login.html"; })
-      .catch(function (err) { say("logoutMsg", "退出失败：" + err.message, false); });
+      .catch(function () { return null; })
+      .then(function () {
+        try {
+          localStorage.removeItem("sm-internal-token");
+          localStorage.removeItem("sm-operator-token");
+        } catch (e) { /* 隐私模式 */ }
+        document.cookie = "sm_csrf=; Max-Age=0; path=/";
+        location.href = "./login.html";
+      });
   });
 
   boot();

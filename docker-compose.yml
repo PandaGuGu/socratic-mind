@@ -23,6 +23,8 @@ x-app-env: &app-env
   # 口令只在首次启动写入（摘要落库），之后在后台改。
   PSYCH_OPERATOR_USER: ${PSYCH_OPERATOR_USER:-admin}
   PSYCH_OPERATOR_PASSWORD: ${PSYCH_OPERATOR_PASSWORD:-}
+  # 本机演示档放宽后台口令强度：开着时才允许 123456 这类口令（默认关闭）
+  PSYCH_SECURITY_RELAXED_OPERATOR_PASSWORD: ${PSYCH_SECURITY_RELAXED_OPERATOR_PASSWORD:-false}
   # 模型：默认全桩，零成本。接真实对话模型见 deploy/README.md「接真实模型」
   PSYCH_AI_PROVIDER: ${PSYCH_AI_PROVIDER:-stub}
   PSYCH_AI_CHAT_PROVIDER: ${PSYCH_AI_CHAT_PROVIDER:-stub}
@@ -31,8 +33,10 @@ x-app-env: &app-env
   PSYCH_AI_CHAT_MODEL: ${PSYCH_AI_CHAT_MODEL:-}
   PSYCH_AI_TEMPERATURE: ${PSYCH_AI_TEMPERATURE:-0.2}
   PSYCH_AI_THINKING_DISABLED: ${PSYCH_AI_THINKING_DISABLED:-false}
-  # 维度必须与 PG 的 vector 列一致，改了要清库重来（docker compose down -v）
-  PSYCH_AI_EMBEDDING_DIMENSION: "256"
+  # 维度必须与 PG 的 vector 列一致。库里已有别的维度时，启动会报错并拒绝改动数据；
+  # 把 PSYCH_AI_VECTOR_MIGRATE 打开（只用一次）才会重建 embedding 列并按当前模型重嵌入。
+  PSYCH_AI_EMBEDDING_DIMENSION: ${PSYCH_AI_EMBEDDING_DIMENSION:-256}
+  PSYCH_AI_VECTOR_MIGRATE: ${PSYCH_AI_VECTOR_MIGRATE:-false}
   # 容器里没有 Windows 语音包；留空即关闭 Firefox 的转写退路（接口回 503）
   PSYCH_ASR_COMMAND: ${PSYCH_ASR_COMMAND:-}
   TZ: ${TZ:-Asia/Shanghai}

@@ -6,16 +6,64 @@
 <title>Socratic Mind · 临床审核记录</title>
 <link rel="stylesheet" href="./app.css">
 <style>
-  .review-wrap { min-height: 0; overflow-y: auto; padding: 24px 28px 44px; }
+  .review-wrap { min-height: 0; overflow-y: auto; padding: 22px 28px 44px; }
   .review-head h2 { font-size: 16px; font-weight: 600; }
-  .review-head p { margin-top: 5px; font-size: 11.5px; color: var(--muted); max-width: 62em; line-height: 1.8; }
-  .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0 26px; max-width: 900px; }
+  .review-head p { margin-top: 5px; font-size: 11.5px; color: var(--muted); max-width: 70em; line-height: 1.75; }
+
+  /* 子分级：一屏只做一件事，配置 / 会话 / 知识库分开 */
+  .review-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-top: 16px; border-bottom: 1px solid var(--line);
+  }
+  .review-tabs { display: flex; gap: 2px; }
+  .review-tab {
+    padding: 9px 12px 8px; border: none; border-bottom: 2px solid transparent;
+    background: none; color: var(--muted); font-size: 12.5px; cursor: pointer;
+  }
+  .review-tab:hover { color: var(--ink); }
+  .review-tab.is-on { color: var(--ink); font-weight: 500; border-bottom-color: #1c1d1b; }
+  .review-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 6px; }
+  .review-pane { padding-top: 16px; }
+  .pane-lead { margin-bottom: 14px; font-size: 11.5px; color: var(--muted); max-width: 70em; line-height: 1.8; }
+  .pane-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pane-note { font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+
+  /* 配置审核的操作顺序：说清楚“先看、再勾、最后签” */
+  .steps { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .step {
+    display: flex; align-items: flex-start; gap: 8px; flex: 1 1 240px; min-width: 0;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface);
+  }
+  .step .no {
+    flex: none; width: 18px; height: 18px; border-radius: 50%; background: #1c1d1b; color: #fff;
+    font-family: var(--mono); font-size: 10px; line-height: 18px; text-align: center;
+  }
+  .step b { display: block; font-size: 12px; font-weight: 600; }
+  .step span { display: block; font-size: 11px; color: var(--muted); line-height: 1.65; }
+
+  /* 侧栏「审核」下的子级 */
+  .app.is-shell .sb-sub {
+    display: flex; flex-direction: column; gap: 1px;
+    margin: 1px 0 4px 26px; padding-left: 8px; border-left: 1px solid #ecebe6;
+  }
+  .app.is-shell .sb-sub-item {
+    display: flex; align-items: center; height: 26px; padding: 0 8px;
+    border-radius: 6px; font-size: 11.5px; color: #8d908a; text-decoration: none;
+  }
+  .app.is-shell .sb-sub-item:hover { background: #f0eee8; color: var(--ink); }
+  .app.is-shell .sb-sub-item.is-on { background: #f1efe9; color: var(--ink); font-weight: 500; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(198px, 1fr)); gap: 12px; margin: 16px 0 24px; }
   .card {
     border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
-    padding: 16px 18px;
+    padding: 14px 16px;
   }
+  .card-top { display: flex; align-items: center; gap: 8px; }
+  .card-top h3 { flex: 1; min-width: 0; }
+  .card-top .state { margin-top: 0; }
   .card h3 { font-size: 13px; font-weight: 600; }
   .card .num { margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .card .desc { margin-top: 6px; font-size: 11px; color: var(--muted); line-height: 1.6; }
   .card .state { display: inline-block; margin-top: 10px; padding: 2px 9px; border-radius: 10px; font-size: 10.5px; }
   .state.unreviewed { background: var(--wait-soft); color: var(--wait); }
   .state.stale { background: var(--refer-soft); color: var(--refer); }
@@ -57,19 +105,22 @@
   .msg.ok { background: var(--accent-soft); color: var(--accent-deep); }
   .msg.bad { background: var(--refer-soft); color: var(--refer); }
   .foot { margin-top: 18px; font-size: 11.5px; color: var(--muted); line-height: 1.8; }
-  .review-head { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
-  .review-head > div:first-child { min-width: 0; }
-  .review-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .pending-pill {
     padding: 4px 10px; border-radius: 999px; font-size: 11px;
     background: var(--wait-soft); color: var(--wait); border: 1px solid var(--wait-line);
   }
   .pending-pill.is-clear { background: var(--accent-soft); color: var(--accent-deep); border-color: var(--accent-line); }
-  .card .ops { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 9px; font-size: 11px; }
-  .card .ops button {
+  .card .ops { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 11px; align-items: center; }
+  .card .ops button, .card .ops a {
     border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0;
+    text-decoration: none;
   }
-  .card .ops button:hover { text-decoration: underline; }
+  .card .ops button:hover, .card .ops a:hover { text-decoration: underline; }
+  .card .ops .op-main { color: var(--ink); font-weight: 500; }
+  .card .ops .op-main::after { content: " →"; }
+  .card.is-picked { border-color: #1c1d1b; box-shadow: 0 0 0 2px #f1efe9; }
+  .picked { margin: -4px 0 2px; font-size: 11.5px; color: var(--muted); }
+  .picked b { color: var(--ink); font-weight: 600; }
   .changes { margin-top: 9px; font-size: 11.5px; color: var(--ink-soft); }
   .changes summary { cursor: pointer; color: var(--refer); }
   .changes ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.75; }
@@ -81,6 +132,10 @@
   .checks input { margin-top: 3px; accent-color: var(--accent); }
   .checks .hint { grid-column: 2; }
   .check-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 11px; color: var(--muted); }
+  .check-note {
+    margin-bottom: 10px; padding: 7px 10px; border-radius: var(--r-sm);
+    background: var(--wait-soft); color: #6b3f04; font-size: 11px; line-height: 1.65;
+  }
   .check-bar button { border: none; background: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; }
   .session-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .session-table th {
@@ -125,7 +180,7 @@
   .hist-entry .meta { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
   @media (max-width: 980px) {
     .cards, .cols { grid-template-columns: 1fr; }
-    .review-actions { margin-left: 0; }
+    .review-actions { margin-left: 0; padding-bottom: 0; }
   }
 </style>
 </head>
@@ -150,45 +205,54 @@
         <svg viewBox="0 0 16 16"><path d="M3 3.6h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7.2L4.4 13.6v-2H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"></path></svg>
         会话
       </a>
-      <a class="sb-item is-on" href="./review.html">
+      <a class="sb-item is-on" href="./review.html" data-perm="review">
         <svg viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"></path></svg>
         审核
       </a>
-      <a class="sb-item" href="./accounts.html">
+      <div class="sb-sub" data-perm="review">
+        <a class="sb-sub-item is-on" href="#config" data-sub="config">配置审核</a>
+        <a class="sb-sub-item" href="#sessions" data-sub="sessions">会话复核</a>
+        <a class="sb-sub-item" href="#knowledge" data-sub="knowledge">知识库文档</a>
+      </div>
+      <a class="sb-item" href="./accounts.html" data-perm="manage">
         <svg viewBox="0 0 16 16"><circle cx="8" cy="5.7" r="2.4"></circle><path d="M3.4 13.2c.6-2.5 2.4-3.7 4.6-3.7s4 1.2 4.6 3.7"></path></svg>
         账号
       </a>
-      <a class="sb-item" href="./login.html">
+      <a class="sb-item" href="./members.html" data-perm="manage">
+        <svg viewBox="0 0 16 16"><circle cx="5.6" cy="5.9" r="2.1"></circle><path d="M2.4 13c.5-2.2 1.9-3.3 3.9-3.3s3.4 1.1 3.9 3.3"></path><circle cx="11.2" cy="6.6" r="1.6"></circle><path d="M10.4 12.6c.3-1.7 1.2-2.5 2.5-2.5.9 0 1.5.4 1.9 1.2"></path></svg>
+        成员
+      </a>
+      <a class="sb-item" href="./login.html" data-perm="manage">
         <svg viewBox="0 0 16 16"><path d="M9.2 3.6H4.6a1 1 0 0 0-1 1v6.8a1 1 0 0 0 1 1h4.6"></path><path d="M11 5.9 13 8l-2 2.1M6.4 8h6.4"></path></svg>
         登录
       </a>
 
       <p class="sb-label">配置</p>
-      <a class="sb-item" href="./flow.html">
+      <a class="sb-item" href="./flow.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="6.2" r="1.6"></circle><circle cx="7" cy="12" r="1.6"></circle><path d="M5.5 4.4 10.5 5.6M4.6 5.5l1.9 5"></path></svg>
         流程画布
       </a>
-      <a class="sb-item" href="./policy.html">
+      <a class="sb-item" href="./policy.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M8 2.5 12.8 4.4v3.9c0 3-1.9 4.6-4.8 5.4-2.9-.8-4.8-2.4-4.8-5.4V4.4Z"></path></svg>
         输出策略
       </a>
-      <a class="sb-item" href="./settings.html">
+      <a class="sb-item" href="./settings.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M2.6 5.2h2.2M8.2 5.2h5.2M2.6 10.8h5.2M11.2 10.8h2.2"></path><circle cx="6.6" cy="5.2" r="1.5"></circle><circle cx="9.6" cy="10.8" r="1.5"></circle></svg>
         规则与参数
       </a>
-      <a class="sb-item" href="./lexicon.html">
+      <a class="sb-item" href="./lexicon.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M3.2 3.6h3.9a1 1 0 0 1 1 1v8H4.2a1 1 0 0 1-1-1Z"></path><path d="M12.8 3.6H8.9a1 1 0 0 0-1 1v8h3.9a1 1 0 0 0 1-1Z"></path></svg>
         词库
       </a>
-      <a class="sb-item" href="./ai.html">
+      <a class="sb-item" href="./ai.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.2"></rect><path d="M6.6 2.4v2.2M9.4 2.4v2.2M6.6 11.4v2.2M9.4 11.4v2.2M2.4 6.6h2.2M2.4 9.4h2.2M11.4 6.6h2.2M11.4 9.4h2.2"></path></svg>
         模型
       </a>
-      <a class="sb-item" href="./knowledge.html">
+      <a class="sb-item" href="./knowledge.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M8 2.8 13 5.2 8 7.6 3 5.2Z"></path><path d="M3 8.6 8 11l5-2.4"></path></svg>
         知识库
       </a>
-      <a class="sb-item" href="./eval.html">
+      <a class="sb-item" href="./eval.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M3.2 11.4a5 5 0 1 1 9.6 0"></path><path d="M8 11.4 10.4 7.6"></path></svg>
         评测
       </a>
@@ -213,11 +277,15 @@
     <div class="review-head">
       <div>
         <h2>审核与心理复核</h2>
-        <p>
-          这里记录"哪一版规则、被谁、在什么时候看过、结论是什么"。规则或词库改版后，
-          旧记录自动变成"版本已变，需重审"——不会拿旧的签字给新规则背书。默认状态是<b>未审核</b>；
-          本系统不能替代临床医生的签字。
-        </p>
+        <p>只记录"哪一版、被谁、在什么时候看过、结论是什么"；系统不替人签字，也不能替代临床医生的签字。</p>
+      </div>
+    </div>
+
+    <div class="review-bar">
+      <div class="review-tabs" role="tablist" aria-label="审核分类">
+        <button class="review-tab is-on" type="button" role="tab" data-tab="config" aria-selected="true">配置审核</button>
+        <button class="review-tab" type="button" role="tab" data-tab="sessions" aria-selected="false">会话复核</button>
+        <button class="review-tab" type="button" role="tab" data-tab="knowledge" aria-selected="false">知识库文档</button>
       </div>
       <div class="review-actions">
         <span class="pending-pill" id="pendingPill">读取中…</span>
@@ -226,71 +294,74 @@
       </div>
     </div>
 
-    <div class="cards" id="cards"></div>
+    <section class="review-pane" data-pane="config" role="tabpanel" aria-label="配置审核">
+      <p class="pane-lead">
+        规则或词库改版后，旧记录自动变成"版本已变，需重审"——不会拿旧的签字给新规则背书。默认状态是<b>未审核</b>。
+      </p>
 
-    <div class="cols">
-      <section class="panel">
-        <h3>审核时要逐条确认的清单</h3>
-        <div class="check-bar">
-          <span id="checkCount">已勾选 0 / 9</span>
-          <button type="button" id="checkAll">全选</button>
-          <button type="button" id="checkNone">清空</button>
-        </div>
-        <div class="checks" id="checks">
-          <label><input type="checkbox" value="self_harm"> <span><b>自伤/伤人规则</b>：本人意图必须 HOLD，他人/引用进待复核；"我不想活了，他不知道"不能被放行。</span></label>
-          <label><input type="checkbox" value="referral"> <span><b>转介信息</b>：你所在地区的急救与心理援助路径在最前面，不藏在折叠里；不写死某一地区的号码；不承诺"会有人马上联系你"。</span></label>
-          <label><input type="checkbox" value="diagnosis"> <span><b>诊断边界</b>：任何话术都不下诊断、不判断病程、不推荐药物或剂量。</span></label>
-          <label><input type="checkbox" value="distortion"> <span><b>偏差标签</b>：只作为候选提示，不写成"你有 XX 思维"，不进总结。</span></label>
-          <label><input type="checkbox" value="mood"> <span><b>情绪自评</b>：只由用户点击，低分只进"关注"，不触发安全暂停。</span></label>
-          <label><input type="checkbox" value="lexicon"> <span><b>词库</b>：自伤表达不放进 block；不把"废物""没用""安眠药"等治疗性词汇当敏感词。</span></label>
-          <label><input type="checkbox" value="guard"> <span><b>输出守卫</b>：禁句、长度、与输入重合度的阈值是否符合本机构话术规范。</span></label>
-          <label><input type="checkbox" value="contact"> <span><b>联系人</b>：只展示、不自动外呼；拨号/短信入口必须由本人按下。</span></label>
-          <label><input type="checkbox" value="share"> <span><b>分享</b>：记录页一次性链接不得包含联系人电话；打印后不再受系统保护，页面须写明。</span></label>
-        </div>
-      </section>
+      <div class="steps">
+        <div class="step"><span class="no">1</span><span><b>核对内容</b>点卡片上的「核对配置」，到对应页面看一眼当前生效的内容。</span></div>
+        <div class="step"><span class="no">2</span><span><b>逐条确认</b>回到本页，按下面的清单勾选你确认过的项目。</span></div>
+        <div class="step"><span class="no">3</span><span><b>登记结论</b>点卡片的「审核这项」，填审核人与备注，点「登记」。</span></div>
+      </div>
 
-      <section class="panel">
-        <h3>登记一次审核</h3>
-        <form class="form-grid" id="reviewForm">
-          <label>
-            <span>对象</span>
-            <select id="kind">
-              <option value="safety">安全规则</option>
-              <option value="lexicon">敏感词库</option>
-              <option value="flow">流程画布与系统话术</option>
-              <option value="policy">输出策略</option>
-              <option value="limits">运行参数</option>
-            </select>
-          </label>
-          <label>
-            <span>结论</span>
-            <div class="radios">
-              <label><input type="radio" name="status" value="approved" checked> 通过</label>
-              <label><input type="radio" name="status" value="changes_requested"> 需修改</label>
-            </div>
-          </label>
-          <label>
-            <span>审核人（姓名 / 资质）</span>
-            <input id="reviewer" type="text" maxlength="32" placeholder="如：李医生 · 精神科主治" required>
-            <span class="foot" id="identityHint" style="margin:0"></span>
-          </label>
-          <label>
-            <span>备注</span>
-            <textarea id="note" maxlength="1000" placeholder="改了哪几条、为什么；需修改时写清要改什么"></textarea>
-          </label>
-          <button class="btn btn-primary" type="submit" id="saveBtn">登记</button>
-        </form>
-        <div class="msg" id="msg" role="status"></div>
-        <p class="foot">
-          登记会把"当前生效版本"、勾选清单与登录身份一起写进去。之后如果再改配置，状态会变成"版本已变"，
-          需要重新审核。这是刻意的：审核针对版本，不针对模块。
-        </p>
-      </section>
-    </div>
+      <div class="cards" id="cards"></div>
 
-    <section class="panel" style="margin-top: 18px">
-      <h3>会话心理复核</h3>
-      <p class="foot" style="margin-bottom: 10px">
+      <div class="cols">
+        <section class="panel">
+          <h3>审核「<span id="checkKind">安全规则</span>」时要确认的清单</h3>
+          <p class="check-note" id="checkNote" hidden></p>
+          <div class="check-bar">
+            <span id="checkCount">已勾选 0 / 0</span>
+            <button type="button" id="checkAll">全选</button>
+            <button type="button" id="checkNone">清空</button>
+          </div>
+          <div class="checks" id="checks"></div>
+        </section>
+
+        <section class="panel" id="signPanel">
+          <h3>登记一次审核</h3>
+          <p class="picked">正在审核：<b id="pickedKind">安全规则</b></p>
+          <form class="form-grid" id="reviewForm">
+            <label>
+              <span>对象</span>
+              <select id="kind">
+                <option value="safety">安全规则</option>
+                <option value="lexicon">敏感词库</option>
+                <option value="flow">流程画布与系统话术</option>
+                <option value="policy">输出策略</option>
+                <option value="limits">运行参数</option>
+              </select>
+            </label>
+            <label>
+              <span>结论</span>
+              <div class="radios">
+                <label><input type="radio" name="status" value="approved" checked> 通过</label>
+                <label><input type="radio" name="status" value="changes_requested"> 需修改</label>
+              </div>
+            </label>
+            <label>
+              <span>审核人（姓名 / 资质）</span>
+              <input id="reviewer" type="text" maxlength="32" placeholder="如：李医生 · 精神科主治" required>
+              <span class="foot" id="identityHint" style="margin:0"></span>
+            </label>
+            <label>
+              <span>备注</span>
+              <textarea id="note" maxlength="1000" placeholder="改了哪几条、为什么；需修改时写清要改什么"></textarea>
+            </label>
+            <button class="btn btn-primary" type="submit" id="saveBtn">登记</button>
+          </form>
+          <div class="msg" id="msg" role="status"></div>
+          <p class="foot">
+            登记会把"当前生效版本"、勾选清单与登录身份一起写进去。之后如果再改配置，状态会变成"版本已变"，
+            需要重新审核。这是刻意的：审核针对版本，不针对模块。
+          </p>
+        </section>
+      </div>
+    </section>
+
+    <section class="review-pane" data-pane="sessions" role="tabpanel" aria-label="会话复核" hidden>
+      <p class="pane-lead">
         这里只列已经触发安全关注/暂停的会话，不是全部会话。看对话、写结论、标记是否已上报。
         <b>系统不会自动通知任何人</b>——"已上报/已联系"记录的是你实际做过的动作，不是系统替你发出去的消息。
       </p>
@@ -322,12 +393,18 @@
       </div>
     </section>
 
-    <section class="panel" style="margin-top: 18px">
-      <h3>知识库文档审核记录</h3>
-      <p class="foot" style="margin-bottom: 10px">
-        签字针对<b>版本</b>：通过 v2 不等于 v3 也被审过。可见范围是签字那一刻的<b>快照</b>——
+    <section class="review-pane" data-pane="knowledge" role="tabpanel" aria-label="知识库文档" hidden>
+      <p class="pane-lead">
+        这里只记录<b>签字</b>：通过 v2 不等于 v3 也被审过。可见范围是签字那一刻的<b>快照</b>——
         之后改了权限不会回写到这里，这正是"当时签的是什么"需要的证据。
       </p>
+      <div class="pane-actions">
+        <a class="btn" href="./knowledge.html?tab=ingest">去知识库导入资料</a>
+        <span class="pane-note">
+          导入入口在「知识库 → 新增资料」：可以粘贴 Markdown，也可以上传 .md / .txt 文件；
+          入库后先进入待审核，审核签字记录才会出现在下面。
+        </span>
+      </div>
       <div id="kbReviews"><p class="foot">读取中…</p></div>
     </section>
   </main>

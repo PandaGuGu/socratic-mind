@@ -3,6 +3,8 @@ package com.socraticmind.app.web;
 import com.socraticmind.infrastructure.ai.AiConfigStore;
 import com.socraticmind.infrastructure.ai.AiRuntimeConfig;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.socraticmind.app.security.RequirePerm;
+import com.socraticmind.common.model.Operator;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -37,6 +39,7 @@ public class InternalAiController {
     }
 
     @PutMapping("/config")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public AiConfigStore.View save(@RequestBody SaveRequest request) {
         if (request == null || request.config() == null) {
             throw new IllegalArgumentException("配置不能为空");
@@ -46,6 +49,7 @@ public class InternalAiController {
 
     /** 用候选配置试一条最小请求；不保存、不切换。 */
     @PostMapping("/config/test")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public AiConfigStore.TestResult test(@RequestBody(required = false) SaveRequest request) {
         return store.test(request == null ? null : request.config());
     }
@@ -57,6 +61,7 @@ public class InternalAiController {
 
     /** 尝试启动本机 Ollama；容器档没有 ollama 命令时会如实返回原因。 */
     @PostMapping("/local/start")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public AiConfigStore.LocalStatus localStart(@RequestParam(required = false) String baseUrl) {
         return store.localStart(baseUrl);
     }

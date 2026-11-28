@@ -1,7 +1,7 @@
 ---
 title: backend 说明
 status: 定稿
-updated: 2026-11-27
+updated: 2026-11-28
 ---
 
 # backend
@@ -32,10 +32,10 @@ mvn -o test                      # 全部测试，不依赖外部模型与数据
 mvn -o package -DskipTests       # 产出 psych-app/target/psych-app-<version>.jar
 
 # 本机：H2 文件库 + 宿主 Ollama
-java -jar psych-app/target/psych-app-0.6.1.jar --server.port=8099 --spring.profiles.active=h2
+java -jar psych-app/target/psych-app-0.7.0.jar --server.port=8099 --spring.profiles.active=h2
 
 # 完全离线
-java -jar psych-app/target/psych-app-0.6.1.jar --server.port=8099 --spring.profiles.active=h2,stub
+java -jar psych-app/target/psych-app-0.7.0.jar --server.port=8099 --spring.profiles.active=h2,stub
 ```
 
 ## 档位

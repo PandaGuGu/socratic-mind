@@ -134,7 +134,7 @@ docker compose exec postgres psql -U psych -d psych -c "SELECT extversion FROM p
 名字与端口都错开，两档可同时存在。然后：
 
 ```bash
-java -jar backend/psych-app/target/psych-app-0.6.1.jar \
+java -jar backend/psych-app/target/psych-app-0.7.0.jar \
   --spring.profiles.active=pg \
   --psych.db.url=jdbc:postgresql://localhost:5432/psych
 ```

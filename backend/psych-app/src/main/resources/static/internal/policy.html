@@ -58,6 +58,58 @@
     content: "· ";
   }
 
+  .scene-note {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .scene-note div {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .scene-note b {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .scene-link {
+    margin-bottom: 14px;
+    font-size: 11.5px;
+    line-height: 1.75;
+    color: var(--muted);
+  }
+
+  .scene-link a {
+    color: var(--accent-ink);
+    text-decoration: none;
+  }
+
+  .scene-link a:hover {
+    text-decoration: underline;
+  }
+
+  .where-tag {
+    margin-left: 8px;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--muted);
+    vertical-align: middle;
+  }
+
   .policy-meta {
     margin-top: 8px;
     font-family: var(--mono);
@@ -477,45 +529,56 @@
         <svg viewBox="0 0 16 16"><path d="M3 3.6h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7.2L4.4 13.6v-2H3a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"></path></svg>
         会话
       </a>
-      <a class="sb-item" href="./review.html">
+      <a class="sb-item" href="./review.html" data-perm="review">
         <svg viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"></path></svg>
         审核
       </a>
-      <a class="sb-item" href="./accounts.html">
+      <a class="sb-item" href="./accounts.html" data-perm="manage">
         <svg viewBox="0 0 16 16"><circle cx="8" cy="5.7" r="2.4"></circle><path d="M3.4 13.2c.6-2.5 2.4-3.7 4.6-3.7s4 1.2 4.6 3.7"></path></svg>
         账号
       </a>
-      <a class="sb-item" href="./login.html">
+      <a class="sb-item" href="./members.html" data-perm="manage">
+        <svg viewBox="0 0 16 16"><circle cx="5.6" cy="5.9" r="2.1"></circle><path d="M2.4 13c.5-2.2 1.9-3.3 3.9-3.3s3.4 1.1 3.9 3.3"></path><circle cx="11.2" cy="6.6" r="1.6"></circle><path d="M10.4 12.6c.3-1.7 1.2-2.5 2.5-2.5.9 0 1.5.4 1.9 1.2"></path></svg>
+        成员
+      </a>
+      <a class="sb-item" href="./login.html" data-perm="manage">
         <svg viewBox="0 0 16 16"><path d="M9.2 3.6H4.6a1 1 0 0 0-1 1v6.8a1 1 0 0 0 1 1h4.6"></path><path d="M11 5.9 13 8l-2 2.1M6.4 8h6.4"></path></svg>
         登录
       </a>
 
       <p class="sb-label">配置</p>
-      <a class="sb-item" href="./flow.html">
+      <a class="sb-item" href="./flow.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.6"></circle><circle cx="12" cy="6.2" r="1.6"></circle><circle cx="7" cy="12" r="1.6"></circle><path d="M5.5 4.4 10.5 5.6M4.6 5.5l1.9 5"></path></svg>
         流程画布
       </a>
-      <a class="sb-item is-on" href="./policy.html">
+      <a class="sb-item is-on" href="./policy.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M8 2.5 12.8 4.4v3.9c0 3-1.9 4.6-4.8 5.4-2.9-.8-4.8-2.4-4.8-5.4V4.4Z"></path></svg>
         输出策略
       </a>
-      <a class="sb-item" href="./settings.html">
+      <div class="sb-sub" data-perm="ops">
+        <a class="sb-sub-item is-on" href="#room" data-sub="room">房间内</a>
+        <a class="sb-sub-item" href="#free" data-sub="free">门外</a>
+        <a class="sb-sub-item" href="#rag" data-sub="rag">知识问答</a>
+        <a class="sb-sub-item" href="#test" data-sub="test">试跑</a>
+        <a class="sb-sub-item" href="#audit" data-sub="audit">拦截记录</a>
+      </div>
+      <a class="sb-item" href="./settings.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M2.6 5.2h2.2M8.2 5.2h5.2M2.6 10.8h5.2M11.2 10.8h2.2"></path><circle cx="6.6" cy="5.2" r="1.5"></circle><circle cx="9.6" cy="10.8" r="1.5"></circle></svg>
         规则与参数
       </a>
-      <a class="sb-item" href="./lexicon.html">
+      <a class="sb-item" href="./lexicon.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M3.2 3.6h3.9a1 1 0 0 1 1 1v8H4.2a1 1 0 0 1-1-1Z"></path><path d="M12.8 3.6H8.9a1 1 0 0 0-1 1v8h3.9a1 1 0 0 0 1-1Z"></path></svg>
         词库
       </a>
-      <a class="sb-item" href="./ai.html">
+      <a class="sb-item" href="./ai.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><rect x="4.6" y="4.6" width="6.8" height="6.8" rx="1.2"></rect><path d="M6.6 2.4v2.2M9.4 2.4v2.2M6.6 11.4v2.2M9.4 11.4v2.2M2.4 6.6h2.2M2.4 9.4h2.2M11.4 6.6h2.2M11.4 9.4h2.2"></path></svg>
         模型
       </a>
-      <a class="sb-item" href="./knowledge.html">
+      <a class="sb-item" href="./knowledge.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M8 2.8 13 5.2 8 7.6 3 5.2Z"></path><path d="M3 8.6 8 11l5-2.4"></path></svg>
         知识库
       </a>
-      <a class="sb-item" href="./eval.html">
+      <a class="sb-item" href="./eval.html" data-perm="ops">
         <svg viewBox="0 0 16 16"><path d="M3.2 11.4a5 5 0 1 1 9.6 0"></path><path d="M8 11.4 10.4 7.6"></path></svg>
         评测
       </a>
@@ -539,15 +602,55 @@
 <div class="page">
   <div class="intro">
     <strong>这里控制的是「模型这次说的话能不能出去」。</strong>
-    每条规则都是确定性判断：长度、禁句、与输入的重合度。命中后先带反馈重写一次，仍不通过就退回模板——
-    用户永远不会看到被拦下的那句。
+    房间内、门外、知识问答是三条不同的出口，各自有独立档位；每条规则都是确定性判断：长度、禁句、与输入的重合度。
+    命中后先按原因重写一次，仍不通过就退回模板/接话——用户永远不会看到被拦下的那句。
     <div class="hints" id="hints"></div>
     <div class="policy-meta" id="metaLine"></div>
   </div>
 
-  <div id="profiles"></div>
+  <div class="subnav">
+    <div class="tabs" role="tablist" aria-label="输出策略分类">
+      <button class="tab is-on" type="button" role="tab" data-sub="room" aria-selected="true">房间内</button>
+      <button class="tab" type="button" role="tab" data-sub="free" aria-selected="false">门外</button>
+      <button class="tab" type="button" role="tab" data-sub="rag" aria-selected="false">知识问答</button>
+      <button class="tab" type="button" role="tab" data-sub="test" aria-selected="false">试跑</button>
+      <button class="tab" type="button" role="tab" data-sub="audit" aria-selected="false">拦截记录</button>
+    </div>
+  </div>
 
-  <div class="block">
+  <div data-subpane="room">
+    <div class="scene-note">
+      <div><b>什么时候用</b>用户走到「认知检验」要一句候选说法，或会话结束要本轮总结。</div>
+      <div><b>谁在生成</b>cbt_balance 生成候选说法，cbt_summary 生成总结；说什么由流程画布与系统话术决定。</div>
+      <div><b>不过会怎样</b>按违规原因重写 1 次，仍不过就退回流程模板；用户看不到被拦的那句。</div>
+    </div>
+    <p class="scene-link">这里只决定「能不能出」。候选说法与总结的措辞在
+      <a href="./flow.html">流程画布</a> 和
+      <a href="./settings.html#messages">规则与参数 → 系统话术</a> 里配置。</p>
+    <div id="profilesRoom"></div>
+  </div>
+
+  <div data-subpane="free" hidden>
+    <div class="scene-note">
+      <div><b>什么时候用</b>用户在「门外」自由对话，每说一句就生成一句回应。</div>
+      <div><b>谁在生成</b>free_chat 管每一句接话；语气与边界来自提示词 companion.md。</div>
+      <div><b>不过会怎样</b>重写 1 次，仍不过就换成固定接话话术，不会让对话断掉。</div>
+    </div>
+    <p class="scene-link">门外没有流程步骤，这里只决定「这句话能不能说出去」；说什么由提示词决定。</p>
+    <div id="profilesFree"></div>
+  </div>
+
+  <div data-subpane="rag" hidden>
+    <div class="scene-note">
+      <div><b>什么时候用</b>用户在知识库问答里提问，系统带着引用作答。</div>
+      <div><b>谁在生成</b>rag_answer 管回答；内容来自检索到的已发布资料。</div>
+      <div><b>不过会怎样</b>默认关闭——它已有引用校验；开启后按同一套规则重写或拦截。</div>
+    </div>
+    <p class="scene-link">回答内容来自 <a href="./knowledge.html">知识库</a> 的已发布资料；这里只管最终那句话能不能出去。</p>
+    <div id="profilesRag"></div>
+  </div>
+
+  <div class="block" data-subpane="test" hidden>
     <div class="block-head">
       <h3>试一下</h3>
       <span class="hint">用当前页面上（可能还没保存）的规则跑一次，点保存前就能看到结果</span>
@@ -571,7 +674,7 @@
     </div>
   </div>
 
-  <div class="block">
+  <div class="block" data-subpane="audit" hidden>
     <div class="block-head">
       <h3>最近的拦截</h3>
       <span class="hint">服务端内存里的最近 50 条，重启清空</span>
@@ -603,8 +706,22 @@ const API = "/api/internal";
 const PROFILE_LABEL = {
   cbt_balance: "认知检验 · 候选说法",
   cbt_summary: "本轮总结",
+  free_chat: "门外 · 自由对话",
   rag_answer: "知识问答"
 };
+// 管理员最需要的一层信息：这个档位到底在哪儿生效。
+const PROFILE_WHERE = {
+  cbt_balance: "房间内",
+  cbt_summary: "房间内",
+  free_chat: "门外",
+  rag_answer: "知识问答"
+};
+// 三条出口分开配置：一个场景一个页签，不再把四张卡片堆在一列里。
+const SCENE_GROUPS = [
+  { box: "profilesRoom", ids: ["cbt_balance", "cbt_summary"] },
+  { box: "profilesFree", ids: ["free_chat"] },
+  { box: "profilesRag", ids: ["rag_answer"] }
+];
 const OUTCOME_LABEL = { ok: "通过", repaired: "重写后通过", rejected: "拦截" };
 const RULE_LABEL = { banned: "禁句", min_chars: "太短", max_chars: "太长", novelty: "疑似编造", empty: "空输出" };
 
@@ -667,7 +784,7 @@ function ruleCard(id, rule) {
       <div class="profile-head">
         <div>
           <div class="profile-id">${esc(id)}</div>
-          <div class="profile-name">${esc(PROFILE_LABEL[id] || id)}</div>
+          <div class="profile-name">${esc(PROFILE_LABEL[id] || id)}<span class="where-tag">${esc(PROFILE_WHERE[id] || "未标注")}</span></div>
           <div class="profile-note">${esc(rule.note || "")}</div>
         </div>
         <label class="switch">
@@ -716,9 +833,21 @@ function ruleCard(id, rule) {
 }
 
 function render() {
-  $("profiles").innerHTML = Object.entries(policy.profiles).map(([id, r]) => ruleCard(id, r)).join("");
+  const placed = {};
+  SCENE_GROUPS.forEach((group) => {
+    const box = $(group.box);
+    if (!box) return;
+    const ids = group.ids.filter((id) => policy.profiles[id]);
+    ids.forEach((id) => { placed[id] = true; });
+    box.innerHTML = ids.map((id) => ruleCard(id, policy.profiles[id])).join("");
+  });
+  // 以后新增但还没归类的档位不能凭空消失：先放进房间内页签，避免"配置没了"。
+  const leftover = Object.keys(policy.profiles).filter((id) => !placed[id]);
+  if (leftover.length && $("profilesRoom")) {
+    $("profilesRoom").innerHTML += leftover.map((id) => ruleCard(id, policy.profiles[id])).join("");
+  }
   $("testProfile").innerHTML = Object.keys(policy.profiles)
-    .map((id) => `<option value="${id}">${esc(id)}</option>`)
+    .map((id) => `<option value="${id}">${esc(PROFILE_LABEL[id] || id)}</option>`)
     .join("");
   bind();
 }
@@ -771,6 +900,9 @@ function bind() {
 
   document.querySelectorAll("[data-test]").forEach((el) =>
     el.addEventListener("click", () => {
+      // 从场景页点"用这个档试一下"时先切到试跑页签，否则结果落在看不见的区块里
+      const testTab = document.querySelector('.subnav .tab[data-sub="test"]');
+      if (testTab) testTab.click();
       $("testProfile").value = el.dataset.test;
       runTest();
     })
@@ -881,7 +1013,8 @@ async function boot() {
     await loadAudit();
   } catch (e) {
     $("metaLine").textContent = "接口不可达";
-    $("profiles").innerHTML = `<div class="intro">读不到策略接口：${esc(e.message)}。确认应用已启动，且 psych.internal.enabled=true。</div>`;
+    const box = $("profilesRoom");
+    if (box) box.innerHTML = `<div class="intro">读不到策略接口：${esc(e.message)}。确认应用已启动，且 psych.internal.enabled=true。</div>`;
   }
 }
 
@@ -903,5 +1036,6 @@ setInterval(loadAudit, 8000);
 </script>
 </div>
 
+<script src="../shared/subnav.js"></script>
 </body>
 </html>

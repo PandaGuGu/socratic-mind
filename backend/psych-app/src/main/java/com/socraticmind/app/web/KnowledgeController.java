@@ -11,6 +11,7 @@ import com.socraticmind.common.model.KnowledgeDocument;
 import com.socraticmind.common.model.RagAnswer;
 import com.socraticmind.common.port.KnowledgeStore;
 import com.socraticmind.common.support.DocumentVisibility;
+import com.socraticmind.common.support.Hashes;
 import com.socraticmind.knowledge.dto.IngestCommand;
 import com.socraticmind.knowledge.dto.IngestResult;
 import com.socraticmind.knowledge.dto.SyncResult;
@@ -21,6 +22,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import com.socraticmind.app.security.RequirePerm;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -157,6 +159,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/documents/sync")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<SyncResult> sync(@Valid @RequestBody SyncRequest request) {
         if (request.content() == null || request.content().isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -169,6 +172,7 @@ public class KnowledgeController {
     }
 
     @DeleteMapping("/documents/{id}")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<Map<String, Object>> delete(@PathVariable String id) {
         if (store.findDocument(id).isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -189,6 +193,7 @@ public class KnowledgeController {
      * 而且没有任何地方会报错。
      */
     @PutMapping("/documents/{id}/acl")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<Map<String, Object>> acl(@PathVariable String id,
                                                    @RequestBody AclRequest request,
                                                    @RequestAttribute(name = InternalAuthInterceptor.OPERATOR_ATTR, required = false)
@@ -233,6 +238,7 @@ public class KnowledgeController {
     }
 
     @PostMapping("/documents")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<IngestResult> upload(@Valid @RequestBody UploadRequest request) {
         if (request.content() == null || request.content().isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -244,7 +250,37 @@ public class KnowledgeController {
         return ResponseEntity.ok(ingestion.ingest(cmd));
     }
 
+    /**
+     * 替换一篇已有资料的内容：文档 id、可见范围保持不变，版本 +1。
+     *
+     * 必须走"同文档 id 写新版本"这条路：如果先删再建，旧链接、审核记录和 ACL 全部断掉，
+     * 而检索在中间窗口里还会读到旧块。状态一律回到 REVIEWING——内容变了，旧签字不能继承。
+     */
+    @PostMapping("/documents/{id}/replace")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
+    public ResponseEntity<IngestResult> replace(@PathVariable String id,
+                                                @Valid @RequestBody UploadRequest request) {
+        KnowledgeDocument doc = store.findDocument(id).orElse(null);
+        if (doc == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (request.content() == null || request.content().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        IngestCommand cmd = new IngestCommand(
+                request.collection() == null || request.collection().isBlank()
+                        ? (doc.collection() == null ? "default" : doc.collection())
+                        : request.collection(),
+                request.title(), request.source(), request.sourceUrl(), "zh", true, request.content());
+        // 先摘旧块再写新版本，避免新旧块同时留在索引里
+        store.deleteChunksOf(id);
+        IngestResult result = ingestion.ingestAs(cmd, id, doc.externalKey(),
+                Hashes.sha256Hex(request.content()), KnowledgeDocument.REVIEWING);
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/documents/{id}/review")
+    @RequirePerm(Operator.Perm.CONTENT_REVIEW)
     public ResponseEntity<Map<String, Object>> review(@PathVariable String id,
                                                       @Valid @RequestBody ReviewRequest request,
                                                       @RequestAttribute(name = InternalAuthInterceptor.OPERATOR_ATTR, required = false)

@@ -37,12 +37,16 @@ public class OperatorSessionService {
     private final OrgStore orgStore;
     private final PasswordHasher hasher;
     private final boolean secureCookie;
+    private final boolean relaxedPassword;
 
     public OperatorSessionService(OrgStore orgStore, PasswordHasher hasher,
-                                  @Value("${psych.org.cookie-secure:false}") boolean secureCookie) {
+                                  @Value("${psych.org.cookie-secure:false}") boolean secureCookie,
+                                  @Value("${psych.security.relaxed-operator-password:false}")
+                                  boolean relaxedPassword) {
         this.orgStore = orgStore;
         this.hasher = hasher;
         this.secureCookie = secureCookie;
+        this.relaxedPassword = relaxedPassword;
     }
 
     /** 登录失败一律抛这个，调用方只回一句"用户名或口令不对"，不区分是哪一样错。 */
@@ -100,7 +104,14 @@ public class OperatorSessionService {
         // 比前台注册多一条：后台口令不允许纯数字。
         // 共用的 PasswordHasher.acceptable 只看长度，改它会牵动普通用户注册，
         // 而"能改生产配置的账号"值得更严一档。
-        if (!PasswordHasher.acceptable(newPassword)
+        //
+        // 例外：本机演示档（psych.security.relaxed-operator-password=true）允许 123456 这类
+        // 口令，只保留 6 位下限。默认关闭——弱口令一旦成为默认值，就没人会再改回来。
+        if (relaxedPassword) {
+            if (newPassword == null || newPassword.strip().length() < 6) {
+                throw new PasswordRejected("新口令至少 6 位");
+            }
+        } else if (!PasswordHasher.acceptable(newPassword)
                 || newPassword.chars().allMatch(Character::isDigit)) {
             throw new PasswordRejected("新口令至少 8 位，且不能是纯数字");
         }

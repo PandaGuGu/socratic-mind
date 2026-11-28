@@ -5,72 +5,112 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Socratic Mind · 知识问答</title>
 <link rel="stylesheet" href="./knowledge.css">
+<link rel="stylesheet" href="../shared/shell.css">
 </head>
 <body>
 
-<div class="page">
+<div class="shell" id="shell">
 
-  <header class="topbar">
-    <a class="brand" href="/room/" aria-label="返回房间">
-      <svg viewBox="0 0 20 20" aria-hidden="true">
-        <circle cx="10" cy="10" r="7.5"></circle>
-        <path d="M10 2.5v15M2.5 10h15"></path>
-      </svg>
-      <span class="brand-name">Socratic Mind</span>
-      <span class="brand-sub">知识</span>
-    </a>
-    <nav class="nav" aria-label="主导航">
-      <a href="/room/">房间</a>
-      <a class="active" href="/knowledge/">知识</a>
-      <a href="/account/">账号</a>
+  <aside class="sidenav" id="sideNav" aria-label="全局导航">
+    <div class="sidenav-top">
+      <a class="sidenav-brand" href="/room/" aria-label="回到房间">
+        <svg class="mk" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5"></circle>
+          <path d="M10 2.5v15M2.5 10h15"></path>
+        </svg>
+        <span class="sidenav-name">Socratic Mind</span>
+      </a>
+      <button class="sidenav-toggle" id="navToggle" type="button"
+              aria-expanded="true" aria-controls="sideNav" title="收起侧栏" aria-label="收起侧栏">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"></path></svg>
+      </button>
+    </div>
+
+    <nav class="sidenav-nav" aria-label="主导航">
+      <p class="sidenav-label">导航</p>
+      <a class="sidenav-item" href="/room/" title="房间">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 20V9.6L12 4l7.5 5.6V20"></path><path d="M9.5 20v-5.4h5V20"></path></svg>
+        <span>房间</span>
+      </a>
+      <a class="sidenav-item is-active" href="/knowledge/" aria-current="page" title="知识">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.8C10.3 5.3 8 4.8 5 4.8v12.4c3 0 5.3.5 7 2 1.7-1.5 4-2 7-2V4.8c-3 0-5.3.5-7 2z"></path><path d="M12 6.8v12.4"></path></svg>
+        <span>知识</span>
+      </a>
+      <a class="sidenav-item" href="/account/" title="账号">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"></circle><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"></path></svg>
+        <span>账号</span>
+      </a>
     </nav>
-    <div class="top-note">科普 · 不替代治疗</div>
-  </header>
 
-  <div class="layout">
+    <nav class="sidenav-nav sidenav-jumps" id="jumpGroup" aria-label="本页">
+      <p class="sidenav-label">本页</p>
+      <a class="sidenav-item" data-jump="askBlock" href="#askBlock"><span>提问</span></a>
+      <a class="sidenav-item" data-jump="answerArea" href="#answerArea"><span>回答与出处</span></a>
+    </nav>
 
-    <aside class="rail">
-      <div class="rail-head">
-        <h2>可以问</h2>
-      </div>
-      <div class="suggestions" id="suggestions"></div>
-      <p class="rail-note">一次只问一件事。回答会尽量标出处。</p>
-    </aside>
+    <div class="sidenav-foot">
+      <p class="sidenav-note">科普 · 不替代治疗</p>
+    </div>
+  </aside>
 
-    <main class="main">
-      <div class="intro">
-        <p class="kicker">KNOWLEDGE · 科普问答</p>
-        <h1>问一个关于心理学或 CBT 的问题。</h1>
-        <p class="lede">回答会尽量标出来源；资料不足时会直接说明，不推测。</p>
-      </div>
+  <div class="veil" id="navVeil" hidden></div>
 
-      <form class="ask" id="askForm">
-        <input id="question" class="ask-input" autocomplete="off"
-               placeholder="例如：焦虑症有哪些常见症状？" aria-label="你的问题">
-        <button class="btn-primary" type="submit">提问</button>
-      </form>
-      <p class="ask-note">这不是诊断工具，也不提供药物或治疗指令。</p>
+  <div class="shell-body">
 
-      <section class="answer-area" id="answerArea" aria-live="polite"></section>
+    <div class="mobilebar">
+      <button class="mobilebar-btn" id="navOpen" type="button" aria-label="打开导航">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+      </button>
+      <span class="mobilebar-title">知识</span>
+      <span class="mobilebar-note">科普 · 不替代治疗</span>
+    </div>
 
-      <footer class="page-foot">
-        如果有伤害自己的想法，请联系你所在地区的心理援助热线或急救电话。
-      </footer>
-    </main>
+    <div class="layout">
 
-    <aside class="sources">
-      <div class="sources-head">
-        <h2>出处</h2>
-        <span class="count" id="sourceCount">0</span>
-      </div>
-      <div class="source-list" id="sourceList">
-        <p class="empty">提问后，这里会列出可核对的出处。</p>
-      </div>
-    </aside>
+      <aside class="rail">
+        <div class="rail-head">
+          <h2>可以问</h2>
+        </div>
+        <div class="suggestions" id="suggestions"></div>
+        <p class="rail-note">一次只问一件事。回答会尽量标出处。</p>
+      </aside>
 
+      <main class="main">
+        <div class="intro" id="askBlock">
+          <p class="kicker">KNOWLEDGE · 科普问答</p>
+          <h1>问一个关于心理学或 CBT 的问题。</h1>
+          <p class="lede">回答会尽量标出来源；资料不足时会直接说明，不推测。</p>
+        </div>
+
+        <form class="ask" id="askForm">
+          <input id="question" class="ask-input" autocomplete="off"
+                 placeholder="例如：焦虑症有哪些常见症状？" aria-label="你的问题">
+          <button class="btn-primary" type="submit">提问</button>
+        </form>
+        <p class="ask-note">这不是诊断工具，也不提供药物或治疗指令。</p>
+
+        <section class="answer-area" id="answerArea" aria-live="polite"></section>
+
+        <footer class="page-foot">
+          如果有伤害自己的想法，请联系你所在地区的心理援助热线或急救电话。
+        </footer>
+      </main>
+
+      <aside class="sources">
+        <div class="sources-head">
+          <h2>出处</h2>
+          <span class="count" id="sourceCount">0</span>
+        </div>
+        <div class="source-list" id="sourceList">
+          <p class="empty">提问后，这里会列出可核对的出处。</p>
+        </div>
+      </aside>
+
+    </div>
   </div>
 </div>
 
+<script src="../shared/shell.js"></script>
 <script src="./knowledge.js"></script>
 </body>
 </html>

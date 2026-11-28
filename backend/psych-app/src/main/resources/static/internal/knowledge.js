@@ -18,7 +18,8 @@ const S = {
   highlight: null,
   search: null,
   chat: null,
-  ingest: null
+  ingest: null,
+  replaceId: null
 };
 
 const $ = (id) => document.getElementById(id);
@@ -68,6 +69,16 @@ async function putJson(url, body) {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body)
   });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = await res.text(); } catch (e) { /* 忽略读取失败 */ }
+    throw new Error(`${res.status} ${res.statusText}${detail ? " · " + detail.slice(0, 140) : ""}`);
+  }
+  return res.json();
+}
+
+async function delJson(url) {
+  const res = await fetch(url, { method: "DELETE", headers: { Accept: "application/json" } });
   if (!res.ok) {
     let detail = "";
     try { detail = await res.text(); } catch (e) { /* 忽略读取失败 */ }
@@ -159,13 +170,25 @@ function renderMeta() {
     : `<span>未选择资料</span>`;
 }
 
-async function selectDoc(id) {
+function selectDoc(id) {
   S.selectedId = id;
   S.highlight = null;
-  if (S.tab === "detail") await ensureChunks(id);
+  // 点左侧资料就应当看到它的详情：之前只在已处于「资料详情」时才刷新，
+  // 用户从检索/问答/新增页点资料会以为“点了没反应”。
+  S.replaceId = null;
+  S.tab = "detail";
+  syncTabs();
   renderDocs();
   renderMeta();
   renderBody();
+  // 先切页再取切分：接口慢时也不会让点击看起来没生效
+  ensureChunks(id).then(function () {
+    if (S.selectedId === id) {
+      renderDocs();
+      renderMeta();
+      renderBody();
+    }
+  });
 }
 
 async function openDoc(id, chunkId) {
@@ -193,15 +216,36 @@ async function ensureChunks(id, force) {
 
 /* ---------------- 主区域 ---------------- */
 
+function roleAllows(what) {
+  var role = document.documentElement.dataset.role;
+  if (!role) return true;              // 内部令牌模式：不受职责限制
+  if (role === "admin") return true;
+  if (what === "review") return role === "reviewer";
+  if (what === "ops") return role === "operator";
+  return true;
+}
+
+/* 身份是异步拿到的：到达后重画一次，按钮才知道该不该出现 */
+document.addEventListener("sm:perm", function () {
+  try {
+    syncTabs();
+    renderBody();
+  } catch (e) { /* 页面还没准备好就跳过 */ }
+});
 function syncTabs() {
+  const ingestTab = document.querySelector('[data-tab="ingest"]');
+  if (ingestTab) ingestTab.hidden = !roleAllows("ops");
   document.querySelectorAll("#tabs .tab").forEach((t) => {
     t.classList.toggle("is-on", t.dataset.tab === S.tab);
+  });
+  // 侧栏子项跟着页内页签一起点亮，点页签不必刷新
+  document.querySelectorAll(".sb-sub-item[data-sub]").forEach((a) => {
+    a.classList.toggle("is-on", a.dataset.sub === S.tab);
   });
 }
 
 function renderBody() {
-  if (S.tab === "search") {
-    $("body").innerHTML = searchView();
+  if (S.tab === "search") {    $("body").innerHTML = searchView();
   } else if (S.tab === "chat") {
     $("body").innerHTML = chatView();
   } else if (S.tab === "detail") {
@@ -344,7 +388,16 @@ function detailView() {
   const acl = d.aclScope ? d.aclScope : "所有人可见";
   const loaded = S.chunksFor === d.id ? S.chunks : null;
   return `
-    <div class="doc-meta">
+    <div class="doc-line">
+      <span class="doc-status">${esc(statusLabel)}</span>
+      ${d.version ? `<span class="doc-chip">v${esc(d.version)}</span>` : ""}
+      <span class="doc-chip">${esc(d.collection || "—")}</span>
+      <span class="doc-chip">${esc(d.source || "—")}</span>
+      <span class="doc-chip">${esc(acl)}</span>
+      <span class="doc-time">${dateOf(d.createdAt)} 入库</span>
+      <button class="doc-more" type="button" data-doc-more aria-expanded="false">详情</button>
+    </div>
+    <div class="doc-meta" data-doc-detail hidden>
       <div class="meta-cell"><dt>状态</dt><dd>${esc(statusLabel)}</dd></div>
       <div class="meta-cell"><dt>集合</dt><dd>${esc(d.collection || "—")}</dd></div>
       <div class="meta-cell"><dt>来源</dt><dd>${esc(d.source || "—")}</dd></div>
@@ -448,19 +501,36 @@ async function loadReviewHistory(docId) {
 
 const REVIEW_LABEL = { approve: "通过", reject: "退回", review: "转待审" };
 
+/* 下拉只允许开一个：点别处、按 Esc、或选了其中一项都收起 */
+function closeReviewMenus() {
+  document.querySelectorAll(".kb-menu-list").forEach((l) => { l.hidden = true; });
+  document.querySelectorAll("[data-review-toggle]").forEach((b) => b.setAttribute("aria-expanded", "false"));
+}
+
+document.addEventListener("click", closeReviewMenus);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeReviewMenus(); });
+
 function reviewActions(d) {
-  const buttons = [];
-  if (d.status !== "published") {
-    buttons.push(`<button class="btn btn-primary" data-review="approve" type="button">通过并发布</button>`);
-  }
-  if (d.status !== "archived") {
-    buttons.push(`<button class="btn" data-review="reject" type="button">退回归档</button>`);
-  }
-  if (d.status !== "reviewing") {
-    buttons.push(`<button class="btn" data-review="review" type="button">标为待审核</button>`);
-  }
-  return `<div class="kb-actions">${buttons.join("")}
-    <span class="kb-hint">发布后立即进入检索候选集；归档会把它撤出。</span></div>`;
+  // 审核动作直接摊开：之前收在「审核」下拉里，退档能不能用全凭用户去点那一下。
+  const reviewRow = roleAllows("review")
+    ? `<div class="kb-actions">
+        <button class="btn btn-primary" type="button" data-review="approve" ${d.status === "published" ? "disabled" : ""}>通过并发布</button>
+        <button class="btn" type="button" data-review="reject" ${d.status === "archived" ? "disabled" : ""}>退回归档</button>
+        <button class="btn" type="button" data-review="review" ${d.status === "reviewing" ? "disabled" : ""}>标为待审核</button>
+        <span class="kb-hint">署名取当前登录身份；发布即进入检索候选集。</span>
+      </div>`
+    : `<div class="kb-actions"><span class="kb-hint">发布与退回需要审核确认；当前身份只能查看。</span></div>`;
+
+  // 替换与删除属于内容维护：替换版本 +1、回到待审核；删除是软删除，块保留。
+  const opsRow = roleAllows("ops")
+    ? `<div class="kb-actions">
+        <button class="btn" type="button" data-replace>替换内容…</button>
+        <button class="btn kb-danger" type="button" data-delete>删除（下架）</button>
+        <span class="kb-hint">替换会版本 +1 并回到待审核；删除是软删除，块保留。</span>
+      </div>`
+    : "";
+
+  return reviewRow + opsRow;
 }
 
 function chunkCard(c) {
@@ -478,25 +548,41 @@ function chunkCard(c) {
 }
 
 function ingestView() {
+  const target = S.replaceId ? S.docs.find((d) => d.id === S.replaceId) : null;
+  if (S.replaceId && !target) S.replaceId = null;
+  const replacing = !!target;
   return `
     <form class="kb-panel" id="ingestForm">
-      <h3>新增资料</h3>
-      <p class="kb-hint">只支持 Markdown / 纯文本。提交后进入「待审核」，审核通过才成为可引用证据。</p>
+      <h3>${replacing ? "替换资料内容" : "新增资料"}</h3>
+      ${replacing
+        ? `<div class="notice" style="margin-top:8px">
+            正在替换《${esc(target.title)}》（当前 ${esc(target.version || "—")}）。提交后版本 +1，
+            状态回到「待审核」，原签字不再生效。
+            <button class="btn" type="button" data-cancel-replace style="margin-left:8px">取消替换</button>
+           </div>`
+        : `<p class="kb-hint">支持 Markdown / 纯文本，可以粘贴，也可以从 .md / .txt 文件导入。提交后进入「待审核」，审核通过才成为可引用证据。</p>`}
+      <div class="kb-file-row">
+        <label class="kb-file">
+          <input type="file" id="ingFile" accept=".md,.markdown,.txt,text/markdown,text/plain">
+          <span>从文件导入 .md / .txt</span>
+        </label>
+        <span class="kb-hint" id="ingFileName" style="margin:0">选择后自动填入标题与正文，确认无误再点「${replacing ? "替换" : "入库"}」。</span>
+      </div>
       <div class="kb-grid" style="margin-top:10px">
-        <div class="kb-field"><label>标题 *</label><input class="kb-input" id="ingTitle" required></div>
-        <div class="kb-field"><label>来源</label><input class="kb-input" id="ingSource" placeholder="机构 / 书名 / 出处说明"></div>
-        <div class="kb-field"><label>来源链接</label><input class="kb-input" id="ingUrl" placeholder="https://…"></div>
-        <div class="kb-field"><label>集合</label><input class="kb-input" id="ingCollection" value="default"></div>
+        <div class="kb-field"><label>标题 *</label><input class="kb-input" id="ingTitle" required value="${esc(replacing ? target.title : "")}"></div>
+        <div class="kb-field"><label>来源</label><input class="kb-input" id="ingSource" placeholder="机构 / 书名 / 出处说明" value="${esc(replacing ? (target.source || "") : "")}"></div>
+        <div class="kb-field"><label>来源链接</label><input class="kb-input" id="ingUrl" placeholder="https://…" value="${esc(replacing ? (target.sourceUrl || "") : "")}"></div>
+        <div class="kb-field"><label>集合</label><input class="kb-input" id="ingCollection" value="${esc(replacing ? (target.collection || "default") : "default")}"></div>
       </div>
       <div class="kb-field" style="margin-top:10px">
         <label>正文（Markdown，建议用 # / ## 分节）*</label>
-        <textarea class="kb-textarea" id="ingContent" required placeholder="# 标题&#10;&#10;## 章节&#10;&#10;正文……"></textarea>
+        <textarea class="kb-textarea" id="ingContent" required placeholder="${replacing ? "粘贴或导入新版本的正文；提交后旧版本从检索中撤下" : "# 标题&#10;&#10;## 章节&#10;&#10;正文……"}"></textarea>
       </div>
       <div class="kb-actions">
         <label class="kb-hint" style="display:flex;gap:6px;align-items:center">
           <input type="checkbox" id="ingPublish" checked> 提交审核（不会直接发布）
         </label>
-        <button class="btn btn-primary" type="submit">入库</button>
+        <button class="btn btn-primary" type="submit">${replacing ? "替换并提交审核" : "入库"}</button>
         <span class="kb-hint">单条正文上限 20 万字。</span>
       </div>
     </form>
@@ -555,6 +641,35 @@ function bindBody() {
 
   const ingestForm = $("ingestForm");
   if (ingestForm) {
+    const ingFile = $("ingFile");
+    if (ingFile) {
+      ingFile.addEventListener("change", () => {
+        const file = ingFile.files && ingFile.files[0];
+        if (!file) return;
+        if (!/\.(md|markdown|txt)$/i.test(file.name)) {
+          toast("只支持 .md / .markdown / .txt 文件", true);
+          ingFile.value = "";
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = String(reader.result || "");
+          if (text.length > 200000) {
+            toast("文件超过 20 万字上限，请拆分后再导入", true);
+            ingFile.value = "";
+            return;
+          }
+          if (!$("ingTitle").value.trim()) {
+            $("ingTitle").value = file.name.replace(/\.(md|markdown|txt)$/i, "");
+          }
+          $("ingContent").value = text;
+          $("ingFileName").textContent = `${file.name} · 已读取 ${text.length} 字，确认后提交`;
+          toast("已填入标题与正文，确认后提交");
+        };
+        reader.onerror = () => toast("读取文件失败，请重试", true);
+        reader.readAsText(file, "UTF-8");
+      });
+    }
     ingestForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const title = $("ingTitle").value.trim();
@@ -569,10 +684,14 @@ function bindBody() {
         publish: $("ingPublish").checked
       };
       const btn = ingestForm.querySelector("button[type=submit]");
+      const editingId = S.replaceId;
       btn.disabled = true;
-      btn.textContent = "入库中…";
+      btn.textContent = editingId ? "替换中…" : "入库中…";
       try {
-        const result = await postJson(`${API}/documents`, payload);
+        const result = editingId
+          ? await postJson(`${API}/documents/${encodeURIComponent(editingId)}/replace`, payload)
+          : await postJson(`${API}/documents`, payload);
+        S.replaceId = null;
         S.ingest = result;
         S.selectedId = result.documentId;
         S.chunks = null;
@@ -585,11 +704,13 @@ function bindBody() {
         renderDocs();
         renderMeta();
         renderBody();
-        toast(`已入库：${statusOf(result.status).label}`);
+        toast(editingId
+          ? `已替换并回到待审核（${statusOf(result.status).label}）`
+          : `已入库：${statusOf(result.status).label}`);
       } catch (err) {
-        toast(`入库失败：${err.message}`, true);
+        toast(`${editingId ? "替换" : "入库"}失败：${err.message}`, true);
         btn.disabled = false;
-        btn.textContent = "入库";
+        btn.textContent = editingId ? "替换并提交审核" : "入库";
       }
     });
   }
@@ -602,13 +723,90 @@ function bindBody() {
     });
   });
 
+  const reviewToggle = document.querySelector("[data-review-toggle]");
+  if (reviewToggle) {
+    const list = reviewToggle.parentElement.querySelector(".kb-menu-list");
+    reviewToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = list.hidden;
+      closeReviewMenus();
+      list.hidden = !open;
+      reviewToggle.setAttribute("aria-expanded", String(open));
+      if (open) {
+        const first = list.querySelector(".kb-menu-item:not([disabled])");
+        if (first) first.focus();
+      }
+    });
+    list.addEventListener("click", (e) => e.stopPropagation());
+  }
+
+  const docMore = document.querySelector("[data-doc-more]");
+  if (docMore) {
+    docMore.addEventListener("click", () => {
+      const box = document.querySelector("[data-doc-detail]");
+      if (!box) return;
+      const open = box.hidden;
+      box.hidden = !open;
+      docMore.textContent = open ? "收起" : "详情";
+      docMore.setAttribute("aria-expanded", String(open));
+    });
+  }
+
   document.querySelectorAll("[data-review]").forEach((btn) => {
-    btn.addEventListener("click", () => review(btn.dataset.review));
+    btn.addEventListener("click", () => {
+      closeReviewMenus();
+      review(btn.dataset.review);
+    });
   });
+
+  const replaceBtn = document.querySelector("[data-replace]");
+  if (replaceBtn) replaceBtn.addEventListener("click", startReplace);
+
+  const deleteBtn = document.querySelector("[data-delete]");
+  if (deleteBtn) deleteBtn.addEventListener("click", deleteDoc);
+
+  const cancelReplace = document.querySelector("[data-cancel-replace]");
+  if (cancelReplace) cancelReplace.addEventListener("click", cancelReplaceMode);
 
   const aclBtn = $("kbSaveAcl");
   if (aclBtn) aclBtn.addEventListener("click", saveAcl);
   if (S.tab === "detail" && currentDoc()) { loadReviewHistory(currentDoc().id); loadIdentity(); }
+}
+
+function startReplace() {
+  const d = currentDoc();
+  if (!d) return;
+  S.replaceId = d.id;
+  S.tab = "ingest";
+  syncTabs();
+  renderMeta();
+  renderBody();
+  toast(`正在替换《${d.title}》：提交后版本 +1，回到待审核`);
+}
+
+function cancelReplaceMode() {
+  S.replaceId = null;
+  S.tab = "detail";
+  syncTabs();
+  renderMeta();
+  renderBody();
+}
+
+async function deleteDoc() {
+  const d = currentDoc();
+  if (!d) return;
+  if (!window.confirm(`删除《${d.title}》？\n\n软删除：立即从检索中撤出，块保留；之后可以重新入库。`)) return;
+  try {
+    const out = await delJson(`${API}/documents/${encodeURIComponent(d.id)}`);
+    S.replaceId = null;
+    S.selectedId = null;
+    S.chunks = null;
+    S.chunksFor = null;
+    await refresh(false);
+    toast(out.note || "已删除（下架）");
+  } catch (err) {
+    toast(`删除失败：${err.message}`, true);
+  }
 }
 
 async function review(decision) {
@@ -682,6 +880,8 @@ async function boot() {
 $("tabs").addEventListener("click", async (e) => {
   const btn = e.target.closest(".tab");
   if (!btn) return;
+  // 手动切标签即退出"替换"模式，避免下次打开新增资料时还带着上一个文档
+  S.replaceId = null;
   S.tab = btn.dataset.tab;
   syncTabs();
   if (S.tab === "detail" && S.selectedId) await ensureChunks(S.selectedId);

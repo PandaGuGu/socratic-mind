@@ -5,6 +5,7 @@ public final class PolicyProfiles {
 
     public static final String CBT_BALANCE = "cbt_balance";
     public static final String CBT_SUMMARY = "cbt_summary";
+    public static final String FREE_CHAT = "free_chat";
     public static final String RAG_ANSWER = "rag_answer";
 
     private PolicyProfiles() {

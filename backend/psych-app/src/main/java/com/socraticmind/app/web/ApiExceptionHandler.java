@@ -1,6 +1,7 @@
 package com.socraticmind.app.web;
 
 import com.socraticmind.app.web.support.ConflictException;
+import com.socraticmind.app.web.support.ForbiddenException;
 import com.socraticmind.app.web.support.NotFoundException;
 import com.socraticmind.app.web.support.TooManyRequestsException;
 import com.socraticmind.app.web.support.UnauthorizedException;
@@ -46,6 +47,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiError> unauthorized(UnauthorizedException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new ApiError("UNAUTHORIZED", e.getMessage()));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiError> forbidden(ForbiddenException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiError("FORBIDDEN", e.getMessage()));
     }
 
     @ExceptionHandler(NotFoundException.class)

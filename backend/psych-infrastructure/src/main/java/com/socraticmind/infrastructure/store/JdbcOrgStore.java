@@ -157,6 +157,14 @@ public class JdbcOrgStore implements OrgStore {
     }
 
     @Override
+    public Optional<String> usernameOf(String memberId) {
+        return jdbc.query("SELECT username FROM org_member WHERE id = ?",
+                        (rs, i) -> rs.getString(1), memberId).stream()
+                .filter(u -> u != null && !u.isBlank())
+                .findFirst();
+    }
+
+    @Override
     public void setCredential(String memberId, String username, String passwordHash) {
         int n = jdbc.update("UPDATE org_member SET username = ?, password_hash = ? WHERE id = ?",
                 username.strip(), passwordHash, memberId);

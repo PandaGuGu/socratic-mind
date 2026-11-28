@@ -283,6 +283,7 @@ public class CbtFlow {
                         "thought", safe(session.candidateThought()),
                         "plan", message));
             }
+            case FREE -> throw new IllegalStateException("这一段在门外，不走流程");
             default -> reply = msg(FlowMessages.STAGE_ENDED);
         }
 

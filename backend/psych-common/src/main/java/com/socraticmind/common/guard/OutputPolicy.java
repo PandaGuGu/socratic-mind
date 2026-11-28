@@ -44,6 +44,11 @@ public record OutputPolicy(
                 List.of("你应该", "你必须", "加油", "抱抱", "诊断", "！", "!"),
                 0.25, 1,
                 "本轮总结：只陈述事实，不评价、不建议、不诊断"));
+        profiles.put(PolicyProfiles.FREE_CHAT, new ProfileRule(
+                true, 4, 300,
+                List.of("你应该", "你必须", "包治", "保证治愈", "诊断", "！", "!"),
+                0.0, 1,
+                "门外自由对话：每一句回应都要过这道闸；不劝、不诊断、不承诺疗效"));
         profiles.put(PolicyProfiles.RAG_ANSWER, new ProfileRule(
                 false, 10, 1200,
                 List.of("你应该", "包治", "保证治愈", "！"),

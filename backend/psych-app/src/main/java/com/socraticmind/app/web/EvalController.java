@@ -1,6 +1,8 @@
 package com.socraticmind.app.web;
 
 import com.socraticmind.agent.knowledge.OnlineEvalService;
+import com.socraticmind.app.security.RequirePerm;
+import com.socraticmind.common.model.Operator;
 import com.socraticmind.common.model.BadCase;
 import com.socraticmind.common.model.EvalSummary;
 import com.socraticmind.common.model.QueryOutcome;
@@ -53,6 +55,7 @@ public class EvalController {
     }
 
     @PostMapping("/badcases/{id}/resolve")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<Map<String, Object>> resolve(@PathVariable String id) {
         boolean ok = eval.resolve(id);
         if (!ok) return ResponseEntity.notFound().build();
@@ -64,6 +67,7 @@ public class EvalController {
 
     /** 人工补样本：用户口头反馈、客服转来的问题都从这里进，来源记为 manual。 */
     @PostMapping("/badcases")
+    @RequirePerm(Operator.Perm.OPS_CONTENT)
     public ResponseEntity<BadCase> report(@RequestBody ReportRequest request) {
         if (request.query() == null || request.query().isBlank()) {
             return ResponseEntity.badRequest().build();

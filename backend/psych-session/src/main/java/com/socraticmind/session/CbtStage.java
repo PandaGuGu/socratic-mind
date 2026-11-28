@@ -20,7 +20,15 @@ public enum CbtStage {
     ACTION_REVIEW("复盘", 4),
     SESSION_SUMMARY("总结", 4),
     SAFETY_HOLD("暂停", -1),
-    ENDED("结束", -1);
+    ENDED("结束", -1),
+    /**
+     * 门外：不走流程的自由对话。
+     *
+     * 它和上面几段的区别不是"多一个节点"，而是"不在流程里"——没有石子、没有待确认、
+     * 没有推进条件。放进同一个枚举是为了复用会话存储与历史（窗外能一起回看），
+     * 而不是为了让它出现在状态机里。
+     */
+    FREE("门外", -1);
 
     private final String label;
     private final int visibleIndex;
